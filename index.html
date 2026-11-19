@@ -95,7 +95,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 19</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 20</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -136,6 +136,7 @@ var W={egg_value:1,egg_laying_rate:1,'egg_laying_rate,egg_value':1,running_chick
 var VIRT={CURIOSITY:1,INTEGRITY:1,HUMILITY:1,RESILIENCE:1,KINDNESS:1};
 var EGG_ORDER=['EDIBLE','SUPERFOOD','MEDICAL','ROCKET_FUEL','SUPER_MATERIAL','FUSION','QUANTUM','IMMORTALITY','TACHYON','GRAVITON','DILITHIUM','PRODIGY','TERRAFORM','ANTIMATTER','DARK_MATTER','AI','NEBULA','UNIVERSE','ENLIGHTENMENT'];
 var EGG_HE={EDIBLE:'Edible',SUPERFOOD:'Superfood',MEDICAL:'Medical',ROCKET_FUEL:'Rocket Fuel',SUPER_MATERIAL:'Super Material',FUSION:'Fusion',QUANTUM:'Quantum',IMMORTALITY:'Immortality',TACHYON:'Tachyon',GRAVITON:'Graviton',DILITHIUM:'Dilithium',PRODIGY:'Prodigy',TERRAFORM:'Terraform',ANTIMATTER:'Antimatter',DARK_MATTER:'Dark Matter',AI:'AI',NEBULA:'Nebula',UNIVERSE:'Universe',ENLIGHTENMENT:'Enlightenment'};
+var EGG_BASE_VAL={EDIBLE:0.25,SUPERFOOD:1.25,MEDICAL:6.25,ROCKET_FUEL:30,SUPER_MATERIAL:150,FUSION:700,QUANTUM:3000,IMMORTALITY:12500,TACHYON:50000,GRAVITON:175000,DILITHIUM:525000,PRODIGY:1500000,TERRAFORM:10000000,ANTIMATTER:1000000000,DARK_MATTER:100000000000,AI:1000000000000,NEBULA:15000000000000,UNIVERSE:100000000000000,ENLIGHTENMENT:1e-9};
 
 var EGG_UNLOCK_FV=[0,2.2e4,4.2e6,3.4e8,3.6e10,5.2e12,7.6e14,1.2e17,1.9e19,3.2e21,4.8e23,7.6e25,1.2e28,2.0e30,3.2e32,5.6e34,9.2e36,1.5e39,2.8e41];
 
@@ -231,7 +232,6 @@ function getCompassMult(level,rarity){
  return ({INFERIOR:1.05,LESSER:1.10,NORMAL:1.20})[level]||1;
 }
 
-// מיפוי מדויק של מזהי הבוסטים במשחק (Blue = רמה 1, Purple = רמה 2, Orange = רמה 3)
 var BOOST_CAT={
  jimbos_blue:{name:"Jimbo's Bird Feed (3x 20m)",cat:'feed',power:3},
  jimbos_blue_v2:{name:"Jimbo's Bird Feed (3x 20m)",cat:'feed',power:3},
@@ -296,6 +296,14 @@ function getBoostInfo(id){
 
 var SUF=['','K','M','B','T','q','Q','s','S','o','N','d','U','D','Td','qd','Qd','sd','Sd','Od','Nd','V','uV','dV','tV','qV','QV','sV','SV','OV','NV','Tg'];
 function fmt(n){n=Number(n)||0;if(!isFinite(n))return '∞';if(n<0)n=0;var i=0;while(n>=1000&&i<SUF.length-1){n/=1000;i++}return (i?n.toFixed(2):Math.round(n))+SUF[i]}
+function fmtWait(mins){
+ if(!isFinite(mins)||mins<=0)return 'מיידי';
+ if(mins<1)return 'פחות מדקה';
+ if(mins<60)return Math.round(mins)+' דק\'';
+ var h=Math.floor(mins/60),m=Math.round(mins%60);
+ if(h>=48)return Math.round(h/24)+' ימים';
+ return h+' ש\''+(m>0?' ו-'+m+' ד\'':'');
+}
 function esc(s){return String(s).split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;').split('"').join('&quot;')}
 function $(id){return document.getElementById(id)}
 function sget(k){try{return localStorage.getItem(k)}catch(e){return null}}
@@ -415,7 +423,8 @@ function commonPlan(R,lv,virt,cash,elv,shipBottleneck){
  };
 }
 
-function calcFarmLogistics(sim,clv,elv,artInfo,R){
+function calcFarmLogistics(b,sim,clv,elv,artInfo,R){
+ var g=b.game||{};
  var pop=(sim.habPopulation||[]).reduce(function(x,y){return x+(y||0)},0);
  var habs=sim.habs||[];
  var emptyHabSlots=0;
@@ -427,7 +436,8 @@ function calcFarmLogistics(sim,clv,elv,artInfo,R){
  }
  if(baseCap===0)baseCap=1000;
 
- var habMult=1, layMult=1, shipMult=1, extraFleet=0;
+ var habMult=1, layMult=1, shipMult=1, valMult=1, extraFleet=0;
+ var rcbAdd=0, rcbMult=1;
  if(R && R.length){
   for(var k=0;k<R.length;k++){
    var r=R[k];
@@ -438,7 +448,12 @@ function calcFarmLogistics(sim,clv,elv,artInfo,R){
    if(cats.indexOf('hab_capacity')>=0)habMult*=mult;
    if(cats.indexOf('egg_laying_rate')>=0)layMult*=mult;
    if(cats.indexOf('shipping_capacity')>=0)shipMult*=mult;
+   if(cats.indexOf('egg_value')>=0)valMult*=mult;
    if(cats.indexOf('fleet_size')>=0)extraFleet+=Math.round(r.per_level*L);
+   if(cats.indexOf('running_chicken_bonus')>=0){
+    if(r.levels_compound==='multiplicative')rcbMult*=Math.pow(1+r.per_level,L);
+    else rcbAdd+=r.per_level*L;
+   }
   }
  }else{
   habMult=(1+0.05*(clv['hab_capacity1']||0))*(1+0.05*(clv['microlux']||0))*(1+0.02*(clv['grav_plating']||0));
@@ -480,10 +495,24 @@ function calcFarmLogistics(sim,clv,elv,artInfo,R){
  var shipUtilPct=Math.min(100,rawPct);
  var shipBottleneck=(pop>1000 && totalShipCap>0 && rawPct>=98);
 
+ // חישוב הכנסה לדקה (Bocks/min) — אוטומטי (Idle) ואקטיבי (עם תרנגולות רצות)
+ var curSE=Number(g.soulEggsD||g.soulEggs||0);
+ var peCount=Number(g.eggsOfProphecy||0);
+ var sePerEgg=0.10+0.01*(elv['soul_eggs']||0);
+ var peBase=1.05+0.01*(elv['prophecy_bonus']||0);
+ var ebMult=1 + curSE * sePerEgg * Math.pow(peBase,peCount);
+ var baseEggVal=EGG_BASE_VAL[sim.eggType]||0.25;
+ var effectiveShippedPerMin=Math.min(totalLayRate,totalShipCap);
+ var maxRCB=Math.max(3,(3 + rcbAdd + (elv['epic_multiplier']||0)) * rcbMult);
+
+ var idleIncomePerMin=effectiveShippedPerMin * baseEggVal * valMult * ebMult;
+ var activeIncomePerMin=idleIncomePerMin * maxRCB;
+
  return {
   pop:pop,maxCap:maxCap,habPct:habPct,nearFull:habPct>=85,isFull:habPct>=97,
   emptyHabSlots:emptyHabSlots,unusedVehSlots:unusedVehSlots,
-  totalLayRate:totalLayRate,totalShipCap:totalShipCap,shipUtilPct:shipUtilPct,rawPct:rawPct,shipBottleneck:shipBottleneck
+  totalLayRate:totalLayRate,totalShipCap:totalShipCap,shipUtilPct:shipUtilPct,rawPct:rawPct,shipBottleneck:shipBottleneck,
+  idleIncomePerMin:idleIncomePerMin,activeIncomePerMin:activeIncomePerMin,maxRCB:maxRCB
  };
 }
 
@@ -507,7 +536,7 @@ function calcEggProgress(b,sim,fuelInfo){
  };
 }
 
-function calcPrestigeInfo(b,sim,hab,hasAffordableResearch,eggProg){
+function calcPrestigeInfo(b,sim,hab,C,cash,eggProg){
  var g=b.game||{};
  var curSE=Number(g.soulEggsD||g.soulEggs||0);
  var unclaimedSE=Number(sim.unclaimedSoulEggsD||sim.unclaimedSoulEggs||g.unclaimedSoulEggsD||g.unclaimedSoulEggs||0);
@@ -515,6 +544,17 @@ function calcPrestigeInfo(b,sim,hab,hasAffordableResearch,eggProg){
 
  var dayOfWeek=new Date().getDay();
  var isWeekend=(dayOfWeek===6 || dayOfWeek===0);
+ var hasAffordableResearch=(C.affordableList.length>0);
+
+ // חישוב זמן משוער לשדרוג המחקר הבא (אקטיבי מול אוטומטי)
+ var nextRes=C.nextList[0]||null;
+ var neededCash=nextRes?Math.max(0,nextRes.cost-(hasAffordableResearch?C.remCash:cash)):0;
+ var activeMinsToNext=(nextRes && hab.activeIncomePerMin>0)?(neededCash/hab.activeIncomePerMin):0;
+ var idleMinsToNext=(nextRes && hab.idleIncomePerMin>0)?(neededCash/hab.idleIncomePerMin):0;
+
+ // זיהוי "הקיר" (The Wall): מעל 15 דקות משחק אקטיבי (או מעל 90 דקות אוטומטי) לשדרוג הבא, כשלא צמודים לביצה הבאה
+ var hasPop=(hab.pop>=100);
+ var hitTimeWall=(hasPop && !hasAffordableResearch && nextRes && eggProg.pct<80 && (activeMinsToNext>=15 || idleMinsToNext>=90));
 
  var status='push';
  var title='המשך בריצה הנוכחית';
@@ -534,14 +574,27 @@ function calcPrestigeInfo(b,sim,hab,hasAffordableResearch,eggProg){
    title='הפעל בוסט הכנסות/Soul ואז בצע Prestige';
    reason='הלולים מלאים ('+hab.habPct.toFixed(0)+'%). הפעלת Bird Feed + Soul Beacon ל-10 דקות עם תרנגולות רצות תכפיל את ה-Soul Eggs לפני Prestige.';
   }
- }else if(gainPct>=50 && !hasAffordableResearch){
+ }else if(hitTimeWall && (gainPct>=20 || (curSE<5000 && unclaimedSE>=50))){
+  status='ready';
+  title='הגעת לקיר — בצע Prestige עכשיו (+'+fmt(unclaimedSE)+' SE)';
+  reason='השדרוג הבא ('+nextRes.r.name+') דורש ~'+fmtWait(activeMinsToNext)+' אקטיבי ('+fmtWait(idleMinsToNext)+' אוטומטי), וכבר צברת +'+gainPct.toFixed(0)+'% Soul Eggs. איפוס הריצה יחזיר את קצב הצבירה המהיר.'+(isWeekend?' (סופ"ש — שים לב לאירוע 2x Prestige!)':'');
+ }else if(hitTimeWall && gainPct>=10){
+  status='boost_then_prestige';
+  title='האטה מול קיר — הפעל בוסט קצר או בצע Prestige';
+  reason='השדרוג הבא דורש ~'+fmtWait(activeMinsToNext)+' אקטיבי (צברת +'+gainPct.toFixed(1)+'% SE). אפשר להריץ בוסט הכנסות ל-10 דק\' ולבצע Prestige, או לאפס כבר עכשיו.';
+ }else if(gainPct>=30 && !hasAffordableResearch){
   status='ready';
   title='בצע Prestige עכשיו (+'+gainPct.toFixed(0)+'% Soul Eggs)';
-  reason='צברת '+fmt(unclaimedSE)+' Soul Eggs חדשים וההתקדמות בריצה הנוכחית האטה.';
+  reason='צברת '+fmt(unclaimedSE)+' Soul Eggs חדשים ואין מחקרים זמינים. מעבר לנקודה הזו התפוקה פוחתת — איפוס הריצה משתלם יותר.';
  }else{
-  reason=unclaimedSE>0?('נצבר בריצה: +'+fmt(unclaimedSE)+' SE'+(gainPct>0?' (+'+gainPct.toFixed(1)+'%)':'')+'. המשך לשדרג מחקרים ולמלא לולים.'):'שדרג מחקרים ומלא לולים כדי לצבור Soul Eggs.';
+  var waitHint=(!hasAffordableResearch && nextRes && isFinite(activeMinsToNext))?(' • השדרוג הבא בעוד ~'+fmtWait(activeMinsToNext)+' אקטיבי ('+fmtWait(idleMinsToNext)+' אוטומטי).'):'';
+  reason=(unclaimedSE>0?('נצבר בריצה: +'+fmt(unclaimedSE)+' SE'+(gainPct>0?' (+'+gainPct.toFixed(1)+'%)':'')):'המשך לשדרג מחקרים ולמלא לולים כדי לצבור Soul Eggs')+waitHint;
  }
- return {curSE:curSE,unclaimedSE:unclaimedSE,gainPct:gainPct,status:status,title:title,reason:reason,isWeekend:isWeekend};
+ return {
+  curSE:curSE,unclaimedSE:unclaimedSE,gainPct:gainPct,
+  status:status,title:title,reason:reason,isWeekend:isWeekend,
+  hitTimeWall:hitTimeWall,activeMinsToNext:activeMinsToNext,idleMinsToNext:idleMinsToNext,nextRes:nextRes
+ };
 }
 
 function analyzeArtifacts(b,slots,curEgg){
@@ -741,13 +794,13 @@ function analyzeBoosts(b,sim,slots,hab,prestigeInfo,hasAffordableResearch,art){
   if(bestSoul && recCombo.length<maxBoostSlots)recCombo.push(bestSoul);
   if(bestBeacon && recCombo.length<maxBoostSlots)recCombo.push(bestBeacon);
   recTitle='כן — הפעל שילוב Prestige עכשיו';
-  recReason='הלולים כמעט מלאים! הפעל והחזק תרנגולות רצות 10 דקות לפני ביצוע Prestige.'+dilNote;
+  recReason='הגעת להאטה / לולים מלאים. הפעל והחזק תרנגולות רצות 10 דקות לפני ביצוע Prestige.'+dilNote;
  }else if(bestTachyon && !hasAffordableResearch && (hab.habPct<25 || (hab.habPct<40 && bestTachyon.power>=100))){
   shouldUseNow=true;
   recCombo.push(bestTachyon);
   recTitle='אפשר להפעיל Tachyon Prism למילוי לולים';
   recReason='הלולים ב-'+hab.habPct.toFixed(0)+'% תפוסה. הגדלת כמות התרנגולות תאיץ הכנסות ו-Soul Eggs.'+dilNote;
- }else if(!hasAffordableResearch && hab.habPct>=40 && hab.habPct<95 && bestFeed){
+ }else if(!hasAffordableResearch && !prestigeInfo.hitTimeWall && hab.habPct>=40 && hab.habPct<95 && bestFeed){
   shouldUseNow=true;
   recCombo.push(bestFeed);
   if(bestBeacon && recCombo.length<maxBoostSlots)recCombo.push(bestBeacon);
@@ -884,12 +937,12 @@ function plan(b,R){
  var elv=lvMap(g.epicResearch);
  var clv=lvMap(sim.commonResearch);
  var art=analyzeArtifacts(b,slots,sim.eggType);
- var logi=calcFarmLogistics(sim,clv,elv,art,R);
+ var logi=calcFarmLogistics(b,sim,clv,elv,art,R);
  var C=commonPlan(R,clv,virt,cash,elv,logi.shipBottleneck);
  var hasAffordableResearch=(C.affordableList.length>0);
  var fuelInfo=checkShipFuel(b,sim);
  var eggProg=calcEggProgress(b,sim,fuelInfo);
- var prestigeInfo=calcPrestigeInfo(b,sim,logi,hasAffordableResearch,eggProg);
+ var prestigeInfo=calcPrestigeInfo(b,sim,logi,C,cash,eggProg);
  var boostInfo=analyzeBoosts(b,sim,slots,logi,prestigeInfo,hasAffordableResearch,art);
 
  var run=runMode;
@@ -959,7 +1012,7 @@ function plan(b,R){
   a.push([12,prestigeInfo.title,prestigeInfo.reason,'boosts']);
  }else if(prestigeInfo.status==='boost_then_prestige'){
   var comboStr=boostInfo.recCombo.length?boostInfo.recCombo.map(function(x){return x.name}).join(' + '):'בוסט הכנסות (Bird Feed)';
-  a.push([14,'לפני Prestige: הפעל '+comboStr,prestigeInfo.reason,'boosts']);
+  a.push([14,prestigeInfo.hitTimeWall?prestigeInfo.title:('לפני Prestige: הפעל '+comboStr),prestigeInfo.reason,'boosts']);
  }else if(boostInfo.shouldUseNow && boostInfo.recCombo.length>0){
   var bCombo=boostInfo.recCombo.map(function(x){return x.name}).join(' + ');
   a.push([36,boostInfo.recTitle+': '+bCombo,boostInfo.recReason,'boosts']);
@@ -992,7 +1045,8 @@ function plan(b,R){
 
  if(C.affordableList.length===0 && C.nextList.length>0){
   var nx=C.nextList[0];
-  a.push([45,'המחקר הבא: '+nx.r.name+' (לרמה '+nx.to+')','עלות '+fmt(nx.cost)+' (יש כרגע '+fmt(cash)+').','research']);
+  var waitStr=isFinite(prestigeInfo.activeMinsToNext)?(' (~'+fmtWait(prestigeInfo.activeMinsToNext)+' אקטיבי)'):'';
+  a.push([45,'המחקר הבא: '+nx.r.name+' (לרמה '+nx.to+')','עלות '+fmt(nx.cost)+' (יש כרגע '+fmt(cash)+')'+waitStr+'.','research']);
  }
 
  var gift=g.nextDailyGiftTime||0;if(gift>1e12)gift/=1000;if(gift>0&&gift<now)a.push([20,'אסוף את המתנה היומית','לחץ על אייקון המתנה בצד.']);
@@ -1017,7 +1071,7 @@ function copyDiag(){
  var g=last.game||{};
  var slots=getSlotCount(last);
  var art=analyzeArtifacts(last,slots,sim.eggType);
- var logi=calcFarmLogistics(sim,lvMap(sim.commonResearch),lvMap(g.epicResearch),art,RES);
+ var logi=calcFarmLogistics(last,sim,lvMap(sim.commonResearch),lvMap(g.epicResearch),art,RES);
  var inv=db.inventoryItems||[];
  var byId={};
  inv.forEach(function(it){byId[it.itemId]=it});
@@ -1027,6 +1081,8 @@ function copyDiag(){
   eggType:sim.eggType,
   farmValue:sim.farmValue,
   cashComputed:farmCash(sim),
+  idleIncomePerMin:logi.idleIncomePerMin,
+  activeIncomePerMin:logi.activeIncomePerMin,
   soulEggs:g.soulEggsD||g.soulEggs,
   unclaimedSoulEggs:sim.unclaimedSoulEggsD||sim.unclaimedSoulEggs||g.unclaimedSoulEggsD||g.unclaimedSoulEggs,
   habs:sim.habs,
@@ -1104,7 +1160,9 @@ function show(b,R){
    h+=row('<span class="tier-pill">T'+x.r.tier+'</span><b>'+esc(x.r.name)+'</b> <small>('+x.from+' ← '+targetTxt+')</small>','<span class="tag-ok">'+fmt(x.cost)+'</span>');
   });
  }else{
-  h+='<p><small>אין מספיק מזומן לשדרוג הבא. יעדים הבאים:</small></p>';
+  var wallNote=(P.prestigeInfo.nextRes && isFinite(P.prestigeInfo.activeMinsToNext))
+   ?(' • זמן לשדרוג הבא: ~'+fmtWait(P.prestigeInfo.activeMinsToNext)+' אקטיבי ('+fmtWait(P.prestigeInfo.idleMinsToNext)+' אוטומטי)'):'';
+  h+='<p><small>אין מספיק מזומן לשדרוג הבא'+wallNote+'</small></p>';
  }
  if(P.C.nextList.length){
   h+='<div style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--line)"><small><b>אחרי שייגמר המזומן:</b></small>';
@@ -1129,7 +1187,7 @@ function show(b,R){
 
  // 3. בוסטים ו-Prestige
  var boostOpen=(P.prestigeInfo.status!=='push' || P.boostInfo.shouldUseNow || P.boostInfo.active.length>0)?'open':'';
- h+='<details id="sec-boosts" class="card" '+boostOpen+'><summary class="sum-head"><span>בוסטים ו-Prestige</span><span class="badge '+(P.boostInfo.shouldUseNow||P.prestigeInfo.status!=='push'?'b-rew':'b-pts')+'">'+(P.boostInfo.shouldUseNow?'הפעל בוסט':(P.prestigeInfo.status==='ready'?'מוכן ל-Prestige':'המתן'))+'</span></summary>';
+ h+='<details id="sec-boosts" class="card" '+boostOpen+'><summary class="sum-head"><span>בוסטים ו-Prestige</span><span class="badge '+(P.boostInfo.shouldUseNow||P.prestigeInfo.status!=='push'?'b-rew':'b-pts')+'">'+(P.prestigeInfo.status==='ready'?'מוכן ל-Prestige':(P.boostInfo.shouldUseNow?'הפעל בוסט':'המתן'))+'</span></summary>';
  h+='<div style="margin-top:8px">';
  h+='<div class="status-banner '+(P.boostInfo.shouldUseNow?'do':'hold')+'"><b>'+esc(P.boostInfo.recTitle)+'</b><small>'+esc(P.boostInfo.recReason)+'</small>';
  if(P.boostInfo.recCombo.length){
@@ -1141,8 +1199,12 @@ function show(b,R){
   h+='<p><b>פעילים כרגע ('+P.boostInfo.active.length+'/'+P.boostInfo.maxBoostSlots+'):</b> '+P.boostInfo.active.map(function(x){return esc(x.name)+' ('+hrs(x.timeRemaining)+')'}).join(', ')+'</p>';
  }
 
- h+='<div class="c-box"><div class="c-head"><span>מצב Prestige</span><small>+'+fmt(P.prestigeInfo.unclaimedSE)+' SE ('+P.prestigeInfo.gainPct.toFixed(1)+'%)</small></div>';
- h+='<p><small>'+esc(P.prestigeInfo.reason)+'</small></p></div>';
+ h+='<div class="c-box"><div class="c-head"><span>מצב Prestige והאטת התקדמות</span><small>+'+fmt(P.prestigeInfo.unclaimedSE)+' SE ('+P.prestigeInfo.gainPct.toFixed(1)+'%)</small></div>';
+ h+='<p><small>'+esc(P.prestigeInfo.reason)+'</small></p>';
+ if(P.logi.idleIncomePerMin>0){
+  h+='<p><small><b>קצב הכנסות:</b> '+fmt(P.logi.idleIncomePerMin)+'/דק\' אוטומטי • '+fmt(P.logi.activeIncomePerMin)+'/דק\' עם תרנגולות רצות (×'+Math.round(P.logi.maxRCB)+')</small></p>';
+ }
+ h+='</div>';
 
  if(P.boostInfo.owned.length){
   h+='<div class="c-box"><div class="c-head"><span>במלאי בתיק</span></div>';
