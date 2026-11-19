@@ -76,7 +76,9 @@ li.it span{color:var(--mut);font-size:.82rem;display:block;margin-top:2px}
 .c-box{border-top:1px solid var(--line);padding:8px 0}
 .c-box:first-of-type{border-top:0;padding-top:2px}
 .c-head{font-weight:700;font-size:.92rem;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
+.sec-sub{font-size:.78rem;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.3px;margin:8px 0 4px;padding-bottom:3px;border-bottom:1px dashed var(--line)}
 .badge{font-size:.72rem;padding:2px 7px;border-radius:5px;font-weight:700}
+.b-pe{background:var(--y);color:#12151d}
 .b-rew{background:var(--acc);color:var(--accink)}
 .b-pts{background:var(--line);color:var(--ink)}
 .b-wait{background:var(--ok);color:#fff}
@@ -95,7 +97,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 20</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 21</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -495,7 +497,6 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R){
  var shipUtilPct=Math.min(100,rawPct);
  var shipBottleneck=(pop>1000 && totalShipCap>0 && rawPct>=98);
 
- // חישוב הכנסה לדקה (Bocks/min) — אוטומטי (Idle) ואקטיבי (עם תרנגולות רצות)
  var curSE=Number(g.soulEggsD||g.soulEggs||0);
  var peCount=Number(g.eggsOfProphecy||0);
  var sePerEgg=0.10+0.01*(elv['soul_eggs']||0);
@@ -546,13 +547,11 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg){
  var isWeekend=(dayOfWeek===6 || dayOfWeek===0);
  var hasAffordableResearch=(C.affordableList.length>0);
 
- // חישוב זמן משוער לשדרוג המחקר הבא (אקטיבי מול אוטומטי)
  var nextRes=C.nextList[0]||null;
  var neededCash=nextRes?Math.max(0,nextRes.cost-(hasAffordableResearch?C.remCash:cash)):0;
  var activeMinsToNext=(nextRes && hab.activeIncomePerMin>0)?(neededCash/hab.activeIncomePerMin):0;
  var idleMinsToNext=(nextRes && hab.idleIncomePerMin>0)?(neededCash/hab.idleIncomePerMin):0;
 
- // זיהוי "הקיר" (The Wall): מעל 15 דקות משחק אקטיבי (או מעל 90 דקות אוטומטי) לשדרוג הבא, כשלא צמודים לביצה הבאה
  var hasPop=(hab.pop>=100);
  var hitTimeWall=(hasPop && !hasAffordableResearch && nextRes && eggProg.pct<80 && (activeMinsToNext>=15 || idleMinsToNext>=90));
 
@@ -585,7 +584,7 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg){
  }else if(gainPct>=30 && !hasAffordableResearch){
   status='ready';
   title='בצע Prestige עכשיו (+'+gainPct.toFixed(0)+'% Soul Eggs)';
-  reason='צברת '+fmt(unclaimedSE)+' Soul Eggs חדשים ואין מחקרים זמינים. מעבר לנקודה הזו התפוקה פוחתת — איפוס הריצה משתלם יותר.';
+  reason='צברת '+fmt(unclaimedSE)+' Soul Eggs חדשים ואין מחקרים זולים. מעבר לנקודה הזו התפוקה פוחתת — איפוס הריצה משתלם יותר.';
  }else{
   var waitHint=(!hasAffordableResearch && nextRes && isFinite(activeMinsToNext))?(' • השדרוג הבא בעוד ~'+fmtWait(activeMinsToNext)+' אקטיבי ('+fmtWait(idleMinsToNext)+' אוטומטי).'):'';
   reason=(unclaimedSE>0?('נצבר בריצה: +'+fmt(unclaimedSE)+' SE'+(gainPct>0?' (+'+gainPct.toFixed(1)+'%)':'')):'המשך לשדרג מחקרים ולמלא לולים כדי לצבור Soul Eggs')+waitHint;
@@ -815,6 +814,98 @@ function shipName(s){return String(s||'').split('_').map(function(w){return w.ch
 function cleanContractName(id){return String(id||'חוזה').split('-').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1)}).join(' ')}
 function hrs(sec){if(sec<=0)return '0 דקות';var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h>=48?Math.round(h/24)+' ימים':h+' שעות ו-'+m+' דקות'}
 
+function formatRewardItem(g){
+ var rt=g.rewardType||'';
+ var amt=Number(g.rewardAmount)||0;
+ if(rt==='EGGS_OF_PROPHECY')return (amt>1?Math.round(amt)+' ':'')+'Prophecy Egg';
+ if(rt==='GOLDEN_EGGS')return fmt(amt)+' GE';
+ if(rt==='SOUL_EGGS')return fmt(amt)+' SE';
+ if(rt==='ARTIFACT_CASE')return 'תיבת ארטיפקטים';
+ if(rt==='EPIC_RESEARCH_ITEM')return 'שדרוג Epic';
+ if(rt==='BOOST')return (amt>1?Math.round(amt)+'× ':'')+(g.rewardSubType?getBoostInfo(g.rewardSubType).name:'בוסט');
+ if(rt==='PIGGY_FILL')return '+'+fmt(amt)+' Piggy';
+ if(rt==='PIGGY_LEVEL_BUMP')return 'רמת Piggy +'+Math.max(1,Math.round(amt));
+ if(rt==='SHELL_SCRIPT')return fmt(amt)+' תלושי עיצוב';
+ if(rt==='CASH')return 'מזומן';
+ return shipName(rt||'פרס');
+}
+
+function getContractGoals(c,b){
+ var k=c.contract||{};
+ var grade=c.grade || (b.contracts && b.contracts.lastGraded) || '';
+ if(Array.isArray(k.gradeSpecs) && k.gradeSpecs.length){
+  var matched=null;
+  if(grade){
+   for(var i=0;i<k.gradeSpecs.length;i++){
+    if(k.gradeSpecs[i].grade===grade){matched=k.gradeSpecs[i];break}
+   }
+  }
+  var spec=matched || k.gradeSpecs[0];
+  if(spec && Array.isArray(spec.goals))return spec.goals;
+ }
+ if(Array.isArray(k.goalSets) && k.goalSets.length){
+  var gs=k.goalSets[c.league||0] || k.goalSets[0];
+  if(gs && Array.isArray(gs.goals))return gs.goals;
+ }
+ return Array.isArray(k.goals)?k.goals:[];
+}
+
+function analyzeContractRewards(c,b){
+ var goals=getContractGoals(c,b);
+ var hasPE=false;
+ var peCount=0;
+ var items=[];
+ goals.forEach(function(g){
+  if(g.rewardType==='EGGS_OF_PROPHECY'){
+   hasPE=true;
+   peCount+=Math.max(1,Math.round(Number(g.rewardAmount)||1));
+  }
+  items.push(formatRewardItem(g));
+ });
+ return {hasPE:hasPE,peCount:peCount,rewardsText:items.join(' • ')};
+}
+
+function availableContractInfo(c,b,archivedMap,now){
+ var k=c.contract||{},id=c.contractIdentifier||k.identifier||'';
+ var name=k.name||cleanContractName(id);
+ var arch=archivedMap[id];
+ var alreadyCompletedAll=(arch && (arch.numGoalsAchieved||0)>=3);
+ var isReplay=!!c.pointsReplay || !!alreadyCompletedAll;
+ var rew=analyzeContractRewards(c,b);
+
+ var exp=Number(k.expirationTime||0);
+ if(exp>1e12)exp/=1000;
+ var joinLeft=(exp>now)?(exp-now):0;
+
+ var dur=Number(k.lengthSeconds||0);
+ if(dur>1e12)dur/=1000;
+ var eggName=k.egg?(EGG_HE[k.egg]||shipName(k.egg)):'';
+ var maxCoop=k.maxCoopSize||0;
+
+ var prio=2;
+ var badgeText='עדיפות 2 • פרסים חדשים';
+ var badgeClass='b-rew';
+ var adviceText='חוזה חדש עם פרסים שטרם אספת. מומלץ להצטרף דרך קבוצה פעילה בדיסקורד/רדיט ולא ב-Auto-Join.';
+
+ if(isReplay){
+  prio=3;
+  badgeText='עדיפות 3 • Points Replay';
+  badgeClass='b-pts';
+  adviceText='כבר אספת את כל הפרסים בחוזה זה בעבר. הצטרף רק אם יש מקום פנוי לשיפור ניקוד הדירוג (ללא בוסטים).';
+ }else if(rew.hasPE){
+  prio=1;
+  badgeText='עדיפות 1 • Prophecy Egg'+(rew.peCount>1?' (×'+rew.peCount+')':'');
+  badgeClass='b-pe';
+  adviceText='חובה להצטרף! מעניק ביצת Prophecy נדירה. חפש קבוצה פעילה בדיסקורד/רדיט (r/EggsIncCoOp) כדי לסיים מהר.';
+ }
+
+ return {
+  id:id,name:name,prio:prio,isReplay:isReplay,hasPE:rew.hasPE,peCount:rew.peCount,
+  rewardsText:rew.rewardsText,joinLeft:joinLeft,exp:exp,dur:dur,eggName:eggName,maxCoop:maxCoop,
+  badgeText:badgeText,badgeClass:badgeClass,adviceText:adviceText
+ };
+}
+
 function contractInfo(c,b,R,elv,now){
  var k=c.contract||{},id=c.contractIdentifier||k.identifier||'';
  var name=k.name||cleanContractName(id);
@@ -826,13 +917,14 @@ function contractInfo(c,b,R,elv,now){
  var simEnd=c.coopSimulationEndTime||0;
  var graceEnd=c.coopGracePeriodEndTime||0;
  var sharedEnd=c.coopSharedEndTime||0;
+ var rew=analyzeContractRewards(c,b);
 
  var waitingCoop=(simEnd>0);
  var pointsOnly=(isReplay || achieved>=3);
 
  var statusType='rewards';
- var badgeText='פרסים זמינים';
- var badgeClass='b-rew';
+ var badgeText=rew.hasPE?'פרסים + Prophecy Egg':'פרסים זמינים';
+ var badgeClass=rew.hasPE?'b-pe':'b-rew';
 
  if(waitingCoop){
   statusType='waiting';
@@ -846,8 +938,8 @@ function contractInfo(c,b,R,elv,now){
 
  var actionText='';
  if(!c.coopIdentifier){
-  actionText='טרם הצטרפת לקו-אופ. היכנס ללשונית Contracts והצטרף.';
-  if(!pointsOnly)urgent.push([28,'הצטרף לקו-אופ בחוזה '+name,'החוזה פעיל לפרסים ואינך בקבוצה.','contracts']);
+  actionText='טרם הצטרפת לקו-אופ. היכנס ללשונית Contracts והצטרף (עדיף דרך קוד קבוצה פעילה).';
+  if(!pointsOnly)urgent.push([rew.hasPE?21:28,'הצטרף לקו-אופ בחוזה '+name,'החוזה פעיל לפרסים ואינך בקבוצה.','contracts']);
  }else if(waitingCoop){
   var graceLeft=graceEnd>now?(graceEnd-now):0;
   actionText='אספת את הפרסים! ממתינים שחברי הקבוצה יסגרו אצלם'+(graceLeft>0?' ('+hrs(graceLeft)+')':'')+'. אין פעולה נדרשת.';
@@ -857,7 +949,7 @@ function contractInfo(c,b,R,elv,now){
  }else{
   var timeLeft2=sharedEnd>now?(sharedEnd-now):0;
   actionText='פעיל לפרסים ('+achieved+'/3 יעדים'+(timeLeft2>0?', נשארו '+hrs(timeLeft2):'')+'). שדרג מחקר ומשלוחים בחוזה.';
-  urgent.push([31,'קדם חוזה פרסים: '+name,'הושגו '+achieved+'/3 יעדים.','contracts']);
+  urgent.push([rew.hasPE?26:31,'קדם חוזה פרסים: '+name,'הושגו '+achieved+'/3 יעדים'+(rew.hasPE?' (כולל Prophecy Egg!)':'')+'.','contracts']);
  }
 
  var cf=(b.farms||[]).filter(function(f){return f.farmType==='CONTRACT'&&f.contractId===id})[0];
@@ -874,7 +966,7 @@ function contractInfo(c,b,R,elv,now){
  return {
   id:id,name:name,grade:String(c.grade||'').replace('GRADE_',''),coop:c.coopIdentifier||'',
   statusType:statusType,badgeText:badgeText,badgeClass:badgeClass,
-  waitingCoop:waitingCoop,pointsOnly:pointsOnly,achieved:achieved,
+  waitingCoop:waitingCoop,pointsOnly:pointsOnly,achieved:achieved,hasPE:rew.hasPE,rewardsText:rew.rewardsText,
   ownAmt:ownAmt,lastRewAmt:lastRewAmt,
   actionText:actionText,researchHint:researchHint,urgent:urgent
  };
@@ -1019,16 +1111,58 @@ function plan(b,R){
  }
 
  var cs=(b.contracts&&b.contracts.contracts)||[];
+ var archList=(b.contracts&&b.contracts.archive)||[];
+ var archivedMap={};
+ archList.forEach(function(ac){
+  var ak=ac.contract||{},aid=ac.contractIdentifier||ak.identifier||'';
+  if(aid)archivedMap[aid]=ac;
+ });
+
  var act=cs.filter(function(c){return c.accepted&&!c.cancelled&&!c.coopContributionFinalized});
+ var activeIds={};
+ act.forEach(function(c){
+  var k=c.contract||{},id=c.contractIdentifier||k.identifier||'';
+  if(id)activeIds[id]=true;
+ });
+
+ var availContracts=cs.filter(function(c){
+  var k=c.contract||{},id=c.contractIdentifier||k.identifier||'';
+  if(!id || activeIds[id])return false;
+  if(c.coopContributionFinalized && !c.cancelled)return false;
+  if(c.accepted && !c.cancelled)return false;
+  var exp=Number(k.expirationTime||0);
+  if(exp>1e12)exp/=1000;
+  if(exp>0 && exp<=now)return false;
+  return true;
+ }).map(function(c){
+  return availableContractInfo(c,b,archivedMap,now);
+ });
+
+ availContracts.sort(function(x,y){
+  if(x.prio!==y.prio)return x.prio-y.prio;
+  if(x.joinLeft>0 && y.joinLeft>0)return x.joinLeft-y.joinLeft;
+  return 0;
+ });
+
  var CD=act.map(function(c){return contractInfo(c,b,R,elv,now)});
  var activeRunning=CD.filter(function(d){return !d.waitingCoop});
  var rewardContracts=activeRunning.filter(function(d){return !d.pointsOnly});
  var pointsContracts=activeRunning.filter(function(d){return d.pointsOnly});
  var waitingContracts=CD.filter(function(d){return d.waitingCoop});
 
- if(activeRunning.length===0){
-  a.push([30,'בדוק חוזים חדשים להצטרפות','אין כרגע חוזה פעיל שרץ. בדוק בלשונית Contracts.','contracts']);
+ var topAvail=availContracts[0]||null;
+ if(topAvail){
+  if(topAvail.prio===1){
+   a.push([17,'הצטרף לחוזה Prophecy Egg: '+topAvail.name,'זמין להצטרפות'+(topAvail.joinLeft>0?' (עוד '+hrs(topAvail.joinLeft)+')':'')+' • פרסים: '+topAvail.rewardsText+'.','contracts']);
+  }else if(topAvail.prio===2 && (activeRunning.length===0 || rewardContracts.length===0)){
+   a.push([25,'הצטרף לחוזה פרסים חדש: '+topAvail.name,'פרסים: '+topAvail.rewardsText+'. מומלץ דרך קבוצה בדיסקורד/רדיט.','contracts']);
+  }else if(topAvail.prio===3 && activeRunning.length===0){
+   a.push([60,'אופציונלי: הצטרף לחוזה חוזר (Points Replay) — '+topAvail.name,'כבר אספת בו את הפרסים בעבר; פתוח לשיפור ניקוד דירוג.','contracts']);
+  }
+ }else if(activeRunning.length===0){
+  a.push([30,'בדוק חוזים חדשים להצטרפות','אין כרגע חוזים זמינים בגיבוי. בדוק בלשונית Contracts.','contracts']);
  }
+
  CD.forEach(function(d){d.urgent.forEach(function(u){a.push(u)})});
 
  if(rewardContracts.length>0){
@@ -1053,7 +1187,7 @@ function plan(b,R){
  if((sim.unclaimedBoostTokens||0)>0)a.push([34,'אסוף '+sim.unclaimedBoostTokens+' טוקני בוסט בחווה','מוכנים לאיסוף.']);
  a.sort(function(x,y){return x[0]-y[0]});
  if(!a.length)a.push([99,'הכל מסודר כרגע','חזור לבדוק בעוד כמה דקות.']);
- return {CD:CD,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,slots:slots,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,logi:logi,eggProg:eggProg,cash:cash,art:art,prestigeInfo:prestigeInfo,boostInfo:boostInfo};
+ return {CD:CD,availContracts:availContracts,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,slots:slots,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,logi:logi,eggProg:eggProg,cash:cash,art:art,prestigeInfo:prestigeInfo,boostInfo:boostInfo};
 }
 
 function jumpTo(id){
@@ -1077,6 +1211,10 @@ function copyDiag(){
  inv.forEach(function(it){byId[it.itemId]=it});
  var sets=db.activeArtifactSets||[];
  var equippedFull=((sets[0]&&sets[0].slots)||[]).filter(function(s){return s&&s.occupied}).map(function(s){return byId[s.itemId]||s});
+ var contractsDump=((last.contracts&&last.contracts.contracts)||[]).map(function(c){
+  var k=c.contract||{};
+  return {id:c.contractIdentifier||k.identifier,name:k.name,accepted:c.accepted,cancelled:c.cancelled,finalized:c.coopContributionFinalized,pointsReplay:c.pointsReplay,grade:c.grade,achieved:c.numGoalsAchieved,exp:k.expirationTime};
+ });
  var diag={
   eggType:sim.eggType,
   farmValue:sim.farmValue,
@@ -1094,7 +1232,8 @@ function copyDiag(){
   calcShipUtilPct:Number(logi.rawPct.toFixed(2)),
   boostsOwned:g.boosts,
   activeBoosts:sim.activeBoosts,
-  equippedArtifactsFull:equippedFull
+  equippedArtifactsFull:equippedFull,
+  contractsSummary:contractsDump
  };
  var txt=JSON.stringify(diag,null,2);
  if(navigator.clipboard&&navigator.clipboard.writeText){
@@ -1110,12 +1249,13 @@ function show(b,R){
  var age=Math.round((Date.now()/1000-(b.approxTime||0))/60);
  if(age>3)h+='<div class="warn">גיבוי בן '+age+' דקות. לעדכון מיידי: פתח לרגע חוזה וחזור.</div>';
 
+ var contractsBadge=(P.CD.length+P.availContracts.length);
  h+='<div class="nav">';
  h+='<button onclick="jumpTo(\'sec-research\')">מחקר ('+P.C.affordableList.length+')</button>';
  h+='<button onclick="jumpTo(\'sec-farm\')">ביצה ומשלוחים</button>';
  h+='<button onclick="jumpTo(\'sec-boosts\')">בוסטים ו-Prestige</button>';
  h+='<button onclick="jumpTo(\'sec-artifacts\')">ארטיפקטים ואבנים</button>';
- h+='<button onclick="jumpTo(\'sec-contracts\')">חוזים ('+P.CD.length+')</button>';
+ h+='<button onclick="jumpTo(\'sec-contracts\')">חוזים ('+contractsBadge+')</button>';
  h+='<button onclick="jumpTo(\'sec-epic\')">אפיק וספינות</button>';
  h+='</div>';
 
@@ -1249,19 +1389,42 @@ function show(b,R){
  }
  h+='</div></details>';
 
- // 5. חוזים
- h+='<details id="sec-contracts" class="card" '+(P.activeRunning>0?'open':'')+'><summary class="sum-head"><span>חוזים ('+P.CD.length+')</span><small>▼</small></summary>';
+ // 5. חוזים (זמינים להצטרפות + פעילים)
+ var hasHighPriorityAvail=P.availContracts.some(function(x){return x.prio<=2});
+ var contractsOpen=(P.activeRunning>0 || hasHighPriorityAvail)?'open':'';
+ h+='<details id="sec-contracts" class="card" '+contractsOpen+'><summary class="sum-head"><span>חוזים ('+P.CD.length+' פעילים • '+P.availContracts.length+' זמינים)</span><small>▼</small></summary>';
  h+='<div style="margin-top:8px">';
+
+ if(P.availContracts.length){
+  h+='<div class="sec-sub">זמינים להצטרפות (מדורגים לפי סדר עדיפויות)</div>';
+  P.availContracts.forEach(function(av,idx){
+   h+='<div class="c-box"><div class="c-head"><span><span class="step-num">'+(idx+1)+'</span>'+esc(av.name)+'</span><span class="badge '+av.badgeClass+'">'+esc(av.badgeText)+'</span></div>';
+   var meta=[];
+   if(av.eggName)meta.push('ביצה: '+av.eggName);
+   if(av.maxCoop>0)meta.push('עד '+av.maxCoop+' שחקנים');
+   if(av.dur>0)meta.push('משך: '+hrs(av.dur));
+   if(av.joinLeft>0)meta.push('זמין עוד: '+hrs(av.joinLeft));
+   if(meta.length)h+='<p><small>'+esc(meta.join(' • '))+'</small></p>';
+   if(av.rewardsText)h+='<p><small><b>פרסים:</b> '+esc(av.rewardsText)+'</small></p>';
+   h+='<p>'+esc(av.adviceText)+'</p>';
+   h+='</div>';
+  });
+ }
+
  if(P.CD.length){
+  if(P.availContracts.length)h+='<div class="sec-sub">חוזים פעילים / ממתינים לסגירה</div>';
   P.CD.forEach(function(d){
    h+='<div class="c-box"><div class="c-head"><span>'+esc(d.name)+'</span><span class="badge '+d.badgeClass+'">'+esc(d.badgeText)+'</span></div>';
    h+='<p><small>קו-אופ: '+esc(d.coop||'ללא')+' • יעדים: '+d.achieved+'/3'+(d.ownAmt>0?' • תרמת: '+fmt(d.ownAmt):'')+'</small></p>';
+   if(d.rewardsText)h+='<p><small><b>פרסים:</b> '+esc(d.rewardsText)+'</small></p>';
    h+='<p>'+esc(d.actionText)+'</p>';
    if(d.researchHint)h+='<p><small><b>מחקר בחוזה:</b> '+esc(d.researchHint)+'</small></p>';
    h+='</div>';
   });
- }else{
-  h+='<small>אין חוזים פתוחים כרגע.</small>';
+ }
+
+ if(!P.availContracts.length && !P.CD.length){
+  h+='<small>אין חוזים פתוחים או זמינים להצטרפות כרגע.</small>';
  }
  h+='</div></details>';
 
