@@ -51,6 +51,7 @@ li.it span{color:var(--mut);font-size:.82rem;display:block;margin-top:2px}
 .tag-wait{display:inline-block;background:var(--line);color:var(--ink);font-size:.72rem;padding:2px 7px;border-radius:5px;font-weight:600}
 .tag-warn{display:inline-block;background:var(--bad);color:#fff;font-size:.72rem;padding:2px 7px;border-radius:5px;font-weight:700}
 .tier-pill{display:inline-block;background:var(--line);color:var(--ink);font-size:.68rem;padding:1px 5px;border-radius:4px;margin-inline-end:5px;font-weight:700}
+.stone-pill{display:inline-block;background:rgba(45,91,227,.14);color:var(--acc);font-size:.7rem;padding:1px 6px;border-radius:4px;margin-inline-start:4px;font-weight:600}
 .err{color:var(--bad);margin:6px 0;font-weight:600;font-size:.9rem}
 .warn{background:var(--s);border:1px solid var(--y);border-radius:8px;padding:7px 10px;margin:6px 0;font-size:.8rem}
 
@@ -94,7 +95,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 16</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 17</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -154,10 +155,12 @@ var SHIP_FUELS={
  ATREGGIES:['TACHYON','DILITHIUM','ANTIMATTER','DARK_MATTER']
 };
 var HAB_BASE=[250,500,1000,2000,5000,10000,25000,50000,100000,250000,500000,1000000,2500000,5000000,10000000,25000000,50000000,100000000,600000000];
-// קיבולת בסיס מדויקת לדקה של כל כלי הרכב במשחק (0=Trike עד 11=Hyperloop לקרון בודד)
 var VEH_BASE=[100,250,500,1000,2500,5000,10000,25000,75000,250000,750000,50000000];
 var TIER_MAP={INFERIOR:'T1',LESSER:'T2',NORMAL:'T3',GREATER:'T4'};
 var TIER_RANK={INFERIOR:1,LESSER:2,NORMAL:3,GREATER:4};
+var RARITY_MAP={RARE:'R',EPIC:'E',LEGENDARY:'L'};
+var RARITY_RANK={COMMON:0,RARE:1,EPIC:2,LEGENDARY:3};
+
 var ART_INFO={
  PUZZLE_CUBE:{name:'Puzzle Cube',role:'research',desc:'מוזיל מחקר'},
  DEMETERS_NECKLACE:{name:'Demeters Necklace',role:'earnings',desc:'ערך ביצה'},
@@ -181,9 +184,51 @@ var ART_INFO={
  TITANIUM_ACTUATOR:{name:'Titanium Actuator',role:'hold',desc:'קצב כפתור'},
  LIGHT_OF_EGGENDIL:{name:'Light of Eggendil',role:'enlightenment',desc:'ביצת Enlightenment'}
 };
-var GUSSET_MULT={INFERIOR:1.05,LESSER:1.10,NORMAL:1.15,GREATER:1.20};
-var METRONOME_MULT={INFERIOR:1.05,LESSER:1.10,NORMAL:1.15,GREATER:1.20};
-var COMPASS_MULT={INFERIOR:1.05,LESSER:1.10,NORMAL:1.20,GREATER:1.30};
+
+var STONE_INFO={
+ DILITHIUM_STONE:{name:'Dilithium',role:'boost_dur',desc:'משך בוסטים'},
+ TACHYON_STONE:{name:'Tachyon',role:'laying',desc:'קצב הטלה'},
+ QUANTUM_STONE:{name:'Quantum',role:'shipping',desc:'קיבולת משלוחים'},
+ CLARITY_STONE:{name:'Clarity',role:'enlightenment',desc:'הפעלה ב-Enlightenment'},
+ PROPHECY_STONE:{name:'Prophecy',role:'prestige',desc:'חיזוק PE'},
+ SOUL_STONE:{name:'Soul',role:'prestige',desc:'חיזוק SE'},
+ LIFE_STONE:{name:'Life',role:'ihr',desc:'דגירה פנימית'},
+ TERRA_STONE:{name:'Terra',role:'running',desc:'תרנגולות רצות'},
+ SHELL_STONE:{name:'Shell',role:'earnings',desc:'ערך ביצה'},
+ LUNAR_STONE:{name:'Lunar',role:'away',desc:'הכנסות אופליין'}
+};
+var STONE_TIER_MAP={INFERIOR:'T2',LESSER:'T3',NORMAL:'T4'};
+var TACHYON_STONE_MULT={INFERIOR:1.02,LESSER:1.04,NORMAL:1.05};
+var QUANTUM_STONE_MULT={INFERIOR:1.02,LESSER:1.04,NORMAL:1.05};
+var DILITHIUM_STONE_MULT={INFERIOR:1.03,LESSER:1.06,NORMAL:1.08};
+var CLARITY_STONE_VAL={INFERIOR:0.25,LESSER:0.50,NORMAL:1.00};
+
+function getGussetMult(level,rarity){
+ if(level==='GREATER'){
+  if(rarity==='EPIC')return 1.25;
+  if(rarity==='RARE')return 1.22;
+  return 1.20;
+ }
+ return ({INFERIOR:1.05,LESSER:1.10,NORMAL:1.15})[level]||1;
+}
+function getMetronomeMult(level,rarity){
+ if(level==='GREATER'){
+  if(rarity==='LEGENDARY')return 1.30;
+  if(rarity==='EPIC')return 1.25;
+  if(rarity==='RARE')return 1.22;
+  return 1.20;
+ }
+ return ({INFERIOR:1.05,LESSER:1.10,NORMAL:1.15})[level]||1;
+}
+function getCompassMult(level,rarity){
+ if(level==='GREATER'){
+  if(rarity==='LEGENDARY')return 1.50;
+  if(rarity==='EPIC')return 1.40;
+  if(rarity==='RARE')return 1.35;
+  return 1.30;
+ }
+ return ({INFERIOR:1.05,LESSER:1.10,NORMAL:1.20})[level]||1;
+}
 
 var BOOST_CAT={
  jimbos_orange:{name:"Jimbo's Bird Feed (3x 20m)",cat:'feed',power:3},
@@ -344,7 +389,7 @@ function calcFarmLogistics(sim,clv,elv,artInfo){
  var maxCap=Math.floor(baseCap*habMult);
  var habPct=maxCap>0?Math.min(100,(pop/maxCap)*100):0;
 
- // חישוב קצב הטלה מדויק (כולל כל מחקרי הטלה וארטיפקט Metronome)
+ // חישוב קצב הטלה כולל Metronome ואבני Tachyon משובצות
  var baseLayPerChicken=2;
  var layMult=1
   *(1+0.10*(clv['comfy_nests']||0))
@@ -356,9 +401,10 @@ function calcFarmLogistics(sim,clv,elv,artInfo){
   *(1+0.05*(clv['epic_egg_laying']||0))
   *(1+0.05*(elv['epic_egg_laying']||0));
  if(artInfo && artInfo.metronomeMult>1)layMult*=artInfo.metronomeMult;
+ if(artInfo && artInfo.tachyonStoneMult>1)layMult*=artInfo.tachyonStoneMult;
  var totalLayRate=pop*baseLayPerChicken*layMult;
 
- // חישוב קיבולת משלוחים מדויקת כולל קרונות Hyperloop (trainLength) וארטיפקט Compass
+ // חישוב קיבולת משלוחים כולל Hyperloop (trainLength), Compass ואבני Quantum משובצות
  var vehs=sim.vehicles||[];
  var trainLens=sim.trainLength||[];
  var baseShip=0;
@@ -389,6 +435,7 @@ function calcFarmLogistics(sim,clv,elv,artInfo){
   *(1+0.05*(clv['hyper_portalling']||0))
   *(1+0.05*(elv['transportation_lobbyist']||0));
  if(artInfo && artInfo.compassMult>1)shipMult*=artInfo.compassMult;
+ if(artInfo && artInfo.quantumStoneMult>1)shipMult*=artInfo.quantumStoneMult;
  var totalShipCap=baseShip*shipMult;
 
  var rawPct=totalShipCap>0?(totalLayRate/totalShipCap)*100:0;
@@ -459,43 +506,115 @@ function calcPrestigeInfo(b,sim,hab,hasAffordableResearch,eggProg){
  return {curSE:curSE,unclaimedSE:unclaimedSE,gainPct:gainPct,status:status,title:title,reason:reason,isWeekend:isWeekend};
 }
 
-function analyzeArtifacts(b,slots){
+function analyzeArtifacts(b,slots,curEgg){
  var db=b.artifactsDb||{};
  var inv=db.inventoryItems||[];
  var byId={};
  inv.forEach(function(it){byId[it.itemId]=it});
 
+ var isEnlightenment=(curEgg==='ENLIGHTENMENT');
  var sets=db.activeArtifactSets||[];
  var homeSet=(sets[0]&&sets[0].slots)||[];
  var maxArtSlots=(slots===3)?4:2;
+
  var equipped=[];
  var gussetMult=1;
  var metronomeMult=1;
  var compassMult=1;
+ var tachyonStoneMult=1;
+ var quantumStoneMult=1;
+ var dilithiumMult=1;
+ var enlightenmentWarnings=[];
+
+ function formatArtLabel(sp){
+  var info=ART_INFO[sp.name]||{name:shipName(sp.name),role:'other',desc:''};
+  var tLabel=TIER_MAP[sp.level]||sp.level||'';
+  var rLabel=RARITY_MAP[sp.rarity]||'';
+  return info.name+' ('+tLabel+rLabel+')';
+ }
+
  for(var i=0;i<maxArtSlots;i++){
   var sl=homeSet[i];
   if(sl && sl.occupied && byId[sl.itemId]){
    var it=byId[sl.itemId];
-   var sp=(it.artifact&&it.artifact.spec)||{};
+   var comp=it.artifact||{};
+   var sp=comp.spec||{};
+   var stones=comp.stones||[];
    var info=ART_INFO[sp.name]||{name:shipName(sp.name),role:'other',desc:''};
-   var tLabel=TIER_MAP[sp.level]||sp.level||'';
-   equipped.push({itemId:it.itemId,rawName:sp.name,name:info.name+' ('+tLabel+')',role:info.role,desc:info.desc});
-   if(sp.name==='ORNATE_GUSSET' && GUSSET_MULT[sp.level])gussetMult=Math.max(gussetMult,GUSSET_MULT[sp.level]);
-   if(sp.name==='QUANTUM_METRONOME' && METRONOME_MULT[sp.level])metronomeMult=Math.max(metronomeMult,METRONOME_MULT[sp.level]);
-   if(sp.name==='INTERSTELLAR_COMPASS' && COMPASS_MULT[sp.level])compassMult=Math.max(compassMult,COMPASS_MULT[sp.level]);
+
+   var clarityPower=0;
+   var stoneLabels=[];
+   stones.forEach(function(st){
+    if(!st || !st.name)return;
+    var sInfo=STONE_INFO[st.name]||{name:shipName(st.name)};
+    var sTier=STONE_TIER_MAP[st.level]||'';
+    stoneLabels.push(sInfo.name+(sTier?' '+sTier:''));
+    if(st.name==='CLARITY_STONE')clarityPower+=(CLARITY_STONE_VAL[st.level]||0);
+    if(st.name==='TACHYON_STONE')tachyonStoneMult*=(TACHYON_STONE_MULT[st.level]||1);
+    if(st.name==='QUANTUM_STONE')quantumStoneMult*=(QUANTUM_STONE_MULT[st.level]||1);
+    if(st.name==='DILITHIUM_STONE')dilithiumMult*=(DILITHIUM_STONE_MULT[st.level]||1);
+   });
+
+   var effMult=1;
+   if(isEnlightenment && sp.name!=='LIGHT_OF_EGGENDIL'){
+    effMult=clarityPower;
+    if(clarityPower<=0)enlightenmentWarnings.push(formatArtLabel(sp));
+   }
+
+   equipped.push({
+    itemId:it.itemId,rawName:sp.name,
+    name:formatArtLabel(sp),
+    baseName:formatArtLabel(sp),
+    stones:stoneLabels,
+    role:info.role,desc:info.desc,
+    clarityPower:clarityPower
+   });
+
+   if(effMult>0){
+    if(sp.name==='ORNATE_GUSSET')gussetMult=Math.max(gussetMult,1+(getGussetMult(sp.level,sp.rarity)-1)*effMult);
+    if(sp.name==='QUANTUM_METRONOME')metronomeMult=Math.max(metronomeMult,1+(getMetronomeMult(sp.level,sp.rarity)-1)*effMult);
+    if(sp.name==='INTERSTELLAR_COMPASS')compassMult=Math.max(compassMult,1+(getCompassMult(sp.level,sp.rarity)-1)*effMult);
+   }
   }
  }
 
  var bestOwned={};
+ var dilithiumHolders=[];
+ var looseStones=[];
+
  inv.forEach(function(it){
   if((it.quantity||0)<=0)return;
-  var sp=(it.artifact&&it.artifact.spec)||{};
-  var rank=TIER_RANK[sp.level]||0;
-  if(!bestOwned[sp.name] || rank>bestOwned[sp.name].rank){
+  var comp=it.artifact||{};
+  var sp=comp.spec||{};
+  var stones=comp.stones||[];
+
+  // בדיקת אבנים בתיק (לא משובצות)
+  if(STONE_INFO[sp.name]){
+   var sInfo=STONE_INFO[sp.name];
+   var sTier=STONE_TIER_MAP[sp.level]||'';
+   looseStones.push({name:sInfo.name+' ('+sTier+')',desc:sInfo.desc,qty:it.quantity});
+   return;
+  }
+
+  // בדיקת ארטיפקטים עם אבני Dilithium משובצות בתיק
+  var dCount=stones.filter(function(st){return st && st.name==='DILITHIUM_STONE'}).length;
+  if(dCount>0 && ART_INFO[sp.name]){
+   var dMult=1;
+   stones.forEach(function(st){if(st && st.name==='DILITHIUM_STONE')dMult*=(DILITHIUM_STONE_MULT[st.level]||1)});
+   dilithiumHolders.push({name:formatArtLabel(sp),dCount:dCount,mult:dMult});
+  }
+
+  var score=(TIER_RANK[sp.level]||0)*10 + (RARITY_RANK[sp.rarity]||0);
+  if(!bestOwned[sp.name] || score>bestOwned[sp.name].score){
    var info=ART_INFO[sp.name]||{name:shipName(sp.name),role:'other',desc:''};
-   bestOwned[sp.name]={rawName:sp.name,name:info.name+' ('+(TIER_MAP[sp.level]||'')+')',rank:rank,qty:it.quantity,desc:info.desc};
+   bestOwned[sp.name]={rawName:sp.name,name:formatArtLabel(sp),score:score,qty:it.quantity,desc:info.desc};
   }
  });
+
+ dilithiumHolders.sort(function(a,b){return b.mult-a.mult});
+ var setDilithium=dilithiumHolders.slice(0,maxArtSlots);
+ var potentialDilithiumMult=1;
+ setDilithium.forEach(function(x){potentialDilithiumMult*=x.mult});
 
  function pickSet(priorityList){
   var res=[];
@@ -505,13 +624,17 @@ function analyzeArtifacts(b,slots){
   }
   return res;
  }
- var setMain=pickSet(['PHOENIX_FEATHER','BOOK_OF_BASAN','DEMETERS_NECKLACE','TUNGSTEN_ANKH','VIAL_MARTIAN_DUST']);
+ var setMain=isEnlightenment
+  ?pickSet(['LIGHT_OF_EGGENDIL','PHOENIX_FEATHER','DEMETERS_NECKLACE','TUNGSTEN_ANKH','ORNATE_GUSSET'])
+  :pickSet(['PHOENIX_FEATHER','BOOK_OF_BASAN','DEMETERS_NECKLACE','TUNGSTEN_ANKH','VIAL_MARTIAN_DUST']);
  var setResearch=pickSet(['PUZZLE_CUBE','DEMETERS_NECKLACE','TUNGSTEN_ANKH']);
  var setDrones=pickSet(['AURELIAN_BROOCH','NEODYMIUM_MEDALLION','BEAK_OF_MIDAS','DEMETERS_NECKLACE']);
 
  var consumeList=[];
  inv.forEach(function(it){
-  var sp=(it.artifact&&it.artifact.spec)||{};
+  var comp=it.artifact||{};
+  var sp=comp.spec||{};
+  if(sp.rarity && sp.rarity!=='COMMON')return;
   var qty=it.quantity||0;
   var isMat=(sp.name.indexOf('METEORITE')>=0 || sp.name.indexOf('GEODE')>=0 || sp.name.indexOf('TITANIUM')>=0 || sp.name.indexOf('FRAGMENT')>=0 || sp.name.indexOf('STONE')>=0);
   if(!isMat && sp.level==='INFERIOR' && qty>15){
@@ -520,10 +643,18 @@ function analyzeArtifacts(b,slots){
   }
  });
 
- return {equipped:equipped,maxArtSlots:maxArtSlots,gussetMult:gussetMult,metronomeMult:metronomeMult,compassMult:compassMult,setMain:setMain,setResearch:setResearch,setDrones:setDrones,consumeList:consumeList};
+ return {
+  equipped:equipped,maxArtSlots:maxArtSlots,
+  gussetMult:gussetMult,metronomeMult:metronomeMult,compassMult:compassMult,
+  tachyonStoneMult:tachyonStoneMult,quantumStoneMult:quantumStoneMult,
+  dilithiumMult:dilithiumMult,potentialDilithiumMult:potentialDilithiumMult,
+  setDilithium:setDilithium,looseStones:looseStones,
+  enlightenmentWarnings:enlightenmentWarnings,
+  setMain:setMain,setResearch:setResearch,setDrones:setDrones,consumeList:consumeList
+ };
 }
 
-function analyzeBoosts(b,sim,slots,hab,prestigeInfo,hasAffordableResearch){
+function analyzeBoosts(b,sim,slots,hab,prestigeInfo,hasAffordableResearch,art){
  var g=b.game||{};
  var maxBoostSlots=(slots===3)?5:2;
 
@@ -553,6 +684,10 @@ function analyzeBoosts(b,sim,slots,hab,prestigeInfo,hasAffordableResearch){
  var bestSoul=bestByCat('soul');
  var bestBeacon=bestByCat('beacon');
 
+ var dilNote=(art && art.potentialDilithiumMult>1.01)
+  ?(' טיפ: הרכב קודם סט Dilithium (+'+Math.round((art.potentialDilithiumMult-1)*100)+'% משך בוסט) לפני ההפעלה!')
+  :'';
+
  var recCombo=[];
  var shouldUseNow=false;
  var recTitle='אין צורך להפעיל בוסט כרגע';
@@ -568,18 +703,18 @@ function analyzeBoosts(b,sim,slots,hab,prestigeInfo,hasAffordableResearch){
   if(bestSoul && recCombo.length<maxBoostSlots)recCombo.push(bestSoul);
   if(bestBeacon && recCombo.length<maxBoostSlots)recCombo.push(bestBeacon);
   recTitle='כן — הפעל שילוב Prestige עכשיו';
-  recReason='הלולים כמעט מלאים! הפעל והחזק תרנגולות רצות 10 דקות לפני ביצוע Prestige.';
+  recReason='הלולים כמעט מלאים! הפעל והחזק תרנגולות רצות 10 דקות לפני ביצוע Prestige.'+dilNote;
  }else if(hab.habPct<40 && bestTachyon && !hasAffordableResearch){
   shouldUseNow=true;
   recCombo.push(bestTachyon);
   recTitle='אפשר להפעיל Tachyon Prism למילוי לולים';
-  recReason='הלולים ב-'+hab.habPct.toFixed(0)+'% תפוסה. הגדלת כמות התרנגולות תאיץ הכנסות ו-Soul Eggs.';
+  recReason='הלולים ב-'+hab.habPct.toFixed(0)+'% תפוסה. הגדלת כמות התרנגולות תאיץ הכנסות ו-Soul Eggs.'+dilNote;
  }else if(!hasAffordableResearch && hab.habPct>=40 && hab.habPct<95 && bestFeed){
   shouldUseNow=true;
   recCombo.push(bestFeed);
   if(bestBeacon && recCombo.length<maxBoostSlots)recCombo.push(bestBeacon);
   recTitle='אפשר להפעיל בוסט הכנסות לפתיחת מחקר';
-  recReason='המחקר הבא יקר מהמזומן הפנוי — בוסט הכנסות יקפיץ את התקציב.';
+  recReason='המחקר הבא יקר מהמזומן הפנוי — בוסט הכנסות יקפיץ את התקציב.'+dilNote;
  }
 
  return {maxBoostSlots:maxBoostSlots,active:active,owned:owned,shouldUseNow:shouldUseNow,recCombo:recCombo,recTitle:recTitle,recReason:recReason};
@@ -710,14 +845,14 @@ function plan(b,R){
  var cash=farmCash(sim);
  var elv=lvMap(g.epicResearch);
  var clv=lvMap(sim.commonResearch);
- var art=analyzeArtifacts(b,slots);
+ var art=analyzeArtifacts(b,slots,sim.eggType);
  var logi=calcFarmLogistics(sim,clv,elv,art);
  var C=commonPlan(R,clv,virt,cash,elv,logi.shipBottleneck);
  var hasAffordableResearch=(C.affordableList.length>0);
  var fuelInfo=checkShipFuel(b,sim);
  var eggProg=calcEggProgress(b,sim,fuelInfo);
  var prestigeInfo=calcPrestigeInfo(b,sim,logi,hasAffordableResearch,eggProg);
- var boostInfo=analyzeBoosts(b,sim,slots,logi,prestigeInfo,hasAffordableResearch);
+ var boostInfo=analyzeBoosts(b,sim,slots,logi,prestigeInfo,hasAffordableResearch,art);
 
  var run=runMode;
  if(run==='auto'){
@@ -735,6 +870,10 @@ function plan(b,R){
  var free=Math.max(0,slots-busy2);
 
  if((g.unclaimedEggsOfProphecy||0)>0||(g.uncliamedGoldenEggs||0)>0)a.push([5,'אסוף ביצים שממתינות בחווה','Prophecy או Golden Eggs מוכנות לאיסוף.']);
+
+ if(art.enlightenmentWarnings.length>0){
+  a.push([9,'אזהרת Enlightenment: ארטיפקטים ללא Clarity Stone','הארטיפקטים '+art.enlightenmentWarnings.join(', ')+' לא פועלים בביצת Enlightenment ללא אבן Clarity!','artifacts']);
+ }
 
  if(eggProg.canUpgradeEgg){
   if(eggProg.shouldFillTankFirst){
@@ -764,7 +903,7 @@ function plan(b,R){
  }
 
  var mainNames=art.setMain.map(function(x){return x.name}).join(' + ');
- var eqNames=art.equipped.map(function(x){return x.name}).join(' + ');
+ var eqNames=art.equipped.map(function(x){return x.baseName}).join(' + ');
  if(mainNames && mainNames!==eqNames){
   a.push([21,'הרכב סט ארטיפקטים ראשי: '+mainNames,'מותקן כרגע: '+(eqNames||'כלום')+'.','artifacts']);
  }
@@ -838,6 +977,11 @@ function copyDiag(){
  var sim=homeFarm(last);
  var db=last.artifactsDb||{};
  var g=last.game||{};
+ var inv=db.inventoryItems||[];
+ var byId={};
+ inv.forEach(function(it){byId[it.itemId]=it});
+ var sets=db.activeArtifactSets||[];
+ var equippedFull=((sets[0]&&sets[0].slots)||[]).filter(function(s){return s&&s.occupied}).map(function(s){return byId[s.itemId]||s});
  var diag={
   eggType:sim.eggType,
   farmValue:sim.farmValue,
@@ -850,7 +994,7 @@ function copyDiag(){
   habPopulation:sim.habPopulation,
   boostsOwned:g.boosts,
   activeBoosts:sim.activeBoosts,
-  activeArtifactSets:db.activeArtifactSets
+  equippedArtifactsFull:equippedFull
  };
  var txt=JSON.stringify(diag,null,2);
  if(navigator.clipboard&&navigator.clipboard.writeText){
@@ -870,7 +1014,7 @@ function show(b,R){
  h+='<button onclick="jumpTo(\'sec-research\')">מחקר ('+P.C.affordableList.length+')</button>';
  h+='<button onclick="jumpTo(\'sec-farm\')">ביצה ומשלוחים</button>';
  h+='<button onclick="jumpTo(\'sec-boosts\')">בוסטים ו-Prestige</button>';
- h+='<button onclick="jumpTo(\'sec-artifacts\')">ארטיפקטים</button>';
+ h+='<button onclick="jumpTo(\'sec-artifacts\')">ארטיפקטים ואבנים</button>';
  h+='<button onclick="jumpTo(\'sec-contracts\')">חוזים ('+P.CD.length+')</button>';
  h+='<button onclick="jumpTo(\'sec-epic\')">אפיק וספינות</button>';
  h+='</div>';
@@ -965,16 +1109,35 @@ function show(b,R){
  }
  h+='</div></details>';
 
- // 4. ארטיפקטים
+ // 4. ארטיפקטים ואבנים
  var mainNames=P.art.setMain.map(function(x){return x.name}).join(' + ');
- var eqNames=P.art.equipped.map(function(x){return x.name}).join(' + ');
- var artMismatch=(mainNames && mainNames!==eqNames);
- h+='<details id="sec-artifacts" class="card" '+(artMismatch?'open':'')+'><summary class="sum-head"><span>ארטיפקטים ('+P.art.equipped.length+'/'+P.art.maxArtSlots+')</span><span class="badge '+(artMismatch?'b-rew':'b-wait')+'">'+(artMismatch?'נדרשת החלפה':'סט אופטימלי')+'</span></summary>';
+ var eqNames=P.art.equipped.map(function(x){return x.baseName}).join(' + ');
+ var artMismatch=(mainNames && mainNames!==eqNames) || P.art.enlightenmentWarnings.length>0;
+ h+='<details id="sec-artifacts" class="card" '+(artMismatch?'open':'')+'><summary class="sum-head"><span>ארטיפקטים ואבנים ('+P.art.equipped.length+'/'+P.art.maxArtSlots+')</span><span class="badge '+(artMismatch?'b-rew':'b-wait')+'">'+(artMismatch?'דורש תשומת לב':'סט אופטימלי')+'</span></summary>';
  h+='<div style="margin-top:8px">';
- h+='<p><b>מותקן כרגע:</b> '+(P.art.equipped.length?P.art.equipped.map(function(x){return esc(x.name)}).join(' + '):'כלום')+'</p>';
- if(P.art.setMain.length)h+='<p><small><b>סט ראשי (הכנסות/Prestige):</b> '+P.art.setMain.map(function(x){return esc(x.name)}).join(' + ')+'</small></p>';
+ if(P.art.enlightenmentWarnings.length>0){
+  h+='<div class="status-banner alert"><b>אזהרת Enlightenment:</b><small>הארטיפקטים '+esc(P.art.enlightenmentWarnings.join(', '))+' אינם פעילים ללא שיבוץ Clarity Stone.</small></div>';
+ }
+ if(P.art.equipped.length){
+  h+='<p><b>מותקן כרגע (כולל אבנים):</b></p>';
+  P.art.equipped.forEach(function(x){
+   var stHtml=x.stones.length?x.stones.map(function(s){return '<span class="stone-pill">'+esc(s)+'</span>'}).join(''):'<small> (ללא אבנים)</small>';
+   h+=row('<b>'+esc(x.baseName)+'</b>',stHtml);
+  });
+ }else{
+  h+='<p><b>מותקן כרגע:</b> כלום</p>';
+ }
+
+ if(P.art.setMain.length)h+='<p style="margin-top:8px"><small><b>סט ראשי (הכנסות/Prestige):</b> '+P.art.setMain.map(function(x){return esc(x.name)}).join(' + ')+'</small></p>';
  if(P.art.setResearch.length)h+='<p><small><b>לסבב קניית מחקר יקר:</b> '+P.art.setResearch.map(function(x){return esc(x.name)}).join(' + ')+'</small></p>';
  if(P.art.setDrones.length)h+='<p><small><b>לציד רחפנים (GE):</b> '+P.art.setDrones.map(function(x){return esc(x.name)}).join(' + ')+'</small></p>';
+ if(P.art.setDilithium.length){
+  var dPct=Math.round((P.art.potentialDilithiumMult-1)*100);
+  h+='<p><small><b>סט Dilithium (להרכבה רגע לפני בוסט'+(dPct>0?' • +'+dPct+'% זמן':'')+'):</b> '+P.art.setDilithium.map(function(x){return esc(x.name)}).join(' + ')+'</small></p>';
+ }
+ if(P.art.looseStones.length){
+  h+='<div class="c-box"><small><b>אבנים פנויות בתיק לשיבוץ:</b> '+P.art.looseStones.map(function(x){return esc(x.name)+' ×'+x.qty}).join(', ')+'</small></div>';
+ }
  if(P.art.consumeList.length){
   h+='<div class="c-box"><small><b>עודפי T1 לפירוק (Consume):</b> '+P.art.consumeList.map(function(x){return esc(x.name)+' (פרק '+x.excess+')'}).join(', ')+'</small></div>';
  }
@@ -1032,7 +1195,7 @@ $('go').addEventListener('click',function(){run(false)});
 $('btn-ref').addEventListener('click',function(){run(false)});
 $('btn-eid').addEventListener('click',function(){var b=$('eid-bar');b.style.display=(b.style.display==='none'?'flex':'none')});
 ['slots','run','shipTarget'].forEach(function(id){var v=sget(id);if(v)$(id).value=v;$(id).addEventListener('change',function(){sset(id,$(id).value);if(last&&RES)show(last,RES)})});
-var s=sget(eid);if(s){$('eid').value=s;run(false)}
+var s=sget('eid');if(s){$('eid').value=s;run(false)}
 setInterval(function(){if(!document.hidden&&$('eid').value.trim())run(true)},20000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&$('eid').value.trim())run(true)});
 </script></body></html>
