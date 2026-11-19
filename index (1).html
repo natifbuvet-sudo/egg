@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12151d">
+<title>Egg Inc - הצעד הבא</title>
+
+<style>
+:root{--bg:#f3f0e6;--s:#fffdf7;--ink:#1d2330;--mut:#5d6577;--line:#d9d3c0;--acc:#2d5be3;--accink:#fff;--y:#f5b82e;--bad:#b3261e}
+@media(prefers-color-scheme:dark){:root{--bg:#12151d;--s:#1b2030;--ink:#eceef5;--mut:#9aa3b8;--line:#2c3348;--acc:#7b9bff;--accink:#0f1320;--bad:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Segoe UI",Arial,sans-serif;line-height:1.5;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+main{max-width:560px;margin:0 auto;padding:16px 14px 40px}
+h1{font-size:1.25rem;margin:0 0 12px}
+.row{display:flex;gap:8px;margin-bottom:10px}
+input,select{font:inherit;color:var(--ink);background:var(--s);border:1px solid var(--line);border-radius:10px;padding:10px;width:100%}
+button{font:inherit;background:var(--acc);color:var(--accink);border:0;border-radius:10px;padding:10px 16px;cursor:pointer;white-space:nowrap}
+button.g{background:var(--s);color:var(--ink);border:1px solid var(--line)}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.hero{background:var(--ink);color:var(--bg);border-radius:18px;padding:18px;margin:12px 0;border-inline-start:8px solid var(--y)}
+.hero small{display:block;color:var(--y);font-weight:600;margin-bottom:4px}
+.hero h2{margin:0 0 6px;font-size:1.45rem;line-height:1.25}
+.hero p{margin:0;opacity:.85}
+ol{list-style:none;margin:0 0 16px;padding:0}
+li.it{background:var(--s);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+li.it b{display:block}li.it span{color:var(--mut);font-size:.9rem}
+.st{background:var(--s);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:.92rem}
+.st div{display:flex;justify-content:space-between;padding:3px 0}
+.st span:first-child{color:var(--mut)}
+.err{color:var(--bad);margin:8px 0}
+.warn{background:var(--s);border:1px solid var(--y);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:.9rem}
+.card{background:var(--s);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0;font-size:.92rem}.card h3{margin:0 0 6px;font-size:1rem}.card .l{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--line)}.card .l:first-of-type{border-top:0}.card small{color:var(--mut)}.note{color:var(--mut);font-size:.82rem;margin-top:14px}
+details{margin-top:12px}
+</style></head><body><main>
+<h1>Egg Inc - הצעד הבא (גרסה 3.1)</h1>
+<div class="row"><input id="eid" placeholder="ה-EID שלך (מתחיל ב-EI)" autocomplete="off" aria-label="EID"><button id="go">טען</button></div>
+<div id="out"></div><p class="note" id="sync"></p>
+<details><summary>הגדרות</summary>
+<div class="row" style="margin-top:8px"><label style="flex:1">מספר מקומות לספינות<input id="slots" type="number" min="1" max="3" value="3"></label>
+<label style="flex:2">מצב הריצה הנוכחית<select id="run"><option value="mid">באמצע הריצה</option><option value="start">התחלתי עכשיו</option><option value="ready">מוכן ל-Prestige</option></select></label></div>
+</details>
+<p class="note">ההמלצות מתבססות על הגיבוי האחרון של החשבון שלך בענן של המשחק, ולכן יתכן עיכוב של כמה דקות. הסדר הוא כלל אצבע של שחקנים מנוסים. ההמלצות כוללות רק פעולות חינמיות עם מה שכבר צברת, בלי רכישות בכסף אמיתי. ה-EID נמצא במשחק בהגדרות, ליד "Privacy &amp; data".</p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/protobufjs@7.2.6/dist/protobuf.min.js"></script>
+<script>
+var PROTO='https://raw.githubusercontent.com/carpetsage/egg/main/protobuf/ei.proto';
+var RES_URL='https://raw.githubusercontent.com/carpetsage/egg/main/lib/researches.json';
+var PRI=['soul_eggs','prophecy_bonus','prestige_bonus','epic_egg_laying','epic_multiplier','afx_mission_time','afx_mission_capacity','transportation_lobbyist','accounting_tricks','int_hatch_calm','epic_internal_incubators','epic_hatchery','drone_rewards','epic_clucking'];
+var W={egg_value:1,egg_laying_rate:1,'egg_laying_rate,egg_value':1,running_chicken_bonus:.8,shipping_capacity:.7,hab_capacity:.7,internal_hatchery_rate:.5,fleet_size:.2,hatchery_capacity:.1,hatchery_refill_rate:.05};
+var VIRT={CURIOSITY:1,INTEGRITY:1,HUMILITY:1,RESILIENCE:1,KINDNESS:1};
+var SUF=['','K','M','B','T','q','Q','s','S','o','N','d','U','D'];
+function fmt(n){n=Number(n)||0;var i=0;while(n>=1000&&i<SUF.length-1){n/=1000;i++}return (i?n.toFixed(2):Math.round(n))+SUF[i]}
+function esc(s){return String(s).split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;').split('"').join('&quot;')}
+function $(id){return document.getElementById(id)}
+function sget(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sset(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+var root=null,RES=null,last=null,busy=false;
+async function getRoot(){if(root)return root;var t=await (await fetch(PROTO)).text();root=protobuf.parse(t,{keepCase:false}).root;return root}
+async function getRes(){if(RES)return RES;RES=await (await fetch(RES_URL)).json();return RES}
+async function post(b64,enc){return fetch('/proxy',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+(enc?encodeURIComponent(b64):b64)})}
+async function load(eid){
+ var R=await getRoot();var Req=R.lookupType('ei.EggIncFirstContactRequest');var Res=R.lookupType('ei.EggIncFirstContactResponse');
+ var msg=Req.create({rinfo:{eiUserId:'',clientVersion:72,version:'1.35.7',build:'111343',platform:'IOS'},eiUserId:eid,deviceId:'egg-next-step',clientVersion:72,platform:1});
+ var bytes=Req.encode(msg).finish();var bin='';for(var i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);var b64=btoa(bin);
+ var r=await post(b64,false);if(!r.ok)r=await post(b64,true);
+ var txt=await r.text();if(!r.ok)throw new Error('השרת של המשחק החזיר שגיאה ('+r.status+')');
+ var raw=atob(txt.trim());var u=new Uint8Array(raw.length);for(var j=0;j<raw.length;j++)u[j]=raw.charCodeAt(j);
+ var o=Res.toObject(Res.decode(u),{longs:Number,enums:String,defaults:false});
+ if(!o.backup)throw new Error('לא נמצא חשבון עם ה-EID הזה');
+ return o.backup;
+}
+var TH=[0,30,80,160,280,400,520,650,800,980,1185,1390,1655];
+function homeFarm(b){var f=b.farms||[];for(var i=0;i<f.length;i++){if(f[i].farmType==='HOME')return f[i]}return f[0]||b.sim||{}}
+function lvMap(arr){var m={};(arr||[]).forEach(function(r){m[r.id]=r.level||0});return m}
+function epicPlan(R,lv,avail){
+ var ep=R.filter(function(r){return r.type==='epic'}).filter(function(r){return (lv[r.id]||0)<r.levels});
+ ep.sort(function(a,b){var x=PRI.indexOf(a.id),y=PRI.indexOf(b.id);if(x<0)x=999;if(y<0)y=999;if(x!==y)return x-y;return a.prices[lv[a.id]||0]-b.prices[lv[b.id]||0]});
+ var rows=ep.map(function(r){var L=lv[r.id]||0;var left=0;for(var i=L;i<r.levels;i++)left+=r.prices[i];return {r:r,L:L,price:r.prices[L],left:left}});
+ var buy=null;if(rows.length){var f=rows[0],n=0,sum=0,L=f.L;while(L<f.r.levels&&sum+f.r.prices[L]<=avail){sum+=f.r.prices[L];L++;n++}buy={row:f,n:n,sum:sum}}
+ return {rows:rows,buy:buy};
+}
+function cgain(r,L){var p=r.per_level,g;if(r.effect_type==='multiplicative'){g=r.levels_compound==='multiplicative'?Math.log(1+p):Math.log((1+p*(L+1))/(1+p*L))}else{g=p/(1+p*L+(p<1?1:10))}var w=W[r.categories];return g*(w===undefined?0.1:w)}
+function commonPlan(R,lv,virt){
+ var rows=[],cm=R.filter(function(r){return r.type==='common'});
+ function bought(t){var n=0;cm.forEach(function(r){if(r.tier<=t)n+=lv[r.id]||0});return n}
+ cm.forEach(function(r){var L=lv[r.id]||0;if(L>=r.levels)return;if(r.tier>1&&(r.tier-1>=TH.length||bought(r.tier-1)<TH[r.tier-1]))return;var pr=(virt?r.virtue_prices:r.prices)||r.prices;var p=pr[L];if(!p)return;rows.push({r:r,L:L,score:cgain(r,L)/p})});
+ rows.sort(function(a,b){return b.score-a.score});return rows;
+}
+function shipName(s){return String(s||'').split('_').map(function(w){return w.charAt(0)+w.slice(1).toLowerCase()}).join(' ')}
+function plan(b,R){
+ var now=Date.now()/1000,g=b.game||{},sim=homeFarm(b),db=b.artifactsDb||{},slots=parseInt($('slots').value,10)||3,run=$('run').value,a=[];
+ var virt=!!VIRT[sim.eggType];
+ var ships=[],ready=0,busy2=0;
+ (db.missionInfos||[]).forEach(function(m){var s=m.status,end=(m.startTimeDerived||0)+(m.durationSeconds||0),left=end-now,txt;
+  if(s==='RETURNED'||s==='ANALYZING'){ready++;busy2++;txt='חזרה - לאסוף'}
+  else if(s==='EXPLORING'){busy2++;if(left<=0){ready++;txt='חזרה - לאסוף'}else{var h=Math.floor(left/3600),mi=Math.floor((left%3600)/60);txt='חוזרת בעוד '+h+' שעות ו-'+mi+' דקות'}}
+  else if(s==='FUELING'||s==='PREPARE_TO_LAUNCH'){busy2++;txt=s==='FUELING'?'בתדלוק':'מוכנה לשיגור'}else return;
+  ships.push([shipName(m.ship)+' ('+String(m.durationType||'').toLowerCase()+')',txt])});
+ var free=Math.max(0,slots-busy2);
+ if((g.unclaimedEggsOfProphecy||0)>0||(g.uncliamedGoldenEggs||0)>0)a.push([5,'אסוף ביצים שממתינות לך','יש Prophecy או Golden Eggs שלא נאספו. פתח את המשחק ואסוף אותן.']);
+ if(ready>0)a.push([20,'אסוף '+ready+' ספינות שחזרו','ספינה שחזרה תופסת מקום ומעכבת משימה חדשה. אסוף ושגר מחדש.']);
+ if(free>0)a.push([25,'שגר '+free+' ספינות למשימה','יש לך מקומות פנויים. משימה שרצה ברקע היא התקדמות חינם. בחר משימה ארוכה אם לא תחזור בקרוב.']);
+ var cs=(b.contracts&&b.contracts.contracts)||[];var act=cs.filter(function(c){return c.accepted&&!c.cancelled&&!c.coopContributionFinalized});
+ if(act.length===0)a.push([30,'הצטרף לחוזה ולקו-אופ','אין לך חוזה פעיל. חוזים הם המקור העיקרי ל-Prophecy Eggs. היכנס ללשונית Contracts.']);
+ act.forEach(function(c){var n=(c.contract&&c.contract.name)||c.contractIdentifier||'חוזה';if(!c.coopIdentifier)a.push([30,'הצטרף לקו-אופ בחוזה '+n,'החוזה פעיל אבל אינך בקו-אופ. בלי קו-אופ קשה להשלים את כל המטרות.']);else a.push([55,'המשך חוזה '+n,'אתה בקו-אופ '+c.coopIdentifier+'. מטרות שהושגו: '+(c.numGoalsAchieved||0)+'. בדוק שהתרומה שלך מתקדמת.'])});
+ var avail=(g.goldenEggsEarned||0)-(g.goldenEggsSpent||0),elv=lvMap(g.epicResearch);
+ var E=epicPlan(R,elv,avail);
+ if(E.buy){var f=E.buy.row;if(E.buy.n>0)a.push([35,'מחקר אפיק: שדרג את '+f.r.name+' ב-'+E.buy.n+' רמות','עכשיו רמה '+f.L+' מתוך '+f.r.levels+'. עלות '+fmt(E.buy.sum)+' Golden Eggs מתוך '+fmt(avail)+' שצברת. זה הפריט הראשון בסדר העדיפויות.']);else a.push([66,'מחקר אפיק: חסוך ל-'+f.r.name,'הרמה הבאה עולה '+fmt(f.price)+' ויש לך '+fmt(avail)+'. חסרות '+fmt(f.price-avail)+' Golden Eggs.'])}
+ var C=commonPlan(R,lvMap(sim.commonResearch),virt);
+ if(C.length)a.push([38,'מחקר רגיל: '+C[0].r.name+' לרמה '+(C[0].L+1),'לפי הערכת רווח ביחס לעלות זה המחקר הכי משתלם. אם הוא נעול או יקר מדי, קח את הבא ברשימה למטה.']);
+ var gift=g.nextDailyGiftTime||0;if(gift>1e12)gift/=1000;if(gift>0&&gift<now)a.push([40,'אסוף את המתנה היומית','הזמן של המתנה היומית עבר.']);
+ if((sim.unclaimedBoostTokens||0)>0)a.push([45,'השתמש ב-'+sim.unclaimedBoostTokens+' טוקנים שממתינים','הטוקנים כבר שלך ולא עולים כסף. טוקנים שלא נוצלו לא תורמים כלום.']);
+ var ownedB=(g.boosts||[]).reduce(function(x,y){return x+(y.count||0)},0);
+ if(run==='mid'&&(sim.activeBoosts||[]).length===0&&ownedB>0)a.push([48,'אין בוסט פעיל, ויש לך '+ownedB+' בוסטים','אם אתה באמצע ריצה, הפעלת בוסט שכבר יש לך תקצר אותה.']);
+ if(run==='ready')a.push([10,'בצע Prestige','סימנת שהחווה מוכנה. החלף לסט Soul Eggs, השתמש בבוסטים ובצע Prestige.']);
+ if(run==='start')a.push([15,'התקן את סט הארטיפקטים והשתמש בבוסטים שכבר יש לך','תחילת ריצה היא הזמן להשתמש במה שכבר צברת. אין צורך לקנות כלום.']);
+ var v=b.virtue||{};if((v.eovEarned||[]).length)a.push([70,'המשך עבודה על ביצי Virtue','Truth Eggs שנצברו עד כה: '+(v.eovEarned||[]).reduce(function(x,y){return x+y},0)+'.']);
+ a.sort(function(x,y){return x[0]-y[0]});
+ if(!a.length)a.push([99,'אין פעולה דחופה','הכל מסודר. חזור לבדוק בעוד כמה שעות.']);
+ return {a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,ownedB:ownedB,slots:slots,busy:busy2,g:g,sim:sim};
+}
+function row(l,r){return '<div class="l"><span>'+l+'</span><span>'+r+'</span></div>'}
+function show(b,R){
+ var P=plan(b,R),a=P.a,h='';
+ var age=Math.round((Date.now()/1000-(b.approxTime||0))/60);
+ if(age>30)h+='<div class="warn">הגיבוי בן '+age+' דקות. סגור ופתח את המשחק כדי שיתעדכן בענן. האפליקציה מרעננת לבד כל דקה.</div>';
+ h+='<div class="hero"><small>עכשיו</small><h2>'+esc(a[0][1])+'</h2><p>'+esc(a[0][2])+'</p></div><ol>';
+ a.slice(1).forEach(function(x){h+='<li class="it"><b>'+esc(x[1])+'</b><span>'+esc(x[2])+'</span></li>'});
+ h+='</ol>';
+ h+='<div class="card"><h3>מחקר אפיק (לפי סדר עדיפויות)</h3>';
+ P.E.rows.slice(0,6).forEach(function(x){h+=row(esc(x.r.name)+' <small>רמה '+x.L+' מתוך '+x.r.levels+'</small>',fmt(x.price)+' GE')});
+ h+='<small>יש לך '+fmt(P.avail)+' Golden Eggs פנויות. המחירים מדויקים.</small></div>';
+ h+='<div class="card"><h3>מחקר רגיל (הערכת רווח ביחס לעלות)</h3>';
+ P.C.slice(0,6).forEach(function(x,i){h+=row((i+1)+'. '+esc(x.r.name)+' <small>רמה '+x.L+' מתוך '+x.r.levels+'</small>',esc(String(x.r.categories).split('_').join(' ')))});
+ h+='<small>זו הערכה ולא סימולציה. בדוק במשחק שהמחקר פתוח ושיש לך מספיק כסף. חווה: '+(P.virt?'Virtue':'רגילה או Enlightenment')+'.</small></div>';
+ h+='<div class="card"><h3>ספינות</h3>';
+ if(P.ships.length)P.ships.forEach(function(s){h+=row(esc(s[0]),esc(s[1]))});else h+='<small>אין ספינות פעילות בגיבוי.</small>';
+ h+='</div>';
+ h+='<div class="card"><h3>מצב החשבון</h3>'+row('שם',esc(b.userName||''))+row('Soul Eggs',fmt(P.g.soulEggsD||P.g.soulEggs))+row('Prophecy Eggs',fmt(P.g.eggsOfProphecy))+row('חוזים פעילים',P.act)+row('בוסטים שברשותך',P.ownedB)+row('גיל הגיבוי',age+' דקות')+'</div>';
+ h+='<details><summary>מידע טכני</summary><div class="card">'+row('סוג ביצה',esc(P.sim.eggType||''))+row('סוג חווה',esc(P.sim.farmType||''))+row('מספר חוות בגיבוי',(b.farms||[]).length)+row('סוגי חוות',esc((b.farms||[]).map(function(f){return f.farmType}).join(', ')))+row('סך שדרוגי מחקר רגיל',(P.sim.commonResearch||[]).reduce(function(x,y){return x+(y.level||0)},0))+row('מחקרים רגילים בגיבוי',(P.sim.commonResearch||[]).length)+'</div></details>';
+ $('out').innerHTML=h;
+}
+async function run(silent){
+ if(busy)return;var eid=$('eid').value.trim();if(!eid){$('out').innerHTML='<p class="err">הכנס EID</p>';return}
+ sset('eid',eid);busy=true;if(!silent||!last)$('out').innerHTML='<p>טוען...</p>';
+ try{var R=await getRes();last=await load(eid);show(last,R);$('sync').textContent='התעדכן '+new Date().toLocaleTimeString('he-IL')+'. מתרענן אוטומטית כל דקה.'}
+ catch(e){if(!last||!silent){$('out').innerHTML='<p class="err">'+esc(e.message||e)+'</p>'}else{$('sync').textContent='הרענון נכשל: '+(e.message||e)}}
+ busy=false;
+}
+$('go').addEventListener('click',function(){run(false)});
+['slots','run'].forEach(function(id){var v=sget(id);if(v)$(id).value=v;$(id).addEventListener('change',function(){sset(id,$(id).value);if(last&&RES)show(last,RES)})});
+var s=sget('eid');if(s){$('eid').value=s;run(false)}
+setInterval(function(){if(!document.hidden&&$('eid').value.trim())run(true)},60000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&$('eid').value.trim())run(true)});
+
+</script></body></html>
