@@ -26,9 +26,9 @@ button.sm-btn{margin-top:5px;background:transparent;color:var(--acc);border:1px 
 button.copy-btn{background:var(--acc);color:var(--accink);width:100%;padding:8px;margin-top:6px;border-radius:8px}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .hud{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
-.hud-box{background:var(--s);border:1px solid var(--line);border-radius:9px;padding:6px 8px;text-align:center}
-.hud-box small{display:block;font-size:.72rem;color:var(--mut)}
-.hud-box b{font-size:.9rem}
+.hud-box{background:var(--s);border:1px solid var(--line);border-radius:9px;padding:6px 6px;text-align:center}
+.hud-box small{display:block;font-size:.7rem;color:var(--mut)}
+.hud-box b{font-size:.86rem}
 .hero{background:var(--ink);color:var(--bg);border-radius:14px;padding:12px 14px;margin:8px 0;border-inline-start:6px solid var(--y)}
 .hero small{display:block;color:var(--y);font-weight:700;font-size:.78rem;margin-bottom:2px}
 .hero h2{margin:0 0 4px;font-size:1.15rem;line-height:1.25}
@@ -65,7 +65,7 @@ details{margin-top:8px}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 7</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 8</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -79,12 +79,19 @@ details{margin-top:8px}
 <label style="flex:2;font-size:.82rem">מצב הריצה הנוכחית<select id="run"><option value="mid">באמצע הריצה</option><option value="start">התחלתי עכשיו</option><option value="ready">מוכן ל-Prestige</option></select></label>
 </div>
 <div class="row">
-<label style="flex:1;font-size:.82rem">ספינת יעד לשיגור<select id="shipTarget">
-<option value="ATREGGIES">Atreggies Henliner (הכי מתקדמת)</option>
-<option value="HENERPRISE">Henerprise</option>
-<option value="VOYEGGER">Voyegger</option>
-<option value="DEFIHENT">Defihent</option>
-<option value="GALENGG">Galeggtica</option>
+<label style="flex:1;font-size:.82rem">ספינה לשיגור<select id="shipTarget">
+<option value="auto">אוטומטי (לפי מה שפתוח בחשבון)</option>
+<option value="CHICKEN_ONE">Chicken One (Rocket Fuel)</option>
+<option value="CHICKEN_NINE">Chicken Nine (Rocket Fuel)</option>
+<option value="CHICKEN_HEAVY">Chicken Heavy (Rocket Fuel)</option>
+<option value="BCR">BCR (Rocket Fuel + Super Material)</option>
+<option value="QUINTILLION_CHICKEN">Quintillion Chicken (Fusion)</option>
+<option value="CORVETTE">Corvette (Fusion + Graviton)</option>
+<option value="GALENGG">Galeggtica (Fusion + Graviton)</option>
+<option value="DEFIHENT">Defihent (Dilithium + Fusion + Graviton)</option>
+<option value="VOYEGGER">Voyegger (Dilithium + Fusion + Graviton)</option>
+<option value="HENERPRISE">Henerprise (Dilithium + Antimatter + Dark Matter)</option>
+<option value="ATREGGIES">Atreggies Henliner (Tachyon + Dilithium + Antimatter + Dark Matter)</option>
 </select></label>
 </div>
 </details>
@@ -97,14 +104,21 @@ var RES_URL='https://raw.githubusercontent.com/carpetsage/egg/main/lib/researche
 var PRI=['soul_eggs','prophecy_bonus','prestige_bonus','epic_egg_laying','epic_multiplier','afx_mission_time','afx_mission_capacity','transportation_lobbyist','accounting_tricks','int_hatch_calm','epic_internal_incubators','epic_hatchery','drone_rewards','epic_clucking'];
 var W={egg_value:1,egg_laying_rate:1,'egg_laying_rate,egg_value':1,running_chicken_bonus:.8,shipping_capacity:.7,hab_capacity:.7,internal_hatchery_rate:.5,fleet_size:.2,hatchery_capacity:.1,hatchery_refill_rate:.05};
 var VIRT={CURIOSITY:1,INTEGRITY:1,HUMILITY:1,RESILIENCE:1,KINDNESS:1};
+var EGG_ORDER=['EDIBLE','SUPERFOOD','MEDICAL','ROCKET_FUEL','SUPER_MATERIAL','FUSION','QUANTUM','IMMORTALITY','TACHYON','GRAVITON','DILITHIUM','PRODIGY','TERRAFORM','ANTIMATTER','DARK_MATTER','AI','NEBULA','UNIVERSE','ENLIGHTENMENT'];
 var EGG_HE={EDIBLE:'Edible',SUPERFOOD:'Superfood',MEDICAL:'Medical',ROCKET_FUEL:'Rocket Fuel',SUPER_MATERIAL:'Super Material',FUSION:'Fusion',QUANTUM:'Quantum',IMMORTALITY:'Immortality',TACHYON:'Tachyon',GRAVITON:'Graviton',DILITHIUM:'Dilithium',PRODIGY:'Prodigy',TERRAFORM:'Terraform',ANTIMATTER:'Antimatter',DARK_MATTER:'Dark Matter',AI:'AI',NEBULA:'Nebula',UNIVERSE:'Universe',ENLIGHTENMENT:'Enlightenment'};
-// ביצי דלק נדרשות לספינות המתקדמות (Extended)
+var SHIP_ORDER=['CHICKEN_ONE','CHICKEN_NINE','CHICKEN_HEAVY','BCR','QUINTILLION_CHICKEN','CORVETTE','GALENGG','DEFIHENT','VOYEGGER','HENERPRISE','ATREGGIES'];
 var SHIP_FUELS={
- ATREGGIES:['TACHYON','DILITHIUM','ANTIMATTER','DARK_MATTER'],
- HENERPRISE:['DILITHIUM','ANTIMATTER','DARK_MATTER'],
- VOYEGGER:['FUSION','GRAVITON','DILITHIUM'],
+ CHICKEN_ONE:['ROCKET_FUEL'],
+ CHICKEN_NINE:['ROCKET_FUEL'],
+ CHICKEN_HEAVY:['ROCKET_FUEL'],
+ BCR:['ROCKET_FUEL','SUPER_MATERIAL'],
+ QUINTILLION_CHICKEN:['FUSION'],
+ CORVETTE:['FUSION','GRAVITON'],
+ GALENGG:['FUSION','GRAVITON'],
  DEFIHENT:['FUSION','GRAVITON','DILITHIUM'],
- GALENGG:['FUSION','GRAVITON']
+ VOYEGGER:['FUSION','GRAVITON','DILITHIUM'],
+ HENERPRISE:['DILITHIUM','ANTIMATTER','DARK_MATTER'],
+ ATREGGIES:['TACHYON','DILITHIUM','ANTIMATTER','DARK_MATTER']
 };
 var SUF=['','K','M','B','T','q','Q','s','S','o','N','d','U','D'];
 function fmt(n){n=Number(n)||0;var i=0;while(n>=1000&&i<SUF.length-1){n/=1000;i++}return (i?n.toFixed(2):Math.round(n))+SUF[i]}
@@ -217,16 +231,38 @@ function getSlotCount(b){
  return (g.permitLevel===1)?3:1;
 }
 
-// בדיקת התאמת ביצה ודלק לפני המלצה על שיגור ספינה
+// זיהוי אוטומטי של הספינה המתקדמת ביותר שפתוחה בחשבון ומצב הדלק
+function detectBestShip(b){
+ var sel=$('shipTarget').value;
+ if(sel && sel!=='auto')return sel;
+ var db=b.artifactsDb||{};
+ var vafx=(b.virtue&&b.virtue.afx)||{};
+ var bestIdx=0; // ברירת מחדל: CHICKEN_ONE (אינדקס 0)
+ function checkShip(s){
+  var i=SHIP_ORDER.indexOf(s);
+  if(i>bestIdx)bestIdx=i;
+ }
+ (db.missionInfos||[]).forEach(function(m){checkShip(m.ship)});
+ (db.missionArchive||[]).forEach(function(m){checkShip(m.ship)});
+ if(vafx.lastFueledShip)checkShip(vafx.lastFueledShip);
+ if(db.lastFueledShip)checkShip(db.lastFueledShip);
+ return SHIP_ORDER[bestIdx]||'CHICKEN_ONE';
+}
+
 function checkShipFuel(b,sim){
- var target=$('shipTarget').value||'ATREGGIES';
- var reqFuels=SHIP_FUELS[target]||[];
+ var target=detectBestShip(b);
+ var reqFuels=SHIP_FUELS[target]||['ROCKET_FUEL'];
  var curEgg=sim.eggType||'';
  var db=b.artifactsDb||{};
- var tank=db.tankFuels||[]; // מערך כמויות דלק במיכל אם קיים
+ var vafx=(b.virtue&&b.virtue.afx)||{};
+ var tank=db.tankFuels||vafx.tankFuels||[];
  var onFuelEgg=(reqFuels.indexOf(curEgg)>=0);
+ var hasFuelInTank=reqFuels.every(function(f){
+  var idx=EGG_ORDER.indexOf(f);
+  return idx>=0 && (tank[idx]||0)>1000;
+ });
  var reqNames=reqFuels.map(function(e){return EGG_HE[e]||e}).join(', ');
- return {target:target,reqFuels:reqFuels,reqNames:reqNames,onFuelEgg:onFuelEgg,curEggName:EGG_HE[curEgg]||curEgg,hasTankData:tank.length>0};
+ return {target:target,reqFuels:reqFuels,reqNames:reqNames,onFuelEgg:onFuelEgg,hasFuelInTank:hasFuelInTank,curEggName:EGG_HE[curEgg]||curEgg};
 }
 
 function plan(b,R){
@@ -245,10 +281,30 @@ function plan(b,R){
 
  var fuelInfo=checkShipFuel(b,sim);
  if(free>0){
-  if(fuelInfo.onFuelEgg){
-   a.push([22,'תדלק ושגר '+shipName(fuelInfo.target)+' (Extended)','אתה נמצא כרגע על ביצת '+fuelInfo.curEggName+' שמתאימה לתדלוק! מלא את הספינה ושגר למשימה ארוכה.']);
+  if(fuelInfo.onFuelEgg || fuelInfo.hasFuelInTank){
+   a.push([22,'שגר ספינת '+shipName(fuelInfo.target),'יש לך מקום פנוי ודלק זמין ('+fuelInfo.reqNames+'). בחר משימה קצרה (Short) כדי לפתוח מהר יותר את הספינות הבאות.']);
   }else{
-   a.push([42,'מקום פנוי לספינה ('+shipName(fuelInfo.target)+'), אך חסרה ביצת דלק','אתה כרגע על ביצת '+fuelInfo.curEggName+'. אם אין לך מספיק דלק במיכל ('+fuelInfo.reqNames+'), תוכל לשגר רק אחרי שתעשה Prestige ותעבור דרך ביצי הדלק.']);
+   a.push([62,'ספינה פנויה ('+shipName(fuelInfo.target)+'), אך אין גישה לדלק כרגע','הספינה דורשת ביצת '+fuelInfo.reqNames+', ואתה כרגע על ביצת '+fuelInfo.curEggName+' (ומיכל הדלק ריק). תוכל לשגר רק בפעם הבאה שתעשה Prestige ותעצור על '+fuelInfo.reqNames+'.']);
+  }
+ }
+
+ // מיקרו-צעדים לחווה: בתי תרנגולות ומשאיות
+ var habs=sim.habs||[];
+ var validHabs=habs.filter(function(x){return x>=0});
+ if(validHabs.length>0){
+  var maxHab=Math.max.apply(null,validHabs);
+  var minHab=Math.min.apply(null,validHabs);
+  if(maxHab>minHab){
+   var lowCount=validHabs.filter(function(x){return x<maxHab}).length;
+   a.push([33,'שדרג '+lowCount+' בתי תרנגולות שנשארו מאחור','יש לך בית ברמה '+maxHab+' אבל '+lowCount+' בתים עדיין ברמה '+minHab+'. השוואתם תגדיל משמעותית את קיבולת האוכלוסייה.']);
+  }
+ }
+ var vehs=sim.vehicles||[];
+ if(vehs.length>0){
+  var minVeh=Math.min.apply(null,vehs);
+  var maxVeh=Math.max.apply(null,vehs);
+  if(maxVeh>minVeh){
+   a.push([39,'שדרג משאיות חלשות (רמה '+minVeh+' מתוך '+maxVeh+')','יש לך '+vehs.length+' משאיות; חלקן עדיין ברמה '+minVeh+'. שדרוג ימנע צוואר בקבוק במשלוחים.']);
   }
  }
 
@@ -275,24 +331,25 @@ function plan(b,R){
 
  var avail=(g.goldenEggsEarned||0)-(g.goldenEggsSpent||0),elv=lvMap(g.epicResearch);
  var E=epicPlan(R,elv,avail);
- if(E.buy){var f=E.buy.row;if(E.buy.n>0)a.push([28,'מחקר אפיק: שדרג את '+f.r.name+' ב-'+E.buy.n+' רמות','עכשיו רמה '+f.L+' מתוך '+f.r.levels+'. עלות '+fmt(E.buy.sum)+' GE מתוך '+fmt(avail)+' פנויות.']);else a.push([66,'מחקר אפיק: חסוך ל-'+f.r.name,'הרמה הבאה עולה '+fmt(f.price)+' GE ויש לך '+fmt(avail)+' (חסרות '+fmt(f.price-avail)+').'])}
+ if(E.buy){var f=E.buy.row;if(E.buy.n>0)a.push([24,'מחקר אפיק: שדרג את '+f.r.name+' ב-'+E.buy.n+' רמות','עכשיו רמה '+f.L+' מתוך '+f.r.levels+'. עלות '+fmt(E.buy.sum)+' GE מתוך '+fmt(avail)+' פנויות.']);else a.push([66,'מחקר אפיק: חסוך ל-'+f.r.name,'הרמה הבאה עולה '+fmt(f.price)+' GE ויש לך '+fmt(avail)+' (חסרות '+fmt(f.price-avail)+').'])}
 
  var C=commonPlan(R,lvMap(sim.commonResearch),virt);
  if(C.length){
-  a.push([26,'מחקר רגיל #1: שדרג '+C[0].r.name+' (רמה '+(C[0].L+1)+')','השדרוג הכי משתלם כרגע בחווה הראשית ('+EGG_HE[sim.eggType]+').']);
-  if(C.length>1)a.push([36,'מחקר רגיל #2: שדרג '+C[1].r.name+' (רמה '+(C[1].L+1)+')','שדרוג המשך מומלץ מיד אחרי הקודם.']);
+  a.push([25,'מחקר רגיל #1: שדרג '+C[0].r.name+' (רמה '+(C[0].L+1)+')','השדרוג הכי משתלם כרגע בחווה הראשית ('+EGG_HE[sim.eggType]+').']);
+  if(C.length>1)a.push([35,'מחקר רגיל #2: שדרג '+C[1].r.name+' (רמה '+(C[1].L+1)+')','שדרוג המשך מומלץ מיד אחרי הקודם.']);
  }
 
- var gift=g.nextDailyGiftTime||0;if(gift>1e12)gift/=1000;if(gift>0&&gift<now)a.push([24,'אסוף את המתנה היומית','הזמן של המתנה היומית עבר — לחץ על אייקון המתנה בצד.']);
+ var gift=g.nextDailyGiftTime||0;if(gift>1e12)gift/=1000;if(gift>0&&gift<now)a.push([20,'אסוף את המתנה היומית','הזמן של המתנה היומית עבר — לחץ על אייקון המתנה בצד.']);
  if((sim.unclaimedBoostTokens||0)>0)a.push([34,'אסוף '+sim.unclaimedBoostTokens+' טוקני בוסט שממתינים','יש טוקנים מוכנים לאיסוף בחווה הראשית.']);
  var ownedB=(g.boosts||[]).reduce(function(x,y){return x+(y.count||0)},0);
  if(run==='mid'&&(sim.activeBoosts||[]).length===0&&ownedB>0)a.push([48,'אין בוסט פעיל בחווה הראשית (יש לך '+ownedB+' במלאי)','אם אתה באמצע ריצה, הפעלת בוסט שכבר ברשותך תאיץ את ההתקדמות.']);
  if(run==='ready')a.push([10,'בצע Prestige עכשיו','החלף לסט Soul Eggs, הפעל בוסטים מתאימים ובצע Prestige.']);
  if(run==='start')a.push([15,'תחילת ריצה: התקן סט ארטפיקטים ושדרג מחקר ראשוני','התחל מהמחקרים הזולים ושגר ספינות אם יש דלק במיכל.']);
- var v=b.virtue||{};if((v.eovEarned||[]).length)a.push([70,'המשך עבודה על ביצי Virtue','Truth Eggs שנצברו עד כה: '+(v.eovEarned||[]).reduce(function(x,y){return x+y},0)+'.']);
+ var v=b.virtue||{};if((v.eovEarned||[]).length&&(v.eovEarned||[]).reduce(function(x,y){return x+y},0)>0)a.push([70,'המשך עבודה על ביצי Virtue','Truth Eggs שנצברו עד כה: '+(v.eovEarned||[]).reduce(function(x,y){return x+y},0)+'.']);
  a.sort(function(x,y){return x[0]-y[0]});
  if(!a.length)a.push([99,'אין פעולה דחופה','הכל מסודר. חזור לבדוק בעוד כמה דקות.']);
- return {CD:CD,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,ownedB:ownedB,slots:slots,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo};
+ var pop=(sim.habPopulation||[]).reduce(function(x,y){return x+(y||0)},0);
+ return {CD:CD,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,ownedB:ownedB,slots:slots,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,pop:pop};
 }
 
 function jumpTo(id){
@@ -311,17 +368,14 @@ function copyDiag(){
   habs:sim.habs,
   habPopulation:sim.habPopulation,
   vehicles:sim.vehicles,
-  silos:sim.silos,
   permitLevel:(last.game||{}).permitLevel,
   artifactsDbKeys:Object.keys(last.artifactsDb||{}),
-  tankFuels:(last.artifactsDb||{}).tankFuels,
-  tankLimits:(last.artifactsDb||{}).tankLimits,
-  missionInfos:(last.artifactsDb||{}).missionInfos,
+  missionArchiveCount:((last.artifactsDb||{}).missionArchive||[]).length,
   virtue:last.virtue
  };
  var txt=JSON.stringify(diag,null,2);
  if(navigator.clipboard&&navigator.clipboard.writeText){
-  navigator.clipboard.writeText(txt).then(function(){alert('נתוני האבחון (ללא EID) הועתקו! הדבק אותם בצ\'אט.')});
+  navigator.clipboard.writeText(txt).then(function(){alert('נתוני האבחון (ללא EID) הועתקו!')});
  }else{
   prompt('העתק את הטקסט הבא:',txt);
  }
@@ -334,8 +388,8 @@ function show(b,R){
  if(age>3)h+='<div class="warn">גיבוי בן '+age+' דקות. לעדכון מיידי במשחק: פתח לרגע חוזה וחזור.</div>';
 
  h+='<div class="hud">';
- h+='<div class="hud-box"><small>ביצה / ספינות</small><b>'+esc(P.fuelInfo.curEggName)+' | '+P.busy+'/'+P.slots+'</b></div>';
- h+='<div class="hud-box"><small>חוזים פעילים</small><b>'+P.activeRunning+' <small style="display:inline">('+(P.act-P.activeRunning)+' בהמתנה)</small></b></div>';
+ h+='<div class="hud-box"><small>ביצה | תרנגולות</small><b>'+esc(P.fuelInfo.curEggName)+' | '+fmt(P.pop)+'</b></div>';
+ h+='<div class="hud-box"><small>ספינות | חוזים</small><b>'+P.busy+'/'+P.slots+' | '+P.activeRunning+' פעילים</b></div>';
  h+='<div class="hud-box"><small>GE פנויות</small><b>'+fmt(P.avail)+'</b></div>';
  h+='</div>';
 
@@ -374,13 +428,13 @@ function show(b,R){
  P.E.rows.slice(0,5).forEach(function(x){h+=row(esc(x.r.name)+' <small>רמה '+x.L+'/'+x.r.levels+'</small>',fmt(x.price)+' GE')});
  h+='</div>';
 
- h+='<div class="card"><h3>ספינות ('+P.busy+'/'+P.slots+')</h3>';
- if(P.ships.length)P.ships.forEach(function(s){h+=row(esc(s[0]),esc(s[1]))});else h+='<small>אין ספינות פעילות בגיבוי. דלק נדרש ל-'+esc(shipName(P.fuelInfo.target))+': '+esc(P.fuelInfo.reqNames)+'.</small>';
+ h+='<div class="card"><h3>ספינות ('+P.busy+'/'+P.slots+' | יעד: '+esc(shipName(P.fuelInfo.target))+')</h3>';
+ if(P.ships.length)P.ships.forEach(function(s){h+=row(esc(s[0]),esc(s[1]))});else h+='<small>אין ספינות פעילות. דלק נדרש ל-'+esc(shipName(P.fuelInfo.target))+': '+esc(P.fuelInfo.reqNames)+'.</small>';
  h+='</div>';
 
- h+='<details><summary style="font-size:.84rem;cursor:pointer">נתוני חשבון ואבחון (לשדרוג המערכת)</summary><div class="card">';
- h+=row('Soul Eggs',fmt(P.g.soulEggsD||P.g.soulEggs))+row('Prophecy Eggs',fmt(P.g.eggsOfProphecy))+row('רישיון Pro Permit',(P.g.permitLevel===1?'כן':'לא'))+row('בוסטים במלאי',P.ownedB);
- h+='<button class="copy-btn" onclick="copyDiag()">העתק נתוני ספינות, דלק וחווה (ללא EID)</button>';
+ h+='<details><summary style="font-size:.84rem;cursor:pointer">נתוני חשבון ואבחון</summary><div class="card">';
+ h+=row('Soul Eggs',fmt(P.g.soulEggsD||P.g.soulEggs))+row('Prophecy Eggs',fmt(P.g.eggsOfProphecy))+row('בתי תרנגולות (רמות)',esc((P.sim.habs||[]).join(', ')))+row('משאיות (רמות)',esc((P.sim.vehicles||[]).join(', ')));
+ h+='<button class="copy-btn" onclick="copyDiag()">העתק נתוני אבחון (ללא EID)</button>';
  h+='</div></details>';
  $('out').innerHTML=h;
 }
