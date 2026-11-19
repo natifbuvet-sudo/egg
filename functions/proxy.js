@@ -1,4 +1,4 @@
-export async function onRequest(context) {
+export async function onRequestPost(context) {
   const body = await context.request.text();
   const res = await fetch('https://www.auxbrain.com/ei/bot_first_contact', {
     method: 'POST',
