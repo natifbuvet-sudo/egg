@@ -32,7 +32,7 @@ li.it b{display:block}li.it span{color:var(--mut);font-size:.9rem}
 .card{background:var(--s);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0;font-size:.92rem}.card h3{margin:0 0 6px;font-size:1rem}.card .l{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--line)}.card .l:first-of-type{border-top:0}.card small{color:var(--mut)}.note{color:var(--mut);font-size:.82rem;margin-top:14px}
 details{margin-top:12px}
 </style></head><body><main>
-<h1>Egg Inc - הצעד הבא (גרסה 3.1)</h1>
+<h1>Egg Inc - הצעד הבא (גרסה 3.2)</h1>
 <div class="row"><input id="eid" placeholder="ה-EID שלך (מתחיל ב-EI)" autocomplete="off" aria-label="EID"><button id="go">טען</button></div>
 <div id="out"></div><p class="note" id="sync"></p>
 <details><summary>הגדרות</summary>
@@ -99,7 +99,8 @@ function plan(b,R){
  var free=Math.max(0,slots-busy2);
  if((g.unclaimedEggsOfProphecy||0)>0||(g.uncliamedGoldenEggs||0)>0)a.push([5,'אסוף ביצים שממתינות לך','יש Prophecy או Golden Eggs שלא נאספו. פתח את המשחק ואסוף אותן.']);
  if(ready>0)a.push([20,'אסוף '+ready+' ספינות שחזרו','ספינה שחזרה תופסת מקום ומעכבת משימה חדשה. אסוף ושגר מחדש.']);
- if(free>0)a.push([25,'שגר '+free+' ספינות למשימה','יש לך מקומות פנויים. משימה שרצה ברקע היא התקדמות חינם. בחר משימה ארוכה אם לא תחזור בקרוב.']);
+ var bage=Math.round((now-(b.approxTime||0))/60);
+ if(free>0){if(bage>3)a.push([52,'ייתכן שיש '+free+' מקומות פנויים לספינות','הגיבוי של המשחק בן '+bage+' דקות. אם שיגרת ספינות מאז, התעלם מההמלצה הזו.']);else a.push([25,'שגר '+free+' ספינות למשימה','יש לך מקומות פנויים. משימה שרצה ברקע היא התקדמות חינם. בחר משימה ארוכה אם לא תחזור בקרוב.'])}
  var cs=(b.contracts&&b.contracts.contracts)||[];var act=cs.filter(function(c){return c.accepted&&!c.cancelled&&!c.coopContributionFinalized});
  if(act.length===0)a.push([30,'הצטרף לחוזה ולקו-אופ','אין לך חוזה פעיל. חוזים הם המקור העיקרי ל-Prophecy Eggs. היכנס ללשונית Contracts.']);
  act.forEach(function(c){var n=(c.contract&&c.contract.name)||c.contractIdentifier||'חוזה';if(!c.coopIdentifier)a.push([30,'הצטרף לקו-אופ בחוזה '+n,'החוזה פעיל אבל אינך בקו-אופ. בלי קו-אופ קשה להשלים את כל המטרות.']);else a.push([55,'המשך חוזה '+n,'אתה בקו-אופ '+c.coopIdentifier+'. מטרות שהושגו: '+(c.numGoalsAchieved||0)+'. בדוק שהתרומה שלך מתקדמת.'])});
@@ -123,7 +124,7 @@ function row(l,r){return '<div class="l"><span>'+l+'</span><span>'+r+'</span></d
 function show(b,R){
  var P=plan(b,R),a=P.a,h='';
  var age=Math.round((Date.now()/1000-(b.approxTime||0))/60);
- if(age>30)h+='<div class="warn">הגיבוי בן '+age+' דקות. סגור ופתח את המשחק כדי שיתעדכן בענן. האפליקציה מרעננת לבד כל דקה.</div>';
+ if(age>3)h+='<div class="warn">נתוני המשחק בגיבוי בני '+age+' דקות. פעולות שעשית מאז לא מופיעות כאן. האפליקציה מרעננת את עצמה כל דקה, אבל היא יכולה לראות רק מה שהמשחק כבר שמר בענן.</div>';
  h+='<div class="hero"><small>עכשיו</small><h2>'+esc(a[0][1])+'</h2><p>'+esc(a[0][2])+'</p></div><ol>';
  a.slice(1).forEach(function(x){h+='<li class="it"><b>'+esc(x[1])+'</b><span>'+esc(x[2])+'</span></li>'});
  h+='</ol>';
@@ -143,7 +144,7 @@ function show(b,R){
 async function run(silent){
  if(busy)return;var eid=$('eid').value.trim();if(!eid){$('out').innerHTML='<p class="err">הכנס EID</p>';return}
  sset('eid',eid);busy=true;if(!silent||!last)$('out').innerHTML='<p>טוען...</p>';
- try{var R=await getRes();last=await load(eid);show(last,R);$('sync').textContent='התעדכן '+new Date().toLocaleTimeString('he-IL')+'. מתרענן אוטומטית כל דקה.'}
+ try{var R=await getRes();last=await load(eid);show(last,R);$('sync').textContent='הדף התרענן ב-'+new Date().toLocaleTimeString('he-IL')+'. נתוני המשחק בגיבוי בני '+Math.round((Date.now()/1000-(last.approxTime||0))/60)+' דקות.'}
  catch(e){if(!last||!silent){$('out').innerHTML='<p class="err">'+esc(e.message||e)+'</p>'}else{$('sync').textContent='הרענון נכשל: '+(e.message||e)}}
  busy=false;
 }
