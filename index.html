@@ -95,7 +95,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 18</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 19</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -154,9 +154,7 @@ var SHIP_FUELS={
  HENERPRISE:['DILITHIUM','ANTIMATTER','DARK_MATTER'],
  ATREGGIES:['TACHYON','DILITHIUM','ANTIMATTER','DARK_MATTER']
 };
-// קיבולת בסיס של 19 הלולים במשחק (0=Coop עד 18=Chicken Universe)
 var HAB_BASE=[250,500,1000,2000,5000,10000,20000,50000,100000,250000,500000,1000000,2000000,5000000,10000000,25000000,50000000,100000000,600000000];
-// קיבולת בסיס מדויקת לדקה של כל 12 כלי הרכב במשחק (0=Trike @ 5K עד 11=Hyperloop @ 50M לקרון)
 var VEH_BASE=[5000,15000,50000,100000,250000,500000,1000000,5000000,15000000,30000000,50000000,50000000];
 
 var TIER_MAP={INFERIOR:'T1',LESSER:'T2',NORMAL:'T3',GREATER:'T4'};
@@ -233,43 +231,51 @@ function getCompassMult(level,rarity){
  return ({INFERIOR:1.05,LESSER:1.10,NORMAL:1.20})[level]||1;
 }
 
+// מיפוי מדויק של מזהי הבוסטים במשחק (Blue = רמה 1, Purple = רמה 2, Orange = רמה 3)
 var BOOST_CAT={
- jimbos_orange:{name:"Jimbo's Bird Feed (3x 20m)",cat:'feed',power:3},
- jimbos_orange_big:{name:"Jimbo's Bird Feed (10x 15m)",cat:'feed',power:10},
- jimbos_orange_v2:{name:"Jimbo's Bird Feed (10x 15m)",cat:'feed',power:10},
- jimbos_blue:{name:"Jimbo's Bird Feed (10x 1h)",cat:'feed',power:10},
- jimbos_blue_big:{name:"Jimbo's Bird Feed (50x 10m)",cat:'feed',power:50},
- jimbos_blue_v2:{name:"Jimbo's Bird Feed (50x 10m)",cat:'feed',power:50},
- jimbos_purple:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:50},
- jimbos_purple_v2:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:50},
- tachyon_orange:{name:"Tachyon Prism (10x 20m)",cat:'tachyon',power:10},
- tachyon_prism_orange:{name:"Tachyon Prism (10x 20m)",cat:'tachyon',power:10},
- tachyon_orange_big:{name:"Tachyon Prism (10x 4h)",cat:'tachyon',power:10},
- tachyon_prism_orange_big:{name:"Tachyon Prism (10x 4h)",cat:'tachyon',power:10},
- tachyon_prism_orange_v2:{name:"Tachyon Prism (10x 4h)",cat:'tachyon',power:10},
- tachyon_blue:{name:"Tachyon Prism (100x 20m)",cat:'tachyon',power:100},
- tachyon_prism_blue:{name:"Tachyon Prism (100x 20m)",cat:'tachyon',power:100},
- tachyon_blue_big:{name:"Tachyon Prism (100x 2h)",cat:'tachyon',power:100},
- tachyon_prism_blue_v2:{name:"Tachyon Prism (100x 2h)",cat:'tachyon',power:100},
- tachyon_purple:{name:"Powerful Tachyon Prism (1000x 10m)",cat:'tachyon',power:1000},
- tachyon_prism_purple:{name:"Powerful Tachyon Prism (1000x 10m)",cat:'tachyon',power:1000},
- tachyon_purple_big:{name:"Supreme Tachyon Prism (1000x 1h)",cat:'tachyon',power:1000},
- tachyon_prism_purple_v2:{name:"Supreme Tachyon Prism (1000x 1h)",cat:'tachyon',power:1000},
- soul_orange:{name:"Soul Beacon (5x 30m)",cat:'soul',power:5},
- soul_beacon_orange:{name:"Soul Beacon (5x 30m)",cat:'soul',power:5},
- soul_blue:{name:"Soul Beacon (50x 20m)",cat:'soul',power:50},
- soul_beacon_blue:{name:"Soul Beacon (50x 20m)",cat:'soul',power:50},
- soul_purple:{name:"Legendary Soul Beacon (500x 10m)",cat:'soul',power:500},
- soul_beacon_purple:{name:"Legendary Soul Beacon (500x 10m)",cat:'soul',power:500},
- boost_orange:{name:"Boost Beacon (2x 30m)",cat:'beacon',power:2},
- boost_beacon_orange:{name:"Boost Beacon (2x 30m)",cat:'beacon',power:2},
- boost_blue:{name:"Boost Beacon (10x 10m)",cat:'beacon',power:10},
- boost_beacon_blue:{name:"Boost Beacon (10x 10m)",cat:'beacon',power:10},
- boost_purple:{name:"Legendary Boost Beacon (50x 10m)",cat:'beacon',power:50},
- boost_beacon_purple:{name:"Legendary Boost Beacon (50x 10m)",cat:'beacon',power:50},
- soul_mirror_orange:{name:"Soul Mirror (100x 10m • Co-op)",cat:'mirror',power:100},
- soul_mirror_blue:{name:"Epic Soul Mirror (500x 30m • Co-op)",cat:'mirror',power:500},
- soul_mirror_purple:{name:"Legendary Soul Mirror (1000x 10m • Co-op)",cat:'mirror',power:1000},
+ jimbos_blue:{name:"Jimbo's Bird Feed (3x 20m)",cat:'feed',power:3},
+ jimbos_blue_v2:{name:"Jimbo's Bird Feed (3x 20m)",cat:'feed',power:3},
+ jimbos_blue_big:{name:"Jimbo's Bird Feed (10x 15m)",cat:'feed',power:10},
+ jimbos_blue_big_v2:{name:"Jimbo's Bird Feed (10x 15m)",cat:'feed',power:10},
+ jimbos_purple:{name:"Jimbo's Bird Feed (10x 1h)",cat:'feed',power:10},
+ jimbos_purple_v2:{name:"Jimbo's Bird Feed (10x 1h)",cat:'feed',power:10},
+ jimbos_purple_big:{name:"Jimbo's Bird Feed (50x 10m)",cat:'feed',power:50},
+ jimbos_purple_big_v2:{name:"Jimbo's Bird Feed (50x 10m)",cat:'feed',power:50},
+ jimbos_orange:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:50},
+ jimbos_orange_v2:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:50},
+ jimbos_orange_big:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:50},
+
+ tachyon_prism_blue:{name:"Tachyon Prism (10x 10m)",cat:'tachyon',power:10},
+ tachyon_prism_blue_v2:{name:"Tachyon Prism (10x 10m)",cat:'tachyon',power:10},
+ tachyon_prism_blue_big:{name:"Large Tachyon Prism (10x 4h)",cat:'tachyon',power:10},
+ tachyon_prism_blue_big_v2:{name:"Large Tachyon Prism (10x 4h)",cat:'tachyon',power:10},
+ tachyon_prism_purple:{name:"Powerful Tachyon Prism (100x 20m)",cat:'tachyon',power:100},
+ tachyon_prism_purple_v2:{name:"Powerful Tachyon Prism (100x 20m)",cat:'tachyon',power:100},
+ tachyon_prism_purple_big:{name:"Epic Tachyon Prism (100x 2h)",cat:'tachyon',power:100},
+ tachyon_prism_purple_big_v2:{name:"Epic Tachyon Prism (100x 2h)",cat:'tachyon',power:100},
+ tachyon_prism_orange:{name:"Legendary Tachyon Prism (1000x 10m)",cat:'tachyon',power:1000},
+ tachyon_prism_orange_v2:{name:"Legendary Tachyon Prism (1000x 10m)",cat:'tachyon',power:1000},
+ tachyon_prism_orange_big:{name:"Supreme Tachyon Prism (1000x 1h)",cat:'tachyon',power:1000},
+ tachyon_prism_orange_big_v2:{name:"Supreme Tachyon Prism (1000x 1h)",cat:'tachyon',power:1000},
+
+ soul_beacon_blue:{name:"Soul Beacon (5x 30m)",cat:'soul',power:5},
+ soul_blue:{name:"Soul Beacon (5x 30m)",cat:'soul',power:5},
+ soul_beacon_purple:{name:"Epic Soul Beacon (50x 20m)",cat:'soul',power:50},
+ soul_purple:{name:"Epic Soul Beacon (50x 20m)",cat:'soul',power:50},
+ soul_beacon_orange:{name:"Legendary Soul Beacon (500x 10m)",cat:'soul',power:500},
+ soul_orange:{name:"Legendary Soul Beacon (500x 10m)",cat:'soul',power:500},
+
+ boost_beacon_blue:{name:"Boost Beacon (2x 30m)",cat:'beacon',power:2},
+ boost_blue:{name:"Boost Beacon (2x 30m)",cat:'beacon',power:2},
+ boost_beacon_purple:{name:"Epic Boost Beacon (10x 10m)",cat:'beacon',power:10},
+ boost_purple:{name:"Epic Boost Beacon (10x 10m)",cat:'beacon',power:10},
+ boost_beacon_orange:{name:"Legendary Boost Beacon (50x 10m)",cat:'beacon',power:50},
+ boost_orange:{name:"Legendary Boost Beacon (50x 10m)",cat:'beacon',power:50},
+
+ soul_mirror_blue:{name:"Soul Mirror (100x 10m • Co-op)",cat:'mirror',power:100},
+ soul_mirror_purple:{name:"Epic Soul Mirror (500x 30m • Co-op)",cat:'mirror',power:500},
+ soul_mirror_orange:{name:"Legendary Soul Mirror (1000x 10m • Co-op)",cat:'mirror',power:1000},
+
  money_printer:{name:"Money Printer",cat:'cash',power:1},
  quantum_bulb:{name:"Quantum Warming Bulb (10m)",cat:'bulb',power:1},
  dilithium_bulb:{name:"Dilithium Warming Bulb (10m)",cat:'bulb',power:2},
@@ -279,10 +285,10 @@ var BOOST_CAT={
 function getBoostInfo(id){
  if(BOOST_CAT[id])return BOOST_CAT[id];
  var s=String(id||'');
- var pwr=s.indexOf('purple')>=0?50:(s.indexOf('blue')>=0?10:2);
+ var pwr=s.indexOf('orange')>=0?50:(s.indexOf('purple')>=0?10:2);
  if(s.indexOf('jimbos')===0)return {name:shipName(s),cat:'feed',power:pwr};
  if(s.indexOf('tachyon')===0)return {name:shipName(s),cat:'tachyon',power:pwr};
- if(s.indexOf('soul_beacon')===0||s.indexOf('soul_')===0 && s.indexOf('mirror')<0)return {name:shipName(s),cat:'soul',power:pwr};
+ if(s.indexOf('soul_beacon')===0||(s.indexOf('soul_')===0 && s.indexOf('mirror')<0))return {name:shipName(s),cat:'soul',power:pwr};
  if(s.indexOf('boost_beacon')===0||s.indexOf('boost_')===0)return {name:shipName(s),cat:'beacon',power:pwr};
  if(s.indexOf('soul_mirror')===0)return {name:shipName(s),cat:'mirror',power:pwr};
  return {name:shipName(s),cat:'other',power:1};
@@ -445,12 +451,10 @@ function calcFarmLogistics(sim,clv,elv,artInfo,R){
  var maxCap=Math.floor(baseCap*habMult);
  var habPct=maxCap>0?Math.min(100,(pop/maxCap)*100):0;
 
- // חישוב קצב הטלה (2 ביצים לדקה בסיס לתרנגולת × מכפילי מחקר, Metronome ואבני Tachyon)
  if(artInfo && artInfo.metronomeMult>1)layMult*=artInfo.metronomeMult;
  if(artInfo && artInfo.tachyonStoneMult>1)layMult*=artInfo.tachyonStoneMult;
  var totalLayRate=pop*2*layMult;
 
- // חישוב קיבולת משלוחים (VEH_BASE מדויק כולל Hyperloop × קרונות, Compass ואבני Quantum)
  var vehs=sim.vehicles||[];
  var trainLens=sim.trainLength||[];
  var baseShip=0;
@@ -738,7 +742,7 @@ function analyzeBoosts(b,sim,slots,hab,prestigeInfo,hasAffordableResearch,art){
   if(bestBeacon && recCombo.length<maxBoostSlots)recCombo.push(bestBeacon);
   recTitle='כן — הפעל שילוב Prestige עכשיו';
   recReason='הלולים כמעט מלאים! הפעל והחזק תרנגולות רצות 10 דקות לפני ביצוע Prestige.'+dilNote;
- }else if(hab.habPct<40 && bestTachyon && !hasAffordableResearch){
+ }else if(bestTachyon && !hasAffordableResearch && (hab.habPct<25 || (hab.habPct<40 && bestTachyon.power>=100))){
   shouldUseNow=true;
   recCombo.push(bestTachyon);
   recTitle='אפשר להפעיל Tachyon Prism למילוי לולים';
