@@ -65,7 +65,7 @@ details{margin-top:8px}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 8</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 9</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -152,11 +152,36 @@ function epicPlan(R,lv,avail){
  return {rows:rows,buy:buy};
 }
 function cgain(r,L){var p=r.per_level,g;if(r.effect_type==='multiplicative'){g=r.levels_compound==='multiplicative'?Math.log(1+p):Math.log((1+p*(L+1))/(1+p*L))}else{g=p/(1+p*L+(p<1?1:10))}var w=W[r.categories];return g*(w===undefined?0.1:w)}
+
+// סימולציה קדימה שמקבצת רצף שדרוגים של אותו מחקר עד שמשתלם לעבור למחקר הבא
 function commonPlan(R,lv,virt){
- var rows=[],cm=R.filter(function(r){return r.type==='common'});
- function bought(t){var n=0;cm.forEach(function(r){if(r.tier<=t)n+=lv[r.id]||0});return n}
- cm.forEach(function(r){var L=lv[r.id]||0;if(L>=r.levels)return;if(r.tier>1&&(r.tier-1>=TH.length||bought(r.tier-1)<TH[r.tier-1]))return;var pr=(virt?r.virtue_prices:r.prices)||r.prices;var p=pr[L];if(!p)return;rows.push({r:r,L:L,score:cgain(r,L)/p})});
- rows.sort(function(a,b){return b.score-a.score});return rows;
+ var simLv=Object.assign({},lv);
+ var cm=R.filter(function(r){return r.type==='common'});
+ function bought(t){var n=0;cm.forEach(function(r){if(r.tier<=t)n+=simLv[r.id]||0});return n}
+ var batches=[];
+ for(var step=0;step<250;step++){
+  var best=null;
+  for(var i=0;i<cm.length;i++){
+   var r=cm[i],L=simLv[r.id]||0;
+   if(L>=r.levels)continue;
+   if(r.tier>1&&(r.tier-1>=TH.length||bought(r.tier-1)<TH[r.tier-1]))continue;
+   var pr=(virt?r.virtue_prices:r.prices)||r.prices;
+   var p=pr[L];if(!p)continue;
+   var sc=cgain(r,L)/p;
+   if(!best||sc>best.score)best={r:r,L:L,score:sc};
+  }
+  if(!best)break;
+  simLv[best.r.id]=best.L+1;
+  var lastB=batches[batches.length-1];
+  if(lastB&&lastB.r.id===best.r.id){
+   lastB.to=best.L+1;
+   lastB.count++;
+  }else{
+   if(batches.length>=8)break;
+   batches.push({r:best.r,from:best.L,to:best.L+1,count:1,score:best.score});
+  }
+ }
+ return batches;
 }
 function shipName(s){return String(s||'').split('_').map(function(w){return w.charAt(0)+w.slice(1).toLowerCase()}).join(' ')}
 function cleanContractName(id){return String(id||'חוזה').split('-').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1)}).join(' ')}
@@ -211,7 +236,7 @@ function contractInfo(c,b,R,now){
  var researchHint='';
  if(cf && !waitingCoop){
   var cp=commonPlan(R,lvMap(cf.commonResearch),false);
-  if(cp.length)researchHint=cp.slice(0,3).map(function(x){return x.r.name+' (רמה '+x.L+')'}).join(', ');
+  if(cp.length)researchHint=cp.slice(0,3).map(function(x){return x.r.name+' (עד רמה '+x.to+')'}).join(', ');
  }
 
  return {
@@ -231,13 +256,12 @@ function getSlotCount(b){
  return (g.permitLevel===1)?3:1;
 }
 
-// זיהוי אוטומטי של הספינה המתקדמת ביותר שפתוחה בחשבון ומצב הדלק
 function detectBestShip(b){
  var sel=$('shipTarget').value;
  if(sel && sel!=='auto')return sel;
  var db=b.artifactsDb||{};
  var vafx=(b.virtue&&b.virtue.afx)||{};
- var bestIdx=0; // ברירת מחדל: CHICKEN_ONE (אינדקס 0)
+ var bestIdx=0;
  function checkShip(s){
   var i=SHIP_ORDER.indexOf(s);
   if(i>bestIdx)bestIdx=i;
@@ -288,7 +312,6 @@ function plan(b,R){
   }
  }
 
- // מיקרו-צעדים לחווה: בתי תרנגולות ומשאיות
  var habs=sim.habs||[];
  var validHabs=habs.filter(function(x){return x>=0});
  if(validHabs.length>0){
@@ -335,8 +358,14 @@ function plan(b,R){
 
  var C=commonPlan(R,lvMap(sim.commonResearch),virt);
  if(C.length){
-  a.push([25,'מחקר רגיל #1: שדרג '+C[0].r.name+' (רמה '+(C[0].L+1)+')','השדרוג הכי משתלם כרגע בחווה הראשית ('+EGG_HE[sim.eggType]+').']);
-  if(C.length>1)a.push([35,'מחקר רגיל #2: שדרג '+C[1].r.name+' (רמה '+(C[1].L+1)+')','שדרוג המשך מומלץ מיד אחרי הקודם.']);
+  var b1=C[0];
+  var t1=b1.count>1?('מרמה '+b1.from+' עד רמה '+b1.to+' (+'+b1.count+' רמות)'):('לרמה '+b1.to);
+  a.push([25,'מחקר רגיל #1: שדרג '+b1.r.name+' '+t1,'זה הרצף הכי משתלם כרגע בחווה הראשית ('+EGG_HE[sim.eggType]+') לפני שכדאי לעבור למחקר הבא.']);
+  if(C.length>1){
+   var b2=C[1];
+   var t2=b2.count>1?('מרמה '+b2.from+' עד רמה '+b2.to+' (+'+b2.count+' רמות)'):('לרמה '+b2.to);
+   a.push([35,'מחקר רגיל #2: שדרג '+b2.r.name+' '+t2,'עבור למחקר הזה מיד אחרי שתסיים את הקודם.']);
+  }
  }
 
  var gift=g.nextDailyGiftTime||0;if(gift>1e12)gift/=1000;if(gift>0&&gift<now)a.push([20,'אסוף את המתנה היומית','הזמן של המתנה היומית עבר — לחץ על אייקון המתנה בצד.']);
@@ -420,8 +449,11 @@ function show(b,R){
  }
  h+='</details>';
 
- h+='<div class="card"><h3>מחקר רגיל מומלץ (חווה ראשית)</h3>';
- P.C.slice(0,5).forEach(function(x,i){h+=row((i+1)+'. '+esc(x.r.name)+' <small>רמה '+x.L+'/'+x.r.levels+'</small>',esc(String(x.r.categories).split('_').join(' ')))});
+ h+='<div class="card"><h3>רצף מחקר רגיל מומלץ (חווה ראשית)</h3>';
+ P.C.slice(0,5).forEach(function(x,i){
+  var rng=x.count>1?(x.from+' → '+x.to+' (+'+x.count+')'):('רמה '+x.to);
+  h+=row((i+1)+'. '+esc(x.r.name)+' <small>('+rng+' מתוך '+x.r.levels+')</small>',esc(String(x.r.categories).split('_').join(' ')));
+ });
  h+='</div>';
 
  h+='<div class="card"><h3>מחקר אפיק (לפי סדר עדיפויות)</h3>';
