@@ -95,7 +95,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 17</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 18</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -154,8 +154,11 @@ var SHIP_FUELS={
  HENERPRISE:['DILITHIUM','ANTIMATTER','DARK_MATTER'],
  ATREGGIES:['TACHYON','DILITHIUM','ANTIMATTER','DARK_MATTER']
 };
-var HAB_BASE=[250,500,1000,2000,5000,10000,25000,50000,100000,250000,500000,1000000,2500000,5000000,10000000,25000000,50000000,100000000,600000000];
-var VEH_BASE=[100,250,500,1000,2500,5000,10000,25000,75000,250000,750000,50000000];
+// קיבולת בסיס של 19 הלולים במשחק (0=Coop עד 18=Chicken Universe)
+var HAB_BASE=[250,500,1000,2000,5000,10000,20000,50000,100000,250000,500000,1000000,2000000,5000000,10000000,25000000,50000000,100000000,600000000];
+// קיבולת בסיס מדויקת לדקה של כל 12 כלי הרכב במשחק (0=Trike @ 5K עד 11=Hyperloop @ 50M לקרון)
+var VEH_BASE=[5000,15000,50000,100000,250000,500000,1000000,5000000,15000000,30000000,50000000,50000000];
+
 var TIER_MAP={INFERIOR:'T1',LESSER:'T2',NORMAL:'T3',GREATER:'T4'};
 var TIER_RANK={INFERIOR:1,LESSER:2,NORMAL:3,GREATER:4};
 var RARITY_MAP={RARE:'R',EPIC:'E',LEGENDARY:'L'};
@@ -233,24 +236,57 @@ function getCompassMult(level,rarity){
 var BOOST_CAT={
  jimbos_orange:{name:"Jimbo's Bird Feed (3x 20m)",cat:'feed',power:3},
  jimbos_orange_big:{name:"Jimbo's Bird Feed (10x 15m)",cat:'feed',power:10},
+ jimbos_orange_v2:{name:"Jimbo's Bird Feed (10x 15m)",cat:'feed',power:10},
  jimbos_blue:{name:"Jimbo's Bird Feed (10x 1h)",cat:'feed',power:10},
  jimbos_blue_big:{name:"Jimbo's Bird Feed (50x 10m)",cat:'feed',power:50},
+ jimbos_blue_v2:{name:"Jimbo's Bird Feed (50x 10m)",cat:'feed',power:50},
  jimbos_purple:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:50},
+ jimbos_purple_v2:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:50},
  tachyon_orange:{name:"Tachyon Prism (10x 20m)",cat:'tachyon',power:10},
+ tachyon_prism_orange:{name:"Tachyon Prism (10x 20m)",cat:'tachyon',power:10},
  tachyon_orange_big:{name:"Tachyon Prism (10x 4h)",cat:'tachyon',power:10},
+ tachyon_prism_orange_big:{name:"Tachyon Prism (10x 4h)",cat:'tachyon',power:10},
+ tachyon_prism_orange_v2:{name:"Tachyon Prism (10x 4h)",cat:'tachyon',power:10},
  tachyon_blue:{name:"Tachyon Prism (100x 20m)",cat:'tachyon',power:100},
+ tachyon_prism_blue:{name:"Tachyon Prism (100x 20m)",cat:'tachyon',power:100},
  tachyon_blue_big:{name:"Tachyon Prism (100x 2h)",cat:'tachyon',power:100},
+ tachyon_prism_blue_v2:{name:"Tachyon Prism (100x 2h)",cat:'tachyon',power:100},
  tachyon_purple:{name:"Powerful Tachyon Prism (1000x 10m)",cat:'tachyon',power:1000},
+ tachyon_prism_purple:{name:"Powerful Tachyon Prism (1000x 10m)",cat:'tachyon',power:1000},
  tachyon_purple_big:{name:"Supreme Tachyon Prism (1000x 1h)",cat:'tachyon',power:1000},
+ tachyon_prism_purple_v2:{name:"Supreme Tachyon Prism (1000x 1h)",cat:'tachyon',power:1000},
  soul_orange:{name:"Soul Beacon (5x 30m)",cat:'soul',power:5},
+ soul_beacon_orange:{name:"Soul Beacon (5x 30m)",cat:'soul',power:5},
  soul_blue:{name:"Soul Beacon (50x 20m)",cat:'soul',power:50},
+ soul_beacon_blue:{name:"Soul Beacon (50x 20m)",cat:'soul',power:50},
  soul_purple:{name:"Legendary Soul Beacon (500x 10m)",cat:'soul',power:500},
+ soul_beacon_purple:{name:"Legendary Soul Beacon (500x 10m)",cat:'soul',power:500},
  boost_orange:{name:"Boost Beacon (2x 30m)",cat:'beacon',power:2},
+ boost_beacon_orange:{name:"Boost Beacon (2x 30m)",cat:'beacon',power:2},
  boost_blue:{name:"Boost Beacon (10x 10m)",cat:'beacon',power:10},
+ boost_beacon_blue:{name:"Boost Beacon (10x 10m)",cat:'beacon',power:10},
  boost_purple:{name:"Legendary Boost Beacon (50x 10m)",cat:'beacon',power:50},
+ boost_beacon_purple:{name:"Legendary Boost Beacon (50x 10m)",cat:'beacon',power:50},
+ soul_mirror_orange:{name:"Soul Mirror (100x 10m • Co-op)",cat:'mirror',power:100},
+ soul_mirror_blue:{name:"Epic Soul Mirror (500x 30m • Co-op)",cat:'mirror',power:500},
+ soul_mirror_purple:{name:"Legendary Soul Mirror (1000x 10m • Co-op)",cat:'mirror',power:1000},
  money_printer:{name:"Money Printer",cat:'cash',power:1},
- quantum_bulb:{name:"Quantum Warming Bulb",cat:'bulb',power:1}
+ quantum_bulb:{name:"Quantum Warming Bulb (10m)",cat:'bulb',power:1},
+ dilithium_bulb:{name:"Dilithium Warming Bulb (10m)",cat:'bulb',power:2},
+ epic_bulb:{name:"Supreme Warming Bulb",cat:'bulb',power:3}
 };
+
+function getBoostInfo(id){
+ if(BOOST_CAT[id])return BOOST_CAT[id];
+ var s=String(id||'');
+ var pwr=s.indexOf('purple')>=0?50:(s.indexOf('blue')>=0?10:2);
+ if(s.indexOf('jimbos')===0)return {name:shipName(s),cat:'feed',power:pwr};
+ if(s.indexOf('tachyon')===0)return {name:shipName(s),cat:'tachyon',power:pwr};
+ if(s.indexOf('soul_beacon')===0||s.indexOf('soul_')===0 && s.indexOf('mirror')<0)return {name:shipName(s),cat:'soul',power:pwr};
+ if(s.indexOf('boost_beacon')===0||s.indexOf('boost_')===0)return {name:shipName(s),cat:'beacon',power:pwr};
+ if(s.indexOf('soul_mirror')===0)return {name:shipName(s),cat:'mirror',power:pwr};
+ return {name:shipName(s),cat:'other',power:1};
+}
 
 var SUF=['','K','M','B','T','q','Q','s','S','o','N','d','U','D','Td','qd','Qd','sd','Sd','Od','Nd','V','uV','dV','tV','qV','QV','sV','SV','OV','NV','Tg'];
 function fmt(n){n=Number(n)||0;if(!isFinite(n))return '∞';if(n<0)n=0;var i=0;while(n>=1000&&i<SUF.length-1){n/=1000;i++}return (i?n.toFixed(2):Math.round(n))+SUF[i]}
@@ -373,7 +409,7 @@ function commonPlan(R,lv,virt,cash,elv,shipBottleneck){
  };
 }
 
-function calcFarmLogistics(sim,clv,elv,artInfo){
+function calcFarmLogistics(sim,clv,elv,artInfo,R){
  var pop=(sim.habPopulation||[]).reduce(function(x,y){return x+(y||0)},0);
  var habs=sim.habs||[];
  var emptyHabSlots=0;
@@ -384,27 +420,37 @@ function calcFarmLogistics(sim,clv,elv,artInfo){
   else if(h>=0 && h<HAB_BASE.length)baseCap+=HAB_BASE[h];
  }
  if(baseCap===0)baseCap=1000;
- var habMult=1*(1+0.05*(clv['hab_capacity1']||0))*(1+0.05*(clv['microlux']||0))*(1+0.05*(clv['grav_plating']||0));
+
+ var habMult=1, layMult=1, shipMult=1, extraFleet=0;
+ if(R && R.length){
+  for(var k=0;k<R.length;k++){
+   var r=R[k];
+   var L=(r.type==='epic'?(elv[r.id]||0):(clv[r.id]||0));
+   if(L<=0)continue;
+   var cats=String(r.categories||'').split(',');
+   var mult=(r.levels_compound==='multiplicative')?Math.pow(1+r.per_level,L):(1+r.per_level*L);
+   if(cats.indexOf('hab_capacity')>=0)habMult*=mult;
+   if(cats.indexOf('egg_laying_rate')>=0)layMult*=mult;
+   if(cats.indexOf('shipping_capacity')>=0)shipMult*=mult;
+   if(cats.indexOf('fleet_size')>=0)extraFleet+=Math.round(r.per_level*L);
+  }
+ }else{
+  habMult=(1+0.05*(clv['hab_capacity1']||0))*(1+0.05*(clv['microlux']||0))*(1+0.02*(clv['grav_plating']||0));
+  layMult=(1+0.10*(clv['comfy_nests']||0))*(1+0.05*(clv['hen_house_ac']||0))*(1+0.15*(clv['improved_genetics']||0))*(1+0.10*(clv['time_compress']||0))*(1+0.10*(clv['timeline_diversion']||0))*(1+0.10*(clv['relativity_optimization']||0))*(1+0.05*(clv['epic_egg_laying']||0))*(1+0.05*(elv['epic_egg_laying']||0));
+  shipMult=(1+0.05*(clv['leafsprings']||0))*(1+0.10*(clv['lightweight_boxes']||0))*(1+0.05*(clv['driver_training']||0))*(1+0.10*(clv['super_alloy']||0))*(1+0.05*(clv['quantum_storage']||0))*(1+0.05*(clv['hover_upgrades']||0))*(1+0.05*(clv['dark_containment']||0))*(1+0.05*(clv['neural_net_refine']||0))*(1+0.05*(clv['hyper_portalling']||0))*(1+0.05*(elv['transportation_lobbyist']||0));
+  extraFleet=(clv['vehicle_reliablity']||0)+(clv['exhen_logistics']||0);
+ }
+
  if(artInfo && artInfo.gussetMult>1)habMult*=artInfo.gussetMult;
  var maxCap=Math.floor(baseCap*habMult);
  var habPct=maxCap>0?Math.min(100,(pop/maxCap)*100):0;
 
- // חישוב קצב הטלה כולל Metronome ואבני Tachyon משובצות
- var baseLayPerChicken=2;
- var layMult=1
-  *(1+0.10*(clv['comfy_nests']||0))
-  *(1+0.05*(clv['hen_house_ac']||0))
-  *(1+0.15*(clv['improved_genetics']||0))
-  *(1+0.10*(clv['time_compress']||0))
-  *(1+0.10*(clv['timeline_diversion']||0))
-  *(1+0.05*(clv['relativity_optimization']||0))
-  *(1+0.05*(clv['epic_egg_laying']||0))
-  *(1+0.05*(elv['epic_egg_laying']||0));
+ // חישוב קצב הטלה (2 ביצים לדקה בסיס לתרנגולת × מכפילי מחקר, Metronome ואבני Tachyon)
  if(artInfo && artInfo.metronomeMult>1)layMult*=artInfo.metronomeMult;
  if(artInfo && artInfo.tachyonStoneMult>1)layMult*=artInfo.tachyonStoneMult;
- var totalLayRate=pop*baseLayPerChicken*layMult;
+ var totalLayRate=pop*2*layMult;
 
- // חישוב קיבולת משלוחים כולל Hyperloop (trainLength), Compass ואבני Quantum משובצות
+ // חישוב קיבולת משלוחים (VEH_BASE מדויק כולל Hyperloop × קרונות, Compass ואבני Quantum)
  var vehs=sim.vehicles||[];
  var trainLens=sim.trainLength||[];
  var baseShip=0;
@@ -419,21 +465,9 @@ function calcFarmLogistics(sim,clv,elv,artInfo){
    baseShip+=VEH_BASE[v];
   }
  }
- var maxVehSlots=4 + (clv['vehicle_reliablity']||0) + (clv['exhen_logistics']||0);
- if(maxVehSlots>17)maxVehSlots=17;
+ var maxVehSlots=Math.min(17, 4 + extraFleet);
  var unusedVehSlots=Math.max(0,maxVehSlots - vehs.filter(function(x){return x>=0}).length);
 
- var shipMult=1
-  *(1+0.05*(clv['leafsprings']||0))
-  *(1+0.10*(clv['lightweight_boxes']||0))
-  *(1+0.05*(clv['driver_training']||0))
-  *(1+0.10*(clv['super_alloy']||0))
-  *(1+0.05*(clv['quantum_storage']||0))
-  *(1+0.05*(clv['hover_upgrades']||0))
-  *(1+0.05*(clv['dark_containment']||0))
-  *(1+0.05*(clv['neural_net_refine']||0))
-  *(1+0.05*(clv['hyper_portalling']||0))
-  *(1+0.05*(elv['transportation_lobbyist']||0));
  if(artInfo && artInfo.compassMult>1)shipMult*=artInfo.compassMult;
  if(artInfo && artInfo.quantumStoneMult>1)shipMult*=artInfo.quantumStoneMult;
  var totalShipCap=baseShip*shipMult;
@@ -588,7 +622,6 @@ function analyzeArtifacts(b,slots,curEgg){
   var sp=comp.spec||{};
   var stones=comp.stones||[];
 
-  // בדיקת אבנים בתיק (לא משובצות)
   if(STONE_INFO[sp.name]){
    var sInfo=STONE_INFO[sp.name];
    var sTier=STONE_TIER_MAP[sp.level]||'';
@@ -596,7 +629,6 @@ function analyzeArtifacts(b,slots,curEgg){
    return;
   }
 
-  // בדיקת ארטיפקטים עם אבני Dilithium משובצות בתיק
   var dCount=stones.filter(function(st){return st && st.name==='DILITHIUM_STONE'}).length;
   if(dCount>0 && ART_INFO[sp.name]){
    var dMult=1;
@@ -659,17 +691,19 @@ function analyzeBoosts(b,sim,slots,hab,prestigeInfo,hasAffordableResearch,art){
  var maxBoostSlots=(slots===3)?5:2;
 
  var active=(sim.activeBoosts||[]).filter(function(ab){
-  return (ab.timeRemaining||0) > 0;
+  return (ab.boostId||ab.id) && (ab.timeRemaining||0) > 0;
  }).map(function(ab){
-  var info=BOOST_CAT[ab.boostId]||{name:shipName(ab.boostId),cat:'other',power:1};
-  return {id:ab.boostId,name:info.name,timeRemaining:ab.timeRemaining};
+  var bid=ab.boostId||ab.id;
+  var info=getBoostInfo(bid);
+  return {id:bid,name:info.name,timeRemaining:ab.timeRemaining};
  });
 
  var owned=[];
  (g.boosts||[]).forEach(function(bo){
-  if((bo.count||0)>0){
-   var info=BOOST_CAT[bo.id]||{name:shipName(bo.id),cat:'other',power:1};
-   owned.push({id:bo.id,count:bo.count,name:info.name,cat:info.cat,power:info.power});
+  var bid=bo.boostId||bo.id||'';
+  if(bid && (bo.count||0)>0){
+   var info=getBoostInfo(bid);
+   owned.push({id:bid,count:bo.count,name:info.name,cat:info.cat,power:info.power});
   }
  });
 
@@ -846,7 +880,7 @@ function plan(b,R){
  var elv=lvMap(g.epicResearch);
  var clv=lvMap(sim.commonResearch);
  var art=analyzeArtifacts(b,slots,sim.eggType);
- var logi=calcFarmLogistics(sim,clv,elv,art);
+ var logi=calcFarmLogistics(sim,clv,elv,art,R);
  var C=commonPlan(R,clv,virt,cash,elv,logi.shipBottleneck);
  var hasAffordableResearch=(C.affordableList.length>0);
  var fuelInfo=checkShipFuel(b,sim);
@@ -977,6 +1011,9 @@ function copyDiag(){
  var sim=homeFarm(last);
  var db=last.artifactsDb||{};
  var g=last.game||{};
+ var slots=getSlotCount(last);
+ var art=analyzeArtifacts(last,slots,sim.eggType);
+ var logi=calcFarmLogistics(sim,lvMap(sim.commonResearch),lvMap(g.epicResearch),art,RES);
  var inv=db.inventoryItems||[];
  var byId={};
  inv.forEach(function(it){byId[it.itemId]=it});
@@ -992,6 +1029,9 @@ function copyDiag(){
   vehicles:sim.vehicles,
   trainLength:sim.trainLength,
   habPopulation:sim.habPopulation,
+  calcLayPerMin:logi.totalLayRate,
+  calcShipCapPerMin:logi.totalShipCap,
+  calcShipUtilPct:Number(logi.rawPct.toFixed(2)),
   boostsOwned:g.boosts,
   activeBoosts:sim.activeBoosts,
   equippedArtifactsFull:equippedFull
