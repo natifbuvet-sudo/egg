@@ -26,32 +26,27 @@ button.sm-btn{margin-top:6px;background:transparent;color:var(--acc);border:1px 
 button.copy-btn{background:var(--acc);color:var(--accink);width:100%;padding:8px;margin-top:8px;border-radius:8px}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 
-/* ניווט מהיר */
 .nav{display:flex;gap:5px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px;scrollbar-width:none}
 .nav::-webkit-scrollbar{display:none}
 .nav button{background:var(--s);color:var(--ink);border:1px solid var(--line);padding:5px 10px;font-size:.78rem;border-radius:20px;flex-shrink:0}
 .nav button.active{background:var(--acc);color:var(--accink);border-color:var(--acc)}
 
-/* HUD תמציתי */
 .hud{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-bottom:10px}
 .hud-box{background:var(--s);border:1px solid var(--line);border-radius:10px;padding:7px 9px}
 .hud-box small{display:block;font-size:.7rem;color:var(--mut)}
-.hud-box b{font-size:.88rem;display:block;margin-top:1px}
+.hud-box b{font-size:.86rem;display:block;margin-top:1px}
 
-/* כרטיס פעולה ראשי */
 .hero{background:var(--ink);color:var(--bg);border-radius:14px;padding:14px 15px;margin:10px 0;border-inline-start:6px solid var(--y)}
 .hero small{display:block;color:var(--y);font-weight:700;font-size:.76rem;margin-bottom:3px;letter-spacing:.2px}
 .hero h2{margin:0 0 5px;font-size:1.15rem;line-height:1.25}
 .hero p{margin:0;opacity:.92;font-size:.87rem}
 
-/* שלבים הבאים */
 ol{list-style:none;margin:0 0 12px;padding:0}
 li.it{background:var(--s);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:7px}
 li.it b{display:block;font-size:.9rem}
 li.it span{color:var(--mut);font-size:.82rem;display:block;margin-top:2px}
 .step-num{display:inline-block;background:var(--line);color:var(--ink);font-size:.72rem;font-weight:700;padding:0 6px;border-radius:5px;margin-inline-end:6px}
 
-/* תגיות וכרטיסים */
 .tag-ok{display:inline-block;background:var(--ok);color:#fff;font-size:.72rem;padding:2px 7px;border-radius:5px;font-weight:700}
 .tag-wait{display:inline-block;background:var(--line);color:var(--ink);font-size:.72rem;padding:2px 7px;border-radius:5px;font-weight:600}
 .tag-warn{display:inline-block;background:var(--bad);color:#fff;font-size:.72rem;padding:2px 7px;border-radius:5px;font-weight:700}
@@ -66,8 +61,14 @@ li.it span{color:var(--mut);font-size:.82rem;display:block;margin-top:2px}
 .card small{color:var(--mut)}
 .card p{margin:5px 0;font-size:.85rem}
 
+.prog-bar{background:var(--line);border-radius:6px;height:7px;overflow:hidden;margin:5px 0}
+.prog-fill{background:var(--acc);height:100%;transition:width .3s}
+.prog-fill.ok{background:var(--ok)}
+.prog-fill.bad{background:var(--bad)}
+
 .status-banner{border-radius:9px;padding:9px 11px;margin-bottom:8px;border:1px solid var(--line);background:var(--bg)}
 .status-banner.do{border-color:var(--ok);background:rgba(27,122,61,.12)}
+.status-banner.alert{border-color:var(--bad);background:rgba(179,38,30,.12)}
 .status-banner.hold{border-color:var(--line)}
 .status-banner b{display:block;font-size:.92rem;margin-bottom:2px}
 
@@ -93,7 +94,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 14</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 15</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -134,7 +135,13 @@ var W={egg_value:1,egg_laying_rate:1,'egg_laying_rate,egg_value':1,running_chick
 var VIRT={CURIOSITY:1,INTEGRITY:1,HUMILITY:1,RESILIENCE:1,KINDNESS:1};
 var EGG_ORDER=['EDIBLE','SUPERFOOD','MEDICAL','ROCKET_FUEL','SUPER_MATERIAL','FUSION','QUANTUM','IMMORTALITY','TACHYON','GRAVITON','DILITHIUM','PRODIGY','TERRAFORM','ANTIMATTER','DARK_MATTER','AI','NEBULA','UNIVERSE','ENLIGHTENMENT'];
 var EGG_HE={EDIBLE:'Edible',SUPERFOOD:'Superfood',MEDICAL:'Medical',ROCKET_FUEL:'Rocket Fuel',SUPER_MATERIAL:'Super Material',FUSION:'Fusion',QUANTUM:'Quantum',IMMORTALITY:'Immortality',TACHYON:'Tachyon',GRAVITON:'Graviton',DILITHIUM:'Dilithium',PRODIGY:'Prodigy',TERRAFORM:'Terraform',ANTIMATTER:'Antimatter',DARK_MATTER:'Dark Matter',AI:'AI',NEBULA:'Nebula',UNIVERSE:'Universe',ENLIGHTENMENT:'Enlightenment'};
+
+// ערכי Farm Value נדרשים לפתיחת הביצה הבאה (לפי נתוני carpetsage/egg)
+var EGG_UNLOCK_FV=[0,2.2e4,4.2e6,3.4e8,3.6e10,5.2e12,7.6e14,1.2e17,1.9e19,3.2e21,4.8e23,7.6e25,1.2e28,2.0e30,3.2e32,5.6e34,9.2e36,1.5e39,2.8e41];
+
 var SHIP_ORDER=['CHICKEN_ONE','CHICKEN_NINE','CHICKEN_HEAVY','BCR','QUINTILLION_CHICKEN','CORVETTE','GALENGG','DEFIHENT','VOYEGGER','HENERPRISE','ATREGGIES'];
+// כמות שיגורים נדרשת מספינה זו כדי לפתוח את הבאה בתור
+var SHIP_UNLOCK_REQ={CHICKEN_ONE:3,CHICKEN_NINE:4,CHICKEN_HEAVY:5,BCR:6,QUINTILLION_CHICKEN:8,CORVETTE:10,GALENGG:12,DEFIHENT:15,VOYEGGER:20,HENERPRISE:25,ATREGGIES:0};
 var SHIP_FUELS={
  CHICKEN_ONE:['ROCKET_FUEL'],
  CHICKEN_NINE:['ROCKET_FUEL'],
@@ -149,6 +156,8 @@ var SHIP_FUELS={
  ATREGGIES:['TACHYON','DILITHIUM','ANTIMATTER','DARK_MATTER']
 };
 var HAB_BASE=[250,500,1000,2000,5000,10000,25000,50000,100000,250000,500000,1000000,2500000,5000000,10000000,25000000,50000000,100000000,600000000];
+// קיבולת בסיס של רכבים לדקה (0=Trike עד 11=Hyperloop Train)
+var VEH_BASE=[100,250,500,1000,2500,5000,10000,25000,75000,250000,750000,2500000];
 var TIER_MAP={INFERIOR:'T1',LESSER:'T2',NORMAL:'T3',GREATER:'T4'};
 var TIER_RANK={INFERIOR:1,LESSER:2,NORMAL:3,GREATER:4};
 var ART_INFO={
@@ -238,9 +247,18 @@ function epicPlan(R,lv,avail){
  var buy=null;if(rows.length){var f=rows[0],n=0,sum=0,L=f.L;while(L<f.r.levels&&sum+f.r.prices[L]<=avail){sum+=f.r.prices[L];L++;n++}buy={row:f,n:n,sum:sum}}
  return {rows:rows,buy:buy};
 }
-function cgain(r,L){var p=r.per_level,g;if(r.effect_type==='multiplicative'){g=r.levels_compound==='multiplicative'?Math.log(1+p):Math.log((1+p*(L+1))/(1+p*L))}else{g=p/(1+p*L+(p<1?1:10))}var w=W[r.categories];return g*(w===undefined?0.1:w)}
+function cgain(r,L,shipBottleneck){
+ var p=r.per_level,g;
+ if(r.effect_type==='multiplicative'){g=r.levels_compound==='multiplicative'?Math.log(1+p):Math.log((1+p*(L+1))/(1+p*L))}
+ else{g=p/(1+p*L+(p<1?1:10))}
+ var w=W[r.categories];
+ if(w===undefined)w=0.1;
+ // אם יש צוואר בקבוק במשלוחים, מעניקים עדיפות כפולה למחקרי משלוח!
+ if(shipBottleneck && r.categories==='shipping_capacity')w=2.2;
+ return g*w;
+}
 
-function commonPlan(R,lv,virt,cash,elv){
+function commonPlan(R,lv,virt,cash,elv,shipBottleneck){
  var simLv=Object.assign({},lv);
  var cm=R.filter(function(r){return r.type==='common'});
  var labDisc=1-0.05*(elv['cheaper_research']||0);
@@ -264,7 +282,7 @@ function commonPlan(R,lv,virt,cash,elv){
    var pr=(virt?r.virtue_prices:r.prices)||r.prices;
    var p=(pr[L]||0)*labDisc;
    if(!p)continue;
-   var sc=cgain(r,L)/p;
+   var sc=cgain(r,L,shipBottleneck)/p;
    if(!best||sc>best.score)best={r:r,L:L,price:p,score:sc};
   }
   if(!best)break;
@@ -311,44 +329,101 @@ function commonPlan(R,lv,virt,cash,elv){
  };
 }
 
-function calcHabInfo(sim,clv,artInfo){
+// חישוב לולים, משלוחים וזיהוי צוואר בקבוק (Bottleneck)
+function calcFarmLogistics(sim,clv,elv,artInfo){
  var pop=(sim.habPopulation||[]).reduce(function(x,y){return x+(y||0)},0);
  var habs=sim.habs||[];
+ var emptyHabSlots=0;
  var baseCap=0;
  for(var i=0;i<habs.length;i++){
   var h=habs[i];
-  if(h>=0 && h<HAB_BASE.length)baseCap+=HAB_BASE[h];
+  if(h<0 || h===19)emptyHabSlots++;
+  else if(h>=0 && h<HAB_BASE.length)baseCap+=HAB_BASE[h];
  }
  if(baseCap===0)baseCap=1000;
- var mult=1;
- mult*=(1 + 0.05*(clv['hab_capacity1']||0));
- mult*=(1 + 0.05*(clv['microlux']||0));
- mult*=(1 + 0.05*(clv['grav_plating']||0));
- if(artInfo && artInfo.gussetMult>1)mult*=artInfo.gussetMult;
- var maxCap=Math.floor(baseCap*mult);
- var pct=maxCap>0?Math.min(100,(pop/maxCap)*100):0;
- return {pop:pop,maxCap:maxCap,pct:pct,nearFull:pct>=85,isFull:pct>=97};
+ var habMult=1*(1+0.05*(clv['hab_capacity1']||0))*(1+0.05*(clv['microlux']||0))*(1+0.05*(clv['grav_plating']||0));
+ if(artInfo && artInfo.gussetMult>1)habMult*=artInfo.gussetMult;
+ var maxCap=Math.floor(baseCap*habMult);
+ var habPct=maxCap>0?Math.min(100,(pop/maxCap)*100):0;
+
+ // חישוב קצב הטלה (ביצים לדקה) מול קיבולת משלוחים (ביצים לדקה)
+ var baseLayPerChicken=2; // 2 ביצים לדקה לתרנגולת בבסיס
+ var layMult=1*(1+0.10*(clv['comfy_nests']||0))*(1+0.05*(clv['hen_house_ac']||0))*(1+0.15*(clv['improved_genetics']||0))*(1+0.10*(clv['time_compress']||0))*(1+0.05*(clv['epic_egg_laying']||0))*(1+0.05*(elv['epic_egg_laying']||0));
+ var totalLayRate=pop*baseLayPerChicken*layMult;
+
+ var vehs=sim.vehicles||[];
+ var emptyVehSlots=0;
+ var baseShip=0;
+ for(var j=0;j<vehs.length;j++){
+  var v=vehs[j];
+  if(v<0)emptyVehSlots++;
+  else if(v>=0 && v<VEH_BASE.length)baseShip+=VEH_BASE[v];
+ }
+ var maxVehSlots=4 + (clv['vehicle_reliablity']||0) + (clv['exhen_logistics']||0);
+ if(maxVehSlots>17)maxVehSlots=17;
+ var unusedVehSlots=Math.max(0,maxVehSlots - vehs.filter(function(x){return x>=0}).length);
+
+ var shipMult=1*(1+0.05*(clv['leafsprings']||0))*(1+0.10*(clv['lightweight_boxes']||0))*(1+0.05*(clv['driver_training']||0))*(1+0.10*(clv['super_alloy']||0))*(1+0.05*(clv['quantum_storage']||0))*(1+0.05*(elv['transportation_lobbyist']||0));
+ var totalShipCap=baseShip*shipMult;
+ var shipUtilPct=totalShipCap>0?Math.min(120,(totalLayRate/totalShipCap)*100):0;
+ var shipBottleneck=(pop>1000 && totalShipCap>0 && totalLayRate>totalShipCap*0.95);
+
+ return {
+  pop:pop,maxCap:maxCap,habPct:habPct,nearFull:habPct>=85,isFull:habPct>=97,
+  emptyHabSlots:emptyHabSlots,unusedVehSlots:unusedVehSlots,
+  totalLayRate:totalLayRate,totalShipCap:totalShipCap,shipUtilPct:shipUtilPct,shipBottleneck:shipBottleneck
+ };
 }
 
-function calcPrestigeInfo(b,sim,hab,hasAffordableResearch){
+// חישוב התקדמות לביצה הבאה (Farm Value) + אסטרטגיית תדלוק
+function calcEggProgress(b,sim,fuelInfo){
+ var curEgg=sim.eggType||'EDIBLE';
+ var idx=EGG_ORDER.indexOf(curEgg);
+ var nextEgg=(idx>=0 && idx<EGG_ORDER.length-1)?EGG_ORDER[idx+1]:null;
+ var reqFV=(idx>=0 && idx+1<EGG_UNLOCK_FV.length)?EGG_UNLOCK_FV[idx+1]:0;
+ var curFV=Number(sim.farmValue||0);
+ var pct=reqFV>0?Math.min(100,(curFV/reqFV)*100):100;
+ var canUpgradeEgg=(nextEgg && curFV>=reqFV && reqFV>0);
+
+ // בדיקה האם הביצה הנוכחית היא ביצת דלק נחוצה לספינות שמיכל הדלק שלה לא מלא
+ var isFuelEggForShip=(fuelInfo.reqFuels.indexOf(curEgg)>=0);
+ var shouldFillTankFirst=(isFuelEggForShip && !fuelInfo.hasFuelInTank);
+
+ return {
+  curEgg:curEgg,curName:EGG_HE[curEgg]||curEgg,
+  nextEgg:nextEgg,nextName:nextEgg?(EGG_HE[nextEgg]||nextEgg):null,
+  curFV:curFV,reqFV:reqFV,pct:pct,canUpgradeEgg:canUpgradeEgg,
+  shouldFillTankFirst:shouldFillTankFirst
+ };
+}
+
+function calcPrestigeInfo(b,sim,hab,hasAffordableResearch,eggProg){
  var g=b.game||{};
  var curSE=Number(g.soulEggsD||g.soulEggs||0);
  var unclaimedSE=Number(sim.unclaimedSoulEggsD||sim.unclaimedSoulEggs||g.unclaimedSoulEggsD||g.unclaimedSoulEggs||0);
  var gainPct=(curSE>0 && unclaimedSE>0)?((unclaimedSE/curSE)*100):0;
 
+ // בדיקת סוף שבוע (שבת = 6 ב-JS) לאסטרטגיית 2x Prestige
+ var dayOfWeek=new Date().getDay();
+ var isWeekend=(dayOfWeek===6 || dayOfWeek===0);
+
  var status='push';
  var title='המשך בריצה הנוכחית';
  var reason='';
 
- if(hab.isFull && !hasAffordableResearch){
+ if(eggProg.canUpgradeEgg && !eggProg.shouldFillTankFirst){
+  status='upgrade_egg';
+  title='שדרג לביצה הבאה: '+eggProg.nextName+'!';
+  reason='שווי החווה שלך הגיע ליעד הפתיחה! שדרוג לביצת '+eggProg.nextName+' יקפיץ משמעותית את ההכנסות וה-Soul Eggs.';
+ }else if(hab.isFull && !hasAffordableResearch){
   if(gainPct>=15 || curSE<1000){
    status='ready';
    title='בצע Prestige עכשיו (+'+fmt(unclaimedSE)+' SE)';
-   reason='הלולים מלאים ('+hab.pct.toFixed(0)+'%) ואין מחקרים זולים לקנות. תקבל תוספת של +'+gainPct.toFixed(0)+'% ל-Soul Eggs.';
+   reason='הלולים מלאים ('+hab.habPct.toFixed(0)+'%) ואין מחקרים זולים. תקבל +'+gainPct.toFixed(0)+'% תוספת ל-Soul Eggs.'+(isWeekend?' (סופ"ש — בדוק אם פעיל אירוע 2x Prestige!)':'');
   }else{
    status='boost_then_prestige';
    title='הפעל בוסט הכנסות/Soul ואז בצע Prestige';
-   reason='הלולים מלאים ('+hab.pct.toFixed(0)+'%). הפעלת Bird Feed + Soul Beacon ל-10 דקות עם תרנגולות רצות תכפיל את ה-Soul Eggs לפני Prestige.';
+   reason='הלולים מלאים ('+hab.habPct.toFixed(0)+'%). הפעלת Bird Feed + Soul Beacon ל-10 דקות עם תרנגולות רצות תכפיל את ה-Soul Eggs לפני Prestige.';
   }
  }else if(gainPct>=50 && !hasAffordableResearch){
   status='ready';
@@ -357,7 +432,7 @@ function calcPrestigeInfo(b,sim,hab,hasAffordableResearch){
  }else{
   reason=unclaimedSE>0?('נצבר בריצה: +'+fmt(unclaimedSE)+' SE'+(gainPct>0?' (+'+gainPct.toFixed(1)+'%)':'')+'. המשך לשדרג מחקרים ולמלא לולים.'):'שדרג מחקרים ומלא לולים כדי לצבור Soul Eggs.';
  }
- return {curSE:curSE,unclaimedSE:unclaimedSE,gainPct:gainPct,status:status,title:title,reason:reason};
+ return {curSE:curSE,unclaimedSE:unclaimedSE,gainPct:gainPct,status:status,title:title,reason:reason,isWeekend:isWeekend};
 }
 
 function analyzeArtifacts(b,slots){
@@ -420,7 +495,6 @@ function analyzeArtifacts(b,slots){
  return {equipped:equipped,maxArtSlots:maxArtSlots,gussetMult:gussetMult,setMain:setMain,setResearch:setResearch,setDrones:setDrones,consumeList:consumeList};
 }
 
-// תיקון בוסטים: מסנן אך ורק בוסטים עם timeRemaining > 0!
 function analyzeBoosts(b,sim,slots,hab,prestigeInfo,hasAffordableResearch){
  var g=b.game||{};
  var maxBoostSlots=(slots===3)?5:2;
@@ -467,12 +541,12 @@ function analyzeBoosts(b,sim,slots,hab,prestigeInfo,hasAffordableResearch){
   if(bestBeacon && recCombo.length<maxBoostSlots)recCombo.push(bestBeacon);
   recTitle='כן — הפעל שילוב Prestige עכשיו';
   recReason='הלולים כמעט מלאים! הפעל והחזק תרנגולות רצות 10 דקות לפני ביצוע Prestige.';
- }else if(hab.pct<40 && bestTachyon && !hasAffordableResearch){
+ }else if(hab.habPct<40 && bestTachyon && !hasAffordableResearch){
   shouldUseNow=true;
   recCombo.push(bestTachyon);
   recTitle='אפשר להפעיל Tachyon Prism למילוי לולים';
-  recReason='הלולים ב-'+hab.pct.toFixed(0)+'% תפוסה. הגדלת כמות התרנגולות תאיץ הכנסות ו-Soul Eggs.';
- }else if(!hasAffordableResearch && hab.pct>=40 && hab.pct<95 && bestFeed){
+  recReason='הלולים ב-'+hab.habPct.toFixed(0)+'% תפוסה. הגדלת כמות התרנגולות תאיץ הכנסות ו-Soul Eggs.';
+ }else if(!hasAffordableResearch && hab.habPct>=40 && hab.habPct<95 && bestFeed){
   shouldUseNow=true;
   recCombo.push(bestFeed);
   if(bestBeacon && recCombo.length<maxBoostSlots)recCombo.push(bestBeacon);
@@ -535,7 +609,7 @@ function contractInfo(c,b,R,elv,now){
  var cf=(b.farms||[]).filter(function(f){return f.farmType==='CONTRACT'&&f.contractId===id})[0];
  var researchHint='';
  if(cf && !waitingCoop){
-  var cp=commonPlan(R,lvMap(cf.commonResearch),false,farmCash(cf),elv);
+  var cp=commonPlan(R,lvMap(cf.commonResearch),false,farmCash(cf),elv,false);
   if(cp.affordableList.length){
    researchHint=cp.affordableList.slice(0,3).map(function(x){return x.r.name+' ← '+x.to}).join(', ');
   }else if(cp.nextList.length){
@@ -566,19 +640,27 @@ function detectBestShip(b){
  var db=b.artifactsDb||{};
  var vafx=(b.virtue&&b.virtue.afx)||{};
  var bestIdx=0;
- function checkShip(s){
+ var launchCounts={};
+ function recordShip(s){
   var i=SHIP_ORDER.indexOf(s);
   if(i>bestIdx)bestIdx=i;
+  if(s)launchCounts[s]=(launchCounts[s]||0)+1;
  }
- (db.missionInfos||[]).forEach(function(m){checkShip(m.ship)});
- (db.missionArchive||[]).forEach(function(m){checkShip(m.ship)});
- if(vafx.lastFueledShip)checkShip(vafx.lastFueledShip);
- if(db.lastFueledShip)checkShip(db.lastFueledShip);
- return SHIP_ORDER[bestIdx]||'CHICKEN_ONE';
+ (db.missionInfos||[]).forEach(function(m){recordShip(m.ship)});
+ (db.missionArchive||[]).forEach(function(m){recordShip(m.ship)});
+ if(vafx.lastFueledShip){var idx1=SHIP_ORDER.indexOf(vafx.lastFueledShip);if(idx1>bestIdx)bestIdx=idx1;}
+ if(db.lastFueledShip){var idx2=SHIP_ORDER.indexOf(db.lastFueledShip);if(idx2>bestIdx)bestIdx=idx2;}
+
+ var target=SHIP_ORDER[bestIdx]||'CHICKEN_ONE';
+ var launched=launchCounts[target]||0;
+ var req=SHIP_UNLOCK_REQ[target]||0;
+ var nextShip=(bestIdx<SHIP_ORDER.length-1)?SHIP_ORDER[bestIdx+1]:null;
+ return {target:target,launched:launched,req:req,nextShip:nextShip};
 }
 
 function checkShipFuel(b,sim){
- var target=detectBestShip(b);
+ var shipProg=detectBestShip(b);
+ var target=shipProg.target;
  var reqFuels=SHIP_FUELS[target]||['ROCKET_FUEL'];
  var curEgg=sim.eggType||'';
  var db=b.artifactsDb||{};
@@ -589,8 +671,9 @@ function checkShipFuel(b,sim){
   var idx=EGG_ORDER.indexOf(f);
   return idx>=0 && (tank[idx]||0)>1000;
  });
+ var tankTotal=tank.reduce(function(x,y){return x+(y||0)},0);
  var reqNames=reqFuels.map(function(e){return EGG_HE[e]||e}).join(', ');
- return {target:target,reqFuels:reqFuels,reqNames:reqNames,onFuelEgg:onFuelEgg,hasFuelInTank:hasFuelInTank,curEggName:EGG_HE[curEgg]||curEgg};
+ return {target:target,shipProg:shipProg,reqFuels:reqFuels,reqNames:reqNames,onFuelEgg:onFuelEgg,hasFuelInTank:hasFuelInTank,tankTotal:tankTotal,curEggName:EGG_HE[curEgg]||curEgg};
 }
 
 function plan(b,R){
@@ -600,16 +683,18 @@ function plan(b,R){
  var elv=lvMap(g.epicResearch);
  var clv=lvMap(sim.commonResearch);
  var art=analyzeArtifacts(b,slots);
- var hab=calcHabInfo(sim,clv,art);
- var C=commonPlan(R,clv,virt,cash,elv);
+ var logi=calcFarmLogistics(sim,clv,elv,art);
+ var C=commonPlan(R,clv,virt,cash,elv,logi.shipBottleneck);
  var hasAffordableResearch=(C.affordableList.length>0);
- var prestigeInfo=calcPrestigeInfo(b,sim,hab,hasAffordableResearch);
- var boostInfo=analyzeBoosts(b,sim,slots,hab,prestigeInfo,hasAffordableResearch);
+ var fuelInfo=checkShipFuel(b,sim);
+ var eggProg=calcEggProgress(b,sim,fuelInfo);
+ var prestigeInfo=calcPrestigeInfo(b,sim,logi,hasAffordableResearch,eggProg);
+ var boostInfo=analyzeBoosts(b,sim,slots,logi,prestigeInfo,hasAffordableResearch);
 
  var run=runMode;
  if(run==='auto'){
   if(prestigeInfo.status==='ready')run='ready';
-  else if(hab.pop<5000 && Object.keys(clv).length<15)run='start';
+  else if(logi.pop<5000 && Object.keys(clv).length<15)run='start';
   else run='mid';
  }
 
@@ -622,7 +707,36 @@ function plan(b,R){
  var free=Math.max(0,slots-busy2);
 
  if((g.unclaimedEggsOfProphecy||0)>0||(g.uncliamedGoldenEggs||0)>0)a.push([5,'אסוף ביצים שממתינות בחווה','Prophecy או Golden Eggs מוכנות לאיסוף.']);
+
+ // התראת שדרוג ביצה הבאה (או תדלוק מיכל דלק לפני שדרוג)
+ if(eggProg.canUpgradeEgg){
+  if(eggProg.shouldFillTankFirst){
+   a.push([10,'מלא מיכל דלק ('+eggProg.curName+') לפני שתעבור ל-'+eggProg.nextName,'הביצה הבאה פתוחה! מלא קודם את מיכל הדלק לספינות ואז שדרג ביצה.']);
+  }else{
+   a.push([11,'שדרג לביצה הבאה: '+eggProg.nextName,'שווי החווה הגיע ליעד! מעבר ביצה יכפיל את ההכנסות שלך.']);
+  }
+ }
+
+ // התראת צוואר בקבוק במשלוחים
+ if(logi.shipBottleneck){
+  a.push([15,'צוואר בקבוק במשלוחים ('+logi.shipUtilPct.toFixed(0)+'%) — קנה/שדרג משאיות','אתה מייצר יותר ביצים ממה שהמשאיות מסוגלות לפנות! קנה משאית חדשה או שדרג מחקרי משלוחים.','research']);
+ }
+
+ // התראת מקומות ריקים ללולים או רכבים
+ if(logi.emptyHabSlots>0 && cash>500){
+  a.push([16,'יש לך '+logi.emptyHabSlots+' מקומות ריקים ללולים — בנה לול נוסף','הגדלת מספר הלולים תכפיל את קצב גדילת התרנגולות (Internal Hatchery).']);
+ }
+ if(logi.unusedVehSlots>0 && logi.shipUtilPct>75 && cash>500){
+  a.push([17,'יש לך '+logi.unusedVehSlots+' מקומות פנויים לרכבים — הוסף משאית','הוספת משאית תמנע סתימה במשלוחים.']);
+ }
+
  if(ready>0)a.push([18,'אסוף '+ready+' ספינות שחזרו','פנה מקום לשיגור המשימה הבאה.']);
+
+ if(C.affordableList.length>0){
+  var top3=C.affordableList.slice(0,3).map(function(x){return x.r.name+' ← '+x.to}).join(' • ');
+  var moreTxt=C.affordableList.length>3?(' (+'+(C.affordableList.length-3)+' נוספים)'):'';
+  a.push([19,'שדרג מחקרים ('+C.totalLevelsBought+' רמות ב-'+C.affordableList.length+' מחקרים)',top3+moreTxt,'research']);
+ }
 
  var mainNames=art.setMain.map(function(x){return x.name}).join(' + ');
  var eqNames=art.equipped.map(function(x){return x.name}).join(' + ');
@@ -630,19 +744,13 @@ function plan(b,R){
   a.push([21,'הרכב סט ארטיפקטים ראשי: '+mainNames,'מותקן כרגע: '+(eqNames||'כלום')+'.','artifacts']);
  }
 
- var fuelInfo=checkShipFuel(b,sim);
  if(free>0){
   if(fuelInfo.onFuelEgg || fuelInfo.hasFuelInTank){
-   a.push([22,'שגר ספינת '+shipName(fuelInfo.target),'דלק זמין ('+fuelInfo.reqNames+'). בחר משימה קצרה (Short).']);
+   var progTxt=fuelInfo.shipProg.nextShip?(' ('+fuelInfo.shipProg.launched+'/'+fuelInfo.shipProg.req+' לפתיחת '+shipName(fuelInfo.shipProg.nextShip)+')'):'';
+   a.push([22,'שגר ספינת '+shipName(fuelInfo.target)+' (Short)','דלק זמין ('+fuelInfo.reqNames+')'+progTxt+'.']);
   }else{
    a.push([68,'ספינה פנויה ('+shipName(fuelInfo.target)+') — אין דלק כרגע','נדרשת ביצת '+fuelInfo.reqNames+' (כרגע על '+fuelInfo.curEggName+').']);
   }
- }
-
- if(C.affordableList.length>0){
-  var top3=C.affordableList.slice(0,3).map(function(x){return x.r.name+' ← '+x.to}).join(' • ');
-  var moreTxt=C.affordableList.length>3?(' (+'+(C.affordableList.length-3)+' נוספים)'):'';
-  a.push([19,'שדרג מחקרים ('+C.totalLevelsBought+' רמות ב-'+C.affordableList.length+' מחקרים)',top3+moreTxt,'research']);
  }
 
  if(prestigeInfo.status==='ready' || run==='ready'){
@@ -678,7 +786,7 @@ function plan(b,R){
 
  var avail=(g.goldenEggsEarned||0)-(g.goldenEggsSpent||0);
  var E=epicPlan(R,elv,avail);
- if(E.buy){var f=E.buy.row;if(E.buy.n>0)a.push([24,'מחקר אפיק: שדרג '+f.r.name+' (+'+E.buy.n+' רמות)','עלות '+fmt(E.buy.sum)+' GE מתוך '+fmt(avail)+' פנויות.']);else a.push([66,'מחקר אפיק: חסוך ל-'+f.r.name,'חסרות '+fmt(f.price-avail)+' GE (עולה '+fmt(f.price)+').'])}
+ if(E.buy){var f=E.buy.row;if(E.buy.n>0)a.push([24,'מחקר אפיק: שדרג '+f.r.name+' (+'+E.buy.n+' רמות)','עלות '+fmt(E.buy.sum)+' GE מתוך '+fmt(avail)+' פנויות.'+(prestigeInfo.isWeekend?' (טיפ: בימי ראשון יש לעיתים הנחת 35% על Epic!)':'')]);else a.push([66,'מחקר אפיק: חסוך ל-'+f.r.name,'חסרות '+fmt(f.price-avail)+' GE (עולה '+fmt(f.price)+').'])}
 
  if(C.affordableList.length===0 && C.nextList.length>0){
   var nx=C.nextList[0];
@@ -689,7 +797,7 @@ function plan(b,R){
  if((sim.unclaimedBoostTokens||0)>0)a.push([34,'אסוף '+sim.unclaimedBoostTokens+' טוקני בוסט בחווה','מוכנים לאיסוף.']);
  a.sort(function(x,y){return x[0]-y[0]});
  if(!a.length)a.push([99,'הכל מסודר כרגע','חזור לבדוק בעוד כמה דקות.']);
- return {CD:CD,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,slots:slots,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,hab:hab,cash:cash,art:art,prestigeInfo:prestigeInfo,boostInfo:boostInfo};
+ return {CD:CD,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,slots:slots,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,logi:logi,eggProg:eggProg,cash:cash,art:art,prestigeInfo:prestigeInfo,boostInfo:boostInfo};
 }
 
 function jumpTo(id){
@@ -707,10 +815,12 @@ function copyDiag(){
  var g=last.game||{};
  var diag={
   eggType:sim.eggType,
+  farmValue:sim.farmValue,
   cashComputed:farmCash(sim),
   soulEggs:g.soulEggsD||g.soulEggs,
   unclaimedSoulEggs:sim.unclaimedSoulEggsD||sim.unclaimedSoulEggs||g.unclaimedSoulEggsD||g.unclaimedSoulEggs,
   habs:sim.habs,
+  vehicles:sim.vehicles,
   habPopulation:sim.habPopulation,
   boostsOwned:g.boosts,
   activeBoosts:sim.activeBoosts,
@@ -730,24 +840,22 @@ function show(b,R){
  var age=Math.round((Date.now()/1000-(b.approxTime||0))/60);
  if(age>3)h+='<div class="warn">גיבוי בן '+age+' דקות. לעדכון מיידי: פתח לרגע חוזה וחזור.</div>';
 
- // סרגל קפיצה מהירה
  h+='<div class="nav">';
  h+='<button onclick="jumpTo(\'sec-research\')">מחקר ('+P.C.affordableList.length+')</button>';
+ h+='<button onclick="jumpTo(\'sec-farm\')">ביצה ומשלוחים</button>';
  h+='<button onclick="jumpTo(\'sec-boosts\')">בוסטים ו-Prestige</button>';
  h+='<button onclick="jumpTo(\'sec-artifacts\')">ארטיפקטים</button>';
  h+='<button onclick="jumpTo(\'sec-contracts\')">חוזים ('+P.CD.length+')</button>';
  h+='<button onclick="jumpTo(\'sec-epic\')">אפיק וספינות</button>';
  h+='</div>';
 
- // HUD נקי ב-4 קוביות
  h+='<div class="hud">';
  h+='<div class="hud-box"><small>ביצה ומזומן</small><b>'+esc(P.fuelInfo.curEggName)+' • '+fmt(P.cash)+'</b></div>';
- h+='<div class="hud-box"><small>תפוסת לולים</small><b>'+fmt(P.hab.pop)+' / '+fmt(P.hab.maxCap)+' ('+P.hab.pct.toFixed(0)+'%)</b></div>';
+ h+='<div class="hud-box"><small>תפוסת לולים</small><b>'+fmt(P.logi.pop)+' / '+fmt(P.logi.maxCap)+' ('+P.logi.habPct.toFixed(0)+'%)</b></div>';
  h+='<div class="hud-box"><small>Prestige צבור</small><b>+'+fmt(P.prestigeInfo.unclaimedSE)+' SE'+(P.prestigeInfo.gainPct>0?' (+'+P.prestigeInfo.gainPct.toFixed(0)+'%)':'')+'</b></div>';
  h+='<div class="hud-box"><small>ספינות • GE</small><b>'+P.busy+'/'+P.slots+' • '+fmt(P.avail)+' GE</b></div>';
  h+='</div>';
 
- // כרטיס ראשי: מה לעשות עכשיו
  var top=a[0];
  h+='<div class="hero"><small>הצעד הבא עכשיו</small><h2>'+esc(top[1])+'</h2><p>'+esc(top[2])+'</p>';
  if(top[3]==='research')h+='<button class="hero-btn" onclick="jumpTo(\'sec-research\')">לרשימת המחקרים ↓</button>';
@@ -756,7 +864,6 @@ function show(b,R){
  if(top[3]==='boosts')h+='<button class="hero-btn" onclick="jumpTo(\'sec-boosts\')">לבוסטים ו-Prestige ↓</button>';
  h+='</div>';
 
- // עד 3 פעולות המשך תמציתיות
  if(a.length>1){
   h+='<ol>';
   a.slice(1,4).forEach(function(x,idx){
@@ -772,6 +879,9 @@ function show(b,R){
 
  // 1. רשימת קניות מחקר רגיל
  h+='<div id="sec-research" class="card"><h3>שדרוגי מחקר מומלצים <small>תקציב: '+fmt(P.cash)+'</small></h3>';
+ if(P.logi.shipBottleneck){
+  h+='<div class="status-banner alert"><b>זוהה צוואר בקבוק במשלוחים!</b><small>המשאיות מלאות — הרשימה תועדפה לשדרוגי משלוחים (Shipping).</small></div>';
+ }
  if(P.C.affordableList.length){
   h+='<p><small>סה"כ '+P.C.totalLevelsBought+' רמות • עלות '+fmt(P.C.totalSpent)+' (יישארו '+fmt(P.C.remCash)+')</small></p>';
   P.C.affordableList.forEach(function(x){
@@ -791,7 +901,19 @@ function show(b,R){
  }
  h+='</div>';
 
- // 2. בוסטים ו-Prestige (נקי וברור)
+ // 2. התקדמות לביצה הבאה, לולים ומשלוחים
+ h+='<div id="sec-farm" class="card"><h3>התקדמות ביצה ולוגיסטיקה</h3>';
+ if(P.eggProg.nextName){
+  h+='<div class="c-box"><div class="c-head"><span>התקדמות לביצת '+esc(P.eggProg.nextName)+'</span><small>'+P.eggProg.pct.toFixed(0)+'%</small></div>';
+  h+='<div class="prog-bar"><div class="prog-fill '+(P.eggProg.canUpgradeEgg?'ok':'')+'" style="width:'+P.eggProg.pct.toFixed(0)+'%"></div></div>';
+  h+='<small>שווי חווה: '+fmt(P.eggProg.curFV)+' / יעד: '+fmt(P.eggProg.reqFV)+'</small></div>';
+ }
+ h+='<div class="c-box"><div class="c-head"><span>עומס משלוחים (רכבים)</span><span class="badge '+(P.logi.shipBottleneck?'b-rew':'b-pts')+'">'+(P.logi.shipBottleneck?'צוואר בקבוק!':'תקין')+'</span></div>';
+ h+='<div class="prog-bar"><div class="prog-fill '+(P.logi.shipBottleneck?'bad':'')+'" style="width:'+Math.min(100,P.logi.shipUtilPct).toFixed(0)+'%"></div></div>';
+ h+='<small>הטלה: '+fmt(P.logi.totalLayRate)+'/דקה • קיבולת משלוח: '+fmt(P.logi.totalShipCap)+'/דקה</small></div>';
+ h+='</div>';
+
+ // 3. בוסטים ו-Prestige
  var boostOpen=(P.prestigeInfo.status!=='push' || P.boostInfo.shouldUseNow || P.boostInfo.active.length>0)?'open':'';
  h+='<details id="sec-boosts" class="card" '+boostOpen+'><summary class="sum-head"><span>בוסטים ו-Prestige</span><span class="badge '+(P.boostInfo.shouldUseNow||P.prestigeInfo.status!=='push'?'b-rew':'b-pts')+'">'+(P.boostInfo.shouldUseNow?'הפעל בוסט':(P.prestigeInfo.status==='ready'?'מוכן ל-Prestige':'המתן'))+'</span></summary>';
  h+='<div style="margin-top:8px">';
@@ -817,7 +939,7 @@ function show(b,R){
  }
  h+='</div></details>';
 
- // 3. ארטיפקטים (סגור אם הסט הראשי כבר מותקן)
+ // 4. ארטיפקטים
  var mainNames=P.art.setMain.map(function(x){return x.name}).join(' + ');
  var eqNames=P.art.equipped.map(function(x){return x.name}).join(' + ');
  var artMismatch=(mainNames && mainNames!==eqNames);
@@ -832,7 +954,7 @@ function show(b,R){
  }
  h+='</div></details>';
 
- // 4. חוזים
+ // 5. חוזים
  h+='<details id="sec-contracts" class="card" '+(P.activeRunning>0?'open':'')+'><summary class="sum-head"><span>חוזים ('+P.CD.length+')</span><small>▼</small></summary>';
  h+='<div style="margin-top:8px">';
  if(P.CD.length){
@@ -848,13 +970,17 @@ function show(b,R){
  }
  h+='</div></details>';
 
- // 5. מחקר אפיק וספינות
+ // 6. מחקר אפיק וספינות
  h+='<div id="sec-epic" class="card"><h3>מחקר אפיק וספינות</h3>';
  P.E.rows.slice(0,4).forEach(function(x){
   var canEp=(P.avail>=x.price);
   h+=row('<b>'+esc(x.r.name)+'</b> <small>('+x.L+'/'+x.r.levels+')</small>',canEp?'<span class="tag-ok">'+fmt(x.price)+' GE</span>':'<small>'+fmt(x.price)+' GE</small>');
  });
  h+='<div style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--line)">';
+ var sp=P.fuelInfo.shipProg;
+ if(sp.nextShip){
+  h+='<p><small><b>התקדמות ספינות:</b> '+esc(shipName(sp.target))+' ('+sp.launched+'/'+sp.req+' שיגורים לפתיחת '+esc(shipName(sp.nextShip))+')</small></p>';
+ }
  if(P.ships.length){
   P.ships.forEach(function(s){h+=row('🚀 '+esc(s[0]),'<b>'+esc(s[1])+'</b>')});
  }else{
@@ -863,7 +989,7 @@ function show(b,R){
  h+='</div></div>';
 
  h+='<details class="card"><summary class="sum-head"><span>אבחון ונתוני חשבון</span><small>▼</small></summary><div style="margin-top:8px">';
- h+=row('Soul Eggs',fmt(P.prestigeInfo.curSE))+row('Prophecy Eggs',fmt(P.g.eggsOfProphecy))+row('תפוסת לולים',fmt(P.hab.pop)+' / '+fmt(P.hab.maxCap));
+ h+=row('Soul Eggs',fmt(P.prestigeInfo.curSE))+row('Prophecy Eggs',fmt(P.g.eggsOfProphecy))+row('תפוסת לולים',fmt(P.logi.pop)+' / '+fmt(P.logi.maxCap))+row('שווי חווה',fmt(P.eggProg.curFV));
  h+='<button class="copy-btn" onclick="copyDiag()">העתק נתוני חווה (ללא EID)</button>';
  h+='</div></details>';
  $('out').innerHTML=h;
