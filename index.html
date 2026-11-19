@@ -40,11 +40,12 @@ li.it b{display:block;font-size:.92rem}li.it span{color:var(--mut);font-size:.83
 .tag-ok{display:inline-block;background:var(--ok);color:#fff;font-size:.7rem;padding:1px 6px;border-radius:4px;margin-inline-start:5px;font-weight:600}
 .tag-wait{display:inline-block;background:var(--line);color:var(--ink);font-size:.7rem;padding:1px 6px;border-radius:4px;margin-inline-start:5px}
 .tag-warn{display:inline-block;background:var(--bad);color:#fff;font-size:.7rem;padding:1px 6px;border-radius:4px;margin-inline-start:5px;font-weight:600}
+.tier-pill{display:inline-block;background:var(--line);color:var(--ink);font-size:.68rem;padding:0 5px;border-radius:4px;margin-inline-end:5px;font-weight:700}
 .err{color:var(--bad);margin:6px 0;font-weight:600;font-size:.9rem}
 .warn{background:var(--s);border:1px solid var(--y);border-radius:8px;padding:6px 10px;margin:6px 0;font-size:.82rem}
 .card{background:var(--s);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:8px 0;font-size:.88rem}
 .card h3{margin:0 0 6px;font-size:.94rem;display:flex;justify-content:space-between;align-items:center}
-.card .l{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid var(--line);align-items:center}
+.card .l{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--line);align-items:center}
 .card .l:first-of-type{border-top:0}
 .card small{color:var(--mut)}
 .card p{margin:4px 0;font-size:.85rem}
@@ -68,7 +69,7 @@ details{margin-top:8px}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 12</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 13</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -151,7 +152,6 @@ var ART_INFO={
 };
 var GUSSET_MULT={INFERIOR:1.05,LESSER:1.10,NORMAL:1.15,GREATER:1.20};
 
-// מיפוי בוסטים לפי מזהה בפרוטובאף (carpetsage/egg)
 var BOOST_CAT={
  jimbos_orange:{name:"Jimbo's Bird Feed (3x 20m)",cat:'feed',power:3},
  jimbos_orange_big:{name:"Jimbo's Bird Feed (10x 15m)",cat:'feed',power:10},
@@ -216,16 +216,24 @@ function epicPlan(R,lv,avail){
 }
 function cgain(r,L){var p=r.per_level,g;if(r.effect_type==='multiplicative'){g=r.levels_compound==='multiplicative'?Math.log(1+p):Math.log((1+p*(L+1))/(1+p*L))}else{g=p/(1+p*L+(p<1?1:10))}var w=W[r.categories];return g*(w===undefined?0.1:w)}
 
+// סימולציית תקציב מלאה: מנצלת את כל המזומן הזמין (עד 2,500 רמות קדימה!) ומקבצת לפי מחקר: "מ-X ל-Y"
 function commonPlan(R,lv,virt,cash,elv){
  var simLv=Object.assign({},lv);
  var cm=R.filter(function(r){return r.type==='common'});
  var labDisc=1-0.05*(elv['cheaper_research']||0);
  if(labDisc<0.1)labDisc=0.1;
  function bought(t){var n=0;cm.forEach(function(r){if(r.tier<=t)n+=simLv[r.id]||0});return n}
- var batches=[];
- var remCash=(cash!==undefined && cash!==null)?Number(cash):null;
 
- for(var step=0;step<400;step++){
+ var remCash=(cash!==undefined && cash!==null)?Number(cash):0;
+ var startCash=remCash;
+ var buyById={};
+ var buyOrder=[];
+ var totalLevelsBought=0;
+ var totalSpent=0;
+ var nextOutOfBudget=[];
+
+ // רץ עד שנגמר התקציב או שמגיעים לשדרוגים שאי אפשר לקנות כרגע
+ for(var step=0;step<2500;step++){
   var best=null;
   for(var i=0;i<cm.length;i++){
    var r=cm[i],L=simLv[r.id]||0;
@@ -238,21 +246,49 @@ function commonPlan(R,lv,virt,cash,elv){
    if(!best||sc>best.score)best={r:r,L:L,price:p,score:sc};
   }
   if(!best)break;
-  var canBuyNow=(remCash===null)?true:(remCash>=best.price);
-  if(remCash!==null && canBuyNow)remCash-=best.price;
 
-  simLv[best.r.id]=best.L+1;
-  var lastB=batches[batches.length-1];
-  if(lastB && lastB.r.id===best.r.id && lastB.canBuy===canBuyNow){
-   lastB.to=best.L+1;
-   lastB.count++;
-   lastB.cost+=best.price;
+  if(remCash>=best.price){
+   remCash-=best.price;
+   totalSpent+=best.price;
+   totalLevelsBought++;
+   simLv[best.r.id]=best.L+1;
+   if(!buyById[best.r.id]){
+    buyById[best.r.id]={r:best.r,from:(lv[best.r.id]||0),to:best.L+1,count:1,cost:best.price,canBuy:true,firstScore:best.score};
+    buyOrder.push(buyById[best.r.id]);
+   }else{
+    buyById[best.r.id].to=best.L+1;
+    buyById[best.r.id].count++;
+    buyById[best.r.id].cost+=best.price;
+   }
   }else{
-   if(batches.length>=12)break;
-   batches.push({r:best.r,from:best.L,to:best.L+1,count:1,cost:best.price,canBuy:canBuyNow,score:best.score});
+   // נגמר התקציב — אוספים עד 5 יעדים הבאים שכדאי לחסוך אליהם
+   simLv[best.r.id]=best.L+1;
+   var lastNext=nextOutOfBudget[nextOutOfBudget.length-1];
+   if(lastNext && lastNext.r.id===best.r.id){
+    lastNext.to=best.L+1;
+    lastNext.count++;
+    lastNext.cost+=best.price;
+   }else{
+    if(nextOutOfBudget.length>=5)break;
+    nextOutOfBudget.push({r:best.r,from:best.L,to:best.L+1,count:1,cost:best.price,canBuy:false,firstScore:best.score});
+   }
   }
  }
- return batches;
+
+ // ממיינים את רשימת הקנייה המרוכזת לפי Tier ויעילות כדי שיהיה נוח לעבור עליה במשחק מלמעלה למטה
+ buyOrder.sort(function(a,b){
+  if(a.r.tier!==b.r.tier)return a.r.tier-b.r.tier;
+  return b.firstScore-a.firstScore;
+ });
+
+ return {
+  affordableList:buyOrder,
+  nextList:nextOutOfBudget,
+  totalLevelsBought:totalLevelsBought,
+  totalSpent:totalSpent,
+  remCash:remCash,
+  startCash:startCash
+ };
 }
 
 function calcHabInfo(sim,clv,artInfo){
@@ -274,15 +310,13 @@ function calcHabInfo(sim,clv,artInfo){
  return {pop:pop,maxCap:maxCap,pct:pct,nearFull:pct>=85,isFull:pct>=97};
 }
 
-// חישוב כדאיות Prestige מתוך נתוני האמת
 function calcPrestigeInfo(b,sim,hab,hasAffordableResearch){
  var g=b.game||{};
  var curSE=Number(g.soulEggsD||g.soulEggs||0);
- // בפרוטובאף, ה-Soul Eggs הממתינים לפרסטיג' נשמרים בשדה unclaimedSoulEggsD או unclaimedSoulEggs
  var unclaimedSE=Number(sim.unclaimedSoulEggsD||sim.unclaimedSoulEggs||g.unclaimedSoulEggsD||g.unclaimedSoulEggs||0);
  var gainPct=(curSE>0 && unclaimedSE>0)?((unclaimedSE/curSE)*100):0;
 
- var status='push'; // push | ready | boost_then_prestige
+ var status='push';
  var title='המשך להתקדם בריצה הנוכחית';
  var reason='';
 
@@ -306,7 +340,6 @@ function calcPrestigeInfo(b,sim,hab,hasAffordableResearch){
  return {curSE:curSE,unclaimedSE:unclaimedSE,gainPct:gainPct,status:status,title:title,reason:reason};
 }
 
-// מודול ארטיפקטים (מיושר עם Smart Assistant)
 function analyzeArtifacts(b,slots){
  var db=b.artifactsDb||{};
  var inv=db.inventoryItems||[];
@@ -349,7 +382,6 @@ function analyzeArtifacts(b,slots){
   }
   return res;
  }
- // הסט הראשי (תואם Smart Assistant): מקסימום הכנסות ו-Soul Eggs ללא החלפות מיותרות
  var setMain=pickSet(['PHOENIX_FEATHER','BOOK_OF_BASAN','DEMETERS_NECKLACE','TUNGSTEN_ANKH','VIAL_MARTIAN_DUST']);
  var setResearch=pickSet(['PUZZLE_CUBE','DEMETERS_NECKLACE','TUNGSTEN_ANKH']);
  var setDrones=pickSet(['AURELIAN_BROOCH','NEODYMIUM_MEDALLION','BEAK_OF_MIDAS','DEMETERS_NECKLACE']);
@@ -377,7 +409,6 @@ function analyzeArtifacts(b,slots){
  return {equipped:equipped,maxArtSlots:maxArtSlots,gussetMult:gussetMult,setMain:setMain,setResearch:setResearch,setDrones:setDrones,craftable:craftable,consumeList:consumeList};
 }
 
-// מנהל בוסטים חכם מתוך המלאי בחשבון (מותאם למגבלת 2 בוסטים ללא Pro Permit)
 function analyzeBoosts(b,sim,slots,hab,prestigeInfo,hasAffordableResearch){
  var g=b.game||{};
  var maxBoostSlots=(slots===3)?5:2;
@@ -482,7 +513,11 @@ function contractInfo(c,b,R,elv,now){
  var researchHint='';
  if(cf && !waitingCoop){
   var cp=commonPlan(R,lvMap(cf.commonResearch),false,farmCash(cf),elv);
-  if(cp.length)researchHint=cp.slice(0,3).map(function(x){return x.r.name+' ('+x.from+'→'+x.to+')'}).join(', ');
+  if(cp.affordableList.length){
+   researchHint=cp.affordableList.slice(0,4).map(function(x){return x.r.name+' ל-'+x.to}).join(', ');
+  }else if(cp.nextList.length){
+   researchHint='הבא בתור: '+cp.nextList[0].r.name+' ל-'+cp.nextList[0].to;
+  }
  }
 
  return {
@@ -544,7 +579,7 @@ function plan(b,R){
  var art=analyzeArtifacts(b,slots);
  var hab=calcHabInfo(sim,clv,art);
  var C=commonPlan(R,clv,virt,cash,elv);
- var hasAffordableResearch=(C.length>0 && C[0].canBuy);
+ var hasAffordableResearch=(C.affordableList.length>0);
  var prestigeInfo=calcPrestigeInfo(b,sim,hab,hasAffordableResearch);
  var boostInfo=analyzeBoosts(b,sim,slots,hab,prestigeInfo,hasAffordableResearch);
 
@@ -566,7 +601,6 @@ function plan(b,R){
  if((g.unclaimedEggsOfProphecy||0)>0||(g.uncliamedGoldenEggs||0)>0)a.push([5,'אסוף ביצים שממתינות לך','יש Prophecy או Golden Eggs שלא נאספו. פתח את המשחק ואסוף אותן.']);
  if(ready>0)a.push([18,'אסוף '+ready+' ספינות שחזרו','ספינה שחזרה תופסת מקום ומעכבת משימה חדשה. אסוף אותה כדי לפנות מקום.']);
 
- // בדיקת ארטיפקטים תואמת Smart Assistant (ממליץ להחליף רק אם הסט הראשי מפורק)
  var mainNames=art.setMain.map(function(x){return x.name}).join(' + ');
  var eqNames=art.equipped.map(function(x){return x.name}).join(' + ');
  if(mainNames && mainNames!==eqNames){
@@ -582,7 +616,13 @@ function plan(b,R){
   }
  }
 
- // המלצות Prestige ובוסטים מתוך התיק
+ // סבב קניית מחקרים מרוכז על כל הכסף הזמין!
+ if(C.affordableList.length>0){
+  var top3=C.affordableList.slice(0,3).map(function(x){return x.r.name+' ל-'+x.to}).join(', ');
+  var moreTxt=C.affordableList.length>3?(' (+'+(C.affordableList.length-3)+' נוספים)'):'';
+  a.push([19,'בצע סבב שדרוגי מחקר ('+C.totalLevelsBought+' רמות ב-'+C.affordableList.length+' מחקרים)','הבא את: '+top3+moreTxt+'. עלות כוללת: '+fmt(C.totalSpent)+' מתוך '+fmt(cash)+' שברשותך.','research']);
+ }
+
  if(prestigeInfo.status==='ready' || run==='ready'){
   a.push([12,prestigeInfo.title,prestigeInfo.reason]);
  }else if(prestigeInfo.status==='boost_then_prestige'){
@@ -618,18 +658,9 @@ function plan(b,R){
  var E=epicPlan(R,elv,avail);
  if(E.buy){var f=E.buy.row;if(E.buy.n>0)a.push([24,'מחקר אפיק: שדרג את '+f.r.name+' ב-'+E.buy.n+' רמות','עכשיו רמה '+f.L+' מתוך '+f.r.levels+'. עלות '+fmt(E.buy.sum)+' GE מתוך '+fmt(avail)+' פנויות.']);else a.push([66,'מחקר אפיק: חסוך ל-'+f.r.name,'הרמה הבאה עולה '+fmt(f.price)+' GE ויש לך '+fmt(avail)+' (חסרות '+fmt(f.price-avail)+').'])}
 
- if(C.length){
-  var b1=C[0];
-  var t1=b1.count>1?('מרמה '+b1.from+' עד רמה '+b1.to+' (+'+b1.count+' רמות)'):('לרמה '+b1.to);
-  if(b1.canBuy){
-   a.push([25,'שדרג '+b1.r.name+' '+t1,'יש לך מספיק כסף כרגע! עלות הרצף: '+fmt(b1.cost)+' מתוך '+fmt(cash)+' שברשותך.']);
-  }else{
-   a.push([45,'השדרוג הבא: '+b1.r.name+' '+t1,'עלות: '+fmt(b1.cost)+', וכרגע יש לך '+fmt(cash)+'. המתן להצטברות מזומן או הפעל בוסט/רחפנים.']);
-  }
- }
-
- if(art.craftable.length>0){
-  a.push([52,'זמינים לייצור (Craft): '+art.craftable.length+' ארטיפקטים משודרגים','תוכל לשדרג ל-T2 את: '+art.craftable.map(function(x){return x.name}).join(', ')+'.','artifacts']);
+ if(C.affordableList.length===0 && C.nextList.length>0){
+  var nx=C.nextList[0];
+  a.push([45,'המחקר הבא לחסוך אליו: '+nx.r.name+' (לרמה '+nx.to+')','עלות: '+fmt(nx.cost)+', וכרגע יש לך '+fmt(cash)+'. המתן להצטברות מזומן או הפעל בוסט.','research']);
  }
 
  var gift=g.nextDailyGiftTime||0;if(gift>1e12)gift/=1000;if(gift>0&&gift<now)a.push([20,'אסוף את המתנה היומית','הזמן של המתנה היומית עבר — לחץ על אייקון המתנה בצד.']);
@@ -643,7 +674,7 @@ function plan(b,R){
 function jumpTo(id){
  var el=$(id);
  if(el){
-  el.open=true;
+  if(el.tagName==='DETAILS')el.open=true;
   el.scrollIntoView({behavior:'smooth',block:'start'});
  }
 }
@@ -687,6 +718,7 @@ function show(b,R){
 
  var top=a[0];
  h+='<div class="hero"><small>הצעד הבא עכשיו</small><h2>'+esc(top[1])+'</h2><p>'+esc(top[2])+'</p>';
+ if(top[3]==='research')h+='<button class="hero-btn" onclick="jumpTo(\'sec-research\')">לרשימת הקניות המלאה ↓</button>';
  if(top[3]==='contracts')h+='<button class="hero-btn" onclick="jumpTo(\'sec-contracts\')">פירוט חוזים מלא ↓</button>';
  if(top[3]==='artifacts')h+='<button class="hero-btn" onclick="jumpTo(\'sec-artifacts\')">למודול ארטיפקטים ↓</button>';
  if(top[3]==='boosts')h+='<button class="hero-btn" onclick="jumpTo(\'sec-boosts\')">לניהול בוסטים ↓</button>';
@@ -694,6 +726,7 @@ function show(b,R){
 
  a.slice(1,5).forEach(function(x,idx){
   h+='<li class="it"><b><span class="step-num">'+(idx+2)+'</span>'+esc(x[1])+'</b><span>'+esc(x[2])+'</span>';
+  if(x[3]==='research')h+='<button class="sm-btn" onclick="jumpTo(\'sec-research\')">לרשימת המחקרים</button>';
   if(x[3]==='contracts')h+='<button class="sm-btn" onclick="jumpTo(\'sec-contracts\')">הצג פירוט חוזים</button>';
   if(x[3]==='artifacts')h+='<button class="sm-btn" onclick="jumpTo(\'sec-artifacts\')">הצג ארטיפקטים</button>';
   if(x[3]==='boosts')h+='<button class="sm-btn" onclick="jumpTo(\'sec-boosts\')">הצג בוסטים</button>';
@@ -701,15 +734,24 @@ function show(b,R){
  });
  h+='</ol>';
 
- h+='<div class="card"><h3>10 השדרוגים הבאים ברצף (מחקר רגיל) <small>מזומן: '+fmt(P.cash)+'</small></h3>';
- if(P.C.length){
-  P.C.slice(0,10).forEach(function(x,i){
-   var rng=x.count>1?('מרמה '+x.from+' עד '+x.to+' (+'+x.count+')'):('לרמה '+x.to);
-   var badge=x.canBuy?'<span class="tag-ok">קנה עכשיו</span>':'<span class="tag-wait">חסר כסף</span>';
-   h+=row((i+1)+'. <b>'+esc(x.r.name)+'</b> <small>'+rng+'</small>'+badge,'<small>עלות:</small> '+fmt(x.cost));
+ h+='<div id="sec-research" class="card"><h3>רשימת קניות מחקר רגיל (לפי כל המזומן שלך) <small>זמין: '+fmt(P.cash)+'</small></h3>';
+ if(P.C.affordableList.length){
+  h+='<p><small>קנה את כל הרשימה הבאה לפי הסדר (סה"כ '+P.C.totalLevelsBought+' רמות בעלות '+fmt(P.C.totalSpent)+', יישארו '+fmt(P.C.remCash)+'):</small></p>';
+  P.C.affordableList.forEach(function(x){
+   var isMax=(x.to>=x.r.levels);
+   var targetTxt=isMax?('<b>למקסימום ('+x.to+')</b>'):('<b>לרמה '+x.to+'</b>');
+   h+=row('<span class="tier-pill">T'+x.r.tier+'</span><b>'+esc(x.r.name)+'</b> <small>(עכשיו '+x.from+' → '+targetTxt+', +'+x.count+')</small>','<span class="tag-ok">'+fmt(x.cost)+'</span>');
   });
  }else{
-  h+='<small>כל המחקרים הפתוחים הושלמו.</small>';
+  h+='<p><small>אין כרגע מספיק מזומן לשדרוג הבא. צבור עוד כסף ליעדים הבאים:</small></p>';
+ }
+
+ if(P.C.nextList.length){
+  h+='<div style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--line)"><small><b>היעדים הבאים אחרי שייגמר המזומן הנוכחי:</b></small>';
+  P.C.nextList.forEach(function(x){
+   h+=row('<span class="tier-pill">T'+x.r.tier+'</span>'+esc(x.r.name)+' <small>('+x.from+' → '+x.to+')</small>','<span class="tag-wait">'+fmt(x.cost)+'</span>');
+  });
+  h+='</div>';
  }
  h+='</div>';
 
@@ -730,7 +772,7 @@ function show(b,R){
  }
  h+='</div></details>';
 
- h+='<details id="sec-artifacts" class="card" open><summary style="font-weight:700;font-size:.96rem;cursor:pointer">ארטיפקטים, סטים וייצור ('+P.art.equipped.length+'/'+P.art.maxArtSlots+' מותקנים)</summary>';
+ h+='<details id="sec-artifacts" class="card" open><summary style="font-weight:700;font-size:.96rem;cursor:pointer">ארטיפקטים וסטים ('+P.art.equipped.length+'/'+P.art.maxArtSlots+' מותקנים)</summary>';
  h+='<div class="c-box"><div class="c-head"><span>מותקן כרגע בחווה (סט ראשי)</span><span class="tag-ok">תואם Smart Assistant</span></div>';
  if(P.art.equipped.length){
   h+='<p>'+P.art.equipped.map(function(x){return '<b>'+esc(x.name)+'</b> <small>('+esc(x.desc)+')</small>'}).join(' | ')+'</p>';
@@ -746,13 +788,13 @@ function show(b,R){
  h+='</div>';
 
  if(P.art.craftable.length){
-  h+='<div class="c-box"><div class="c-head"><span>זמין לייצור (Craft) עכשיו</span><span class="tag-ok">'+P.art.craftable.length+' זמינים</span></div>';
-  h+='<p>'+P.art.craftable.map(function(x){return '<b>'+esc(x.name)+'</b>'}).join(', ')+'</p></div>';
+  h+='<div class="c-box"><div class="c-head"><span>ייצור (Craft) — לא מומלץ כרגע</span><span class="tag-wait">שמור GE לאפיק</span></div>';
+  h+='<p><small>זמינים לייצור בתשלום GE: '+P.art.craftable.map(function(x){return esc(x.name)}).join(', ')+'. אל תבזבז עליהם Golden Eggs — תקבל אותם בחינם מהספינות.</small></p></div>';
  }
 
  if(P.art.consumeList.length){
   h+='<div class="c-box"><div class="c-head"><span>עודפי T1 לפירוק (Consume)</span></div>';
-  h+='<p><small>שמור כ-10 יחידות לייצור ופרק את העודף לקבלת אבנים/חומרים:</small><br>';
+  h+='<p><small>שמור כ-10 יחידות ופרק את העודף לקבלת אבנים/חומרים:</small><br>';
   h+=P.art.consumeList.map(function(x){return esc(x.name)+': יש '+x.qty+' (פרק '+x.excess+')'}).join(' | ')+'</p></div>';
  }
  h+='</details>';
@@ -772,7 +814,7 @@ function show(b,R){
  }
  h+='</details>';
 
- h+='<div class="card"><h3>מחקר אפיק (לפי סדר עדיפויות)</h3>';
+ h+='<div class="card"><h3>מחקר אפיק (עדיפות עליונה ל-Golden Eggs)</h3>';
  P.E.rows.slice(0,5).forEach(function(x){
   var canEp=(P.avail>=x.price);
   var badge=canEp?'<span class="tag-ok">זמין</span>':'';
@@ -802,7 +844,7 @@ $('go').addEventListener('click',function(){run(false)});
 $('btn-ref').addEventListener('click',function(){run(false)});
 $('btn-eid').addEventListener('click',function(){var b=$('eid-bar');b.style.display=(b.style.display==='none'?'flex':'none')});
 ['slots','run','shipTarget'].forEach(function(id){var v=sget(id);if(v)$(id).value=v;$(id).addEventListener('change',function(){sset(id,$(id).value);if(last&&RES)show(last,RES)})});
-var s=sget('eid');if(s){$('eid').value=s;run(false)}
+var s=sget(eid);if(s){$('eid').value=s;run(false)}
 setInterval(function(){if(!document.hidden&&$('eid').value.trim())run(true)},20000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&$('eid').value.trim())run(true)});
 </script></body></html>
