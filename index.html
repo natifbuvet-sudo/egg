@@ -97,7 +97,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 23</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 24</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -133,8 +133,25 @@ details summary::-webkit-details-marker{display:none}
 <script>
 var PROTO='https://raw.githubusercontent.com/carpetsage/egg/main/protobuf/ei.proto';
 var RES_URL='https://raw.githubusercontent.com/carpetsage/egg/main/lib/researches.json';
-var PRI_EARLY=['cheaper_research','int_hatch_calm','epic_internal_incubators','soul_eggs','prestige_bonus','epic_egg_laying','transportation_lobbyist','accounting_tricks','epic_multiplier','afx_mission_time','afx_mission_capacity','prophecy_bonus','epic_hatchery','drone_rewards','epic_clucking'];
-var PRI_HIGH_PE=['cheaper_research','int_hatch_calm','epic_internal_incubators','soul_eggs','prestige_bonus','prophecy_bonus','epic_egg_laying','transportation_lobbyist','accounting_tricks','epic_multiplier','afx_mission_time','afx_mission_capacity','epic_hatchery','drone_rewards','epic_clucking'];
+var EPIC_W={
+ soul_eggs:12.0,
+ prestige_bonus:8.0,
+ cheaper_research:4.2,
+ int_hatch_calm:3.8,
+ epic_internal_incubators:3.2,
+ epic_egg_laying:2.8,
+ transportation_lobbyist:2.5,
+ accounting_tricks:2.4,
+ afx_mission_time:2.2,
+ afx_mission_capacity:2.2,
+ epic_multiplier:2.0,
+ epic_hatchery:1.2,
+ drone_rewards:1.0,
+ epic_clucking:0.8,
+ silo_capacity:0.6,
+ hold_to_hatch:0.5,
+ hold_to_research:0.5
+};
 var W={egg_value:1.15,egg_laying_rate:1,'egg_laying_rate,egg_value':1.1,running_chicken_bonus:.75,shipping_capacity:.5,hab_capacity:.65,internal_hatchery_rate:.8,fleet_size:.2,hatchery_capacity:.1,hatchery_refill_rate:.05};
 var VIRT={CURIOSITY:1,INTEGRITY:1,HUMILITY:1,RESILIENCE:1,KINDNESS:1};
 var EGG_ORDER=['EDIBLE','SUPERFOOD','MEDICAL','ROCKET_FUEL','SUPER_MATERIAL','FUSION','QUANTUM','IMMORTALITY','TACHYON','GRAVITON','DILITHIUM','PRODIGY','TERRAFORM','ANTIMATTER','DARK_MATTER','AI','NEBULA','UNIVERSE','ENLIGHTENMENT'];
@@ -338,14 +355,62 @@ function farmCash(f){
 }
 
 function lvMap(arr){var m={};(arr||[]).forEach(function(r){m[r.id]=r.level||0});return m}
+
+function getEpicWeight(id,peCount){
+ if(id==='prophecy_bonus')return (peCount>=15)?35.0:8.0;
+ return EPIC_W[id]||0.5;
+}
+
 function epicPlan(R,lv,avail,peCount){
- var priList=(peCount>=15)?PRI_HIGH_PE:PRI_EARLY;
  var ep=R.filter(function(r){return r.type==='epic'}).filter(function(r){return (lv[r.id]||0)<r.levels});
- ep.sort(function(a,b){var x=priList.indexOf(a.id),y=priList.indexOf(b.id);if(x<0)x=999;if(y<0)y=999;if(x!==y)return x-y;return a.prices[lv[a.id]||0]-b.prices[lv[b.id]||0]});
- var rows=ep.map(function(r){var L=lv[r.id]||0;var left=0;for(var i=L;i<r.levels;i++)left+=r.prices[i];return {r:r,L:L,price:r.prices[L],left:left}});
- var buy=null;if(rows.length){var f=rows[0],n=0,sum=0,L=f.L;while(L<f.r.levels&&sum+f.r.prices[L]<=avail){sum+=f.r.prices[L];L++;n++}buy={row:f,n:n,sum:sum}}
+ var rows=ep.map(function(r){
+  var L=lv[r.id]||0;
+  var price=r.prices[L]||1;
+  var left=0;
+  for(var i=L;i<r.levels;i++)left+=r.prices[i];
+  var roi=getEpicWeight(r.id,peCount)/price;
+  return {r:r,L:L,price:price,left:left,roi:roi};
+ });
+ rows.sort(function(a,b){return b.roi-a.roi});
+
+ var simLv=Object.assign({},lv);
+ var rem=Math.max(0,Number(avail)||0);
+ var buyMap={};
+ var buyList=[];
+ var totalSum=0;
+ var totalLevels=0;
+
+ for(var step=0;step<200;step++){
+  var best=null;
+  for(var i=0;i<ep.length;i++){
+   var r=ep[i],L=simLv[r.id]||0;
+   if(L>=r.levels)continue;
+   var p=r.prices[L]||0;
+   if(!p || p>rem)continue;
+   var sc=getEpicWeight(r.id,peCount)/p;
+   if(!best || sc>best.sc)best={r:r,L:L,p:p,sc:sc};
+  }
+  if(!best)break;
+  rem-=best.p;
+  totalSum+=best.p;
+  totalLevels++;
+  simLv[best.r.id]=best.L+1;
+  if(!buyMap[best.r.id]){
+   buyMap[best.r.id]={r:best.r,n:1,sum:best.p};
+   buyList.push(buyMap[best.r.id]);
+  }else{
+   buyMap[best.r.id].n++;
+   buyMap[best.r.id].sum+=best.p;
+  }
+ }
+
+ var buy=null;
+ if(rows.length){
+  buy={row:rows[0],n:buyList.length?buyList[0].n:0,sum:buyList.length?buyList[0].sum:0,list:buyList,totalSum:totalSum,totalLevels:totalLevels};
+ }
  return {rows:rows,buy:buy};
 }
+
 function cgain(r,L,ctx){
  var p=r.per_level,g;
  if(r.effect_type==='multiplicative'){g=r.levels_compound==='multiplicative'?Math.log(1+p):Math.log((1+p*(L+1))/(1+p*L))}
@@ -1223,7 +1288,15 @@ function plan(b,R){
 
  var avail=(g.goldenEggsEarned||0)-(g.goldenEggsSpent||0);
  var E=epicPlan(R,elv,avail,peCount);
- if(E.buy){var f=E.buy.row;if(E.buy.n>0)a.push([24,'מחקר אפיק: שדרג '+f.r.name+' (+'+E.buy.n+' רמות)','עלות '+fmt(E.buy.sum)+' GE מתוך '+fmt(avail)+' פנויות.'+(prestigeInfo.isWeekend?' (טיפ: בימי ראשון פעם בשבועיים יש 35% הנחה על Epic!)':'')]);else a.push([66,'מחקר אפיק: חסוך ל-'+f.r.name,'חסרות '+fmt(f.price-avail)+' GE (עולה '+fmt(f.price)+').'])}
+ if(E.buy){
+  if(E.buy.list && E.buy.list.length>0){
+   var epSummary=E.buy.list.slice(0,3).map(function(x){return x.r.name+' (+'+x.n+')'}).join(' • ');
+   a.push([24,'מחקר אפיק (ROI): '+epSummary,'סה"כ '+E.buy.totalLevels+' רמות ב-'+fmt(E.buy.totalSum)+' GE מתוך '+fmt(avail)+' פנויות.'+(prestigeInfo.isWeekend?' (טיפ: בימי ראשון פעם בשבועיים יש 35% הנחה על Epic!)':'')]);
+  }else{
+   var f=E.buy.row;
+   a.push([66,'מחקר אפיק: חסוך ל-'+f.r.name,'חסרות '+fmt(f.price-avail)+' GE (עולה '+fmt(f.price)+').']);
+  }
+ }
 
  if(C.affordableList.length===0 && C.nextList.length>0){
   var nx=C.nextList[0];
