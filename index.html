@@ -105,7 +105,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 31</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 32</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -1129,7 +1129,7 @@ function calcEggProgress(b,sim,logi,fuelInfo){
  var alreadyDiscovered=(maxReachedIdx>idx) || (reqDiscoverFV>0 && curFV>=reqDiscoverFV);
 
  var isFuelEggForShip=(fuelInfo.reqFuels.indexOf(curEgg)>=0);
- var shouldFillTankFirst=(isFuelEggForShip && !fuelInfo.hasFuelInTank && fuelInfo.tankFreeSpace>=1e9);
+ var shouldFillTankFirst=(fuelInfo.hasFuelTank && isFuelEggForShip && !fuelInfo.hasFuelInTank && fuelInfo.tankFreeSpace>=1e9);
 
  return {
   curEgg:curEgg,curName:EGG_HE[curEgg]||curEgg,
@@ -1909,7 +1909,7 @@ function getSlotCount(b){
  return (g.permitLevel===1)?3:1;
 }
 
-function detectBestShip(b,isVirt,events){
+function detectBestShip(b,isVirt,events,hasFuelTank){
  var sel=$('shipTarget').value;
  var db=b.artifactsDb||{};
  var vafx=(b.virtue&&b.virtue.afx)||{};
@@ -1936,6 +1936,12 @@ function detectBestShip(b,isVirt,events){
   }
  }
 
+ var cappedByNoTank=false;
+ if(!hasFuelTank && defaultIdx>=3){
+  defaultIdx=2;
+  cappedByNoTank=true;
+ }
+
  var defaultTarget=SHIP_ORDER[defaultIdx]||'CHICKEN_ONE';
  if(isVirt && defaultTarget==='ATREGGIES')defaultTarget='HENERPRISE';
  var target=(sel && sel!=='auto')?sel:defaultTarget;
@@ -1947,55 +1953,94 @@ function detectBestShip(b,isVirt,events){
  var durKey=preferExtended?'EXTENDED':'SHORT';
  var missionDur=preferExtended?'Extended':'Short';
  if(events && events.missionCapacityMultiplier>1 && !preferExtended)missionDur='Short (2x Capacity!)';
- return {target:target,launched:launched,req:req,nextShip:nextShip,preferExtended:preferExtended,durKey:durKey,missionDur:missionDur};
+ var multiFuelBlocked=(!hasFuelTank && (SHIP_FUELS[target]||[]).length>1);
+ return {target:target,launched:launched,req:req,nextShip:nextShip,preferExtended:preferExtended,durKey:durKey,missionDur:missionDur,cappedByNoTank:cappedByNoTank,multiFuelBlocked:multiFuelBlocked};
 }
 
 function checkShipFuel(b,sim,isVirt,events){
- var shipProg=detectBestShip(b,isVirt,events);
- var target=shipProg.target;
- var reqFuels=SHIP_FUELS[target]||['ROCKET_FUEL'];
- var costMap=(SHIP_FUEL_COSTS[target]&&SHIP_FUEL_COSTS[target][shipProg.durKey])||{};
- var curEgg=sim.eggType||'';
+ var g=b.game||{};
+ var curSE=Number(g.soulEggsD||g.soulEggs||0);
  var db=b.artifactsDb||{};
  var vafx=(b.virtue&&b.virtue.afx)||{};
  var tank=db.tankFuels||vafx.tankFuels||[];
  var tankLevel=Number(db.tankLevel||0);
- var tankCapacity=TANK_CAPACITIES[Math.min(tankLevel,TANK_CAPACITIES.length-1)]||2e9;
  var tankTotal=tank.reduce(function(x,y){return x+(y||0)},0);
- var tankFreeSpace=Math.max(0,tankCapacity-tankTotal);
+ var hasAnyMissions=((db.missionInfos&&db.missionInfos.length>0)||(db.missionArchive&&db.missionArchive.length>0));
+
+ var launchpadUnlocked=(curSE>=10000 || hasAnyMissions || isVirt);
+ var hasFuelTank=(curSE>=100000 || tankTotal>0 || tankLevel>0 || isVirt);
+
+ var shipProg=detectBestShip(b,isVirt,events,hasFuelTank);
+ var target=shipProg.target;
+ var reqFuels=SHIP_FUELS[target]||['ROCKET_FUEL'];
+ var costMap=(SHIP_FUEL_COSTS[target]&&SHIP_FUEL_COSTS[target][shipProg.durKey])||{};
+ var curEgg=sim.eggType||'';
+ var curEggIdx=EGG_ORDER.indexOf(curEgg);
+ var rfIdx=EGG_ORDER.indexOf('ROCKET_FUEL');
+ var curEggName=EGG_HE[curEgg]||curEgg;
+
+ var tankCapacity=hasFuelTank?(TANK_CAPACITIES[Math.min(tankLevel,TANK_CAPACITIES.length-1)]||2e9):0;
+ var tankFreeSpace=hasFuelTank?Math.max(0,tankCapacity-tankTotal):0;
 
  var onFuelEgg=(reqFuels.indexOf(curEgg)>=0);
  var minLaunchesInTank=Infinity;
  var missingDetails=[];
  var hasAllFuelsInTank=true;
  var hasOtherFuelsInTank=true;
+ var canLaunchNow=false;
 
- reqFuels.forEach(function(f){
-  var idx=EGG_ORDER.indexOf(f);
-  var stored=(idx>=0)?(tank[idx]||0):0;
-  var reqAmt=costMap[f]||1e6;
-  var launches=Math.floor(stored/reqAmt);
-  if(launches<minLaunchesInTank)minLaunchesInTank=launches;
-  if(stored<reqAmt){
-   hasAllFuelsInTank=false;
-   if(f!==curEgg)hasOtherFuelsInTank=false;
-   missingDetails.push((EGG_HE[f]||f)+': '+fmt(stored)+'/'+fmt(reqAmt));
+ if(!launchpadUnlocked){
+  hasAllFuelsInTank=false;
+  hasOtherFuelsInTank=false;
+  minLaunchesInTank=0;
+  missingDetails.push('כן השיגור נפתח ב-10,000 SE (חסרים '+fmt(Math.max(0,10000-curSE))+' SE)');
+ }else if(!hasFuelTank){
+  hasAllFuelsInTank=false;
+  hasOtherFuelsInTank=false;
+  minLaunchesInTank=0;
+  if(shipProg.multiFuelBlocked){
+   canLaunchNow=false;
+   missingDetails.push('ספינת '+shipName(target)+' דורשת '+reqFuels.length+' סוגי דלק במקביל — מיכל הדלק נפתח ב-100K SE (בחר Chicken Heavy בינתיים)');
+  }else if(onFuelEgg){
+   canLaunchNow=true;
+  }else{
+   canLaunchNow=false;
+   if(curEggIdx>=0 && curEggIdx<rfIdx){
+    missingDetails.push('התקדם לביצת Rocket Fuel לתדלוק ישיר מהחווה (מיכל דלק נפתח ב-100K SE)');
+   }else{
+    missingDetails.push('מיכל דלק נעול עד 100K SE — לא ניתן לתדלק מביצת '+curEggName+' (תדלק ישירות מ-Rocket Fuel ב-Prestige הבא או צבור 100K SE)');
+   }
   }
- });
- if(!isFinite(minLaunchesInTank))minLaunchesInTank=0;
+ }else{
+  reqFuels.forEach(function(f){
+   var idx=EGG_ORDER.indexOf(f);
+   var stored=(idx>=0)?(tank[idx]||0):0;
+   var reqAmt=costMap[f]||1e6;
+   var launches=Math.floor(stored/reqAmt);
+   if(launches<minLaunchesInTank)minLaunchesInTank=launches;
+   if(stored<reqAmt){
+    hasAllFuelsInTank=false;
+    if(f!==curEgg)hasOtherFuelsInTank=false;
+    missingDetails.push((EGG_HE[f]||f)+': '+fmt(stored)+'/'+fmt(reqAmt));
+   }
+  });
+  if(!isFinite(minLaunchesInTank))minLaunchesInTank=0;
+  canLaunchNow=(onFuelEgg?hasOtherFuelsInTank:hasAllFuelsInTank);
+ }
 
- var canLaunchNow=(onFuelEgg?hasOtherFuelsInTank:hasAllFuelsInTank);
  var reqNames=reqFuels.map(function(e){
   var amt=costMap[e];
   return (EGG_HE[e]||e)+(amt?' ('+fmt(amt)+')':'');
  }).join(', ');
 
  return {
+  curSE:curSE,launchpadUnlocked:launchpadUnlocked,hasFuelTank:hasFuelTank,
+  curEggIdx:curEggIdx,rfIdx:rfIdx,
   target:target,shipProg:shipProg,reqFuels:reqFuels,reqNames:reqNames,onFuelEgg:onFuelEgg,
   hasFuelInTank:hasAllFuelsInTank,canLaunchNow:canLaunchNow,
   tankTotal:tankTotal,tankCapacity:tankCapacity,tankFreeSpace:tankFreeSpace,tankLevel:tankLevel,
   minLaunchesInTank:minLaunchesInTank,missingDetails:missingDetails,
-  curEggName:EGG_HE[curEgg]||curEgg
+  curEggName:curEggName
  };
 }
 
@@ -2057,6 +2102,12 @@ function plan(b,R){
   a.push([9,'אזהרת Enlightenment: ארטיפקטים ללא Clarity Stone','הארטיפקטים '+art.enlightenmentWarnings.join(', ')+' לא פועלים בביצת Enlightenment ללא אבן Clarity!','artifacts']);
  }
 
+ var directFuelBeforeUpgrade=(!fuelInfo.hasFuelTank && fuelInfo.launchpadUnlocked && fuelInfo.onFuelEgg && fuelInfo.canLaunchNow && free>0 && eggProg.canUpgradeEgg && !macro.isVirt);
+
+ if(directFuelBeforeUpgrade){
+  a.push([10,'שגר ספינת '+shipName(fuelInfo.target)+' ישירות מ-Rocket Fuel לפני מעבר ביצה!','אין לך עדיין מיכל דלק (נפתח ב-100K SE). אם תעבור עכשיו ל-'+eggProg.nextName+', לא תוכל לתדלק ספינות עד ה-Prestige הבא!']);
+ }
+
  if(eggProg.canUpgradeEgg && !macro.isVirt){
   if(macro.phase==='LATE_GAME_MULTISTIGE' && hasActiveBoost){
    var fastPath=macro.skipPath||(eggProg.nextName+' ← Universe');
@@ -2113,9 +2164,23 @@ function plan(b,R){
   a.push([21,'הרכב סט ארטיפקטים מומלץ (+'+gainBoostPct+'% SE): '+mainNames,'מותקן כרגע: '+(eqNames||'כלום')+'.','artifacts']);
  }
 
- if(free>0){
+ if(!fuelInfo.launchpadUnlocked){
+  a.push([72,'פתיחת ספינות: צבור 10,000 SE לפתיחת כן השיגור','חסרים '+fmt(Math.max(0,10000-fuelInfo.curSE))+' Soul Eggs (והגעה לביצת Rocket Fuel) כדי להתחיל לשגר ספינות.']);
+ }else if(free>0 && !directFuelBeforeUpgrade){
   var durLabel=fuelInfo.shipProg.missionDur;
-  if(fuelInfo.canLaunchNow){
+  if(!fuelInfo.hasFuelTank){
+   if(fuelInfo.canLaunchNow){
+    var shipPrioNoTank=(events.missionCapacityMultiplier>1)?14:22;
+    var progTxtNoTank=fuelInfo.shipProg.nextShip?(' ('+fuelInfo.shipProg.launched+'/'+fuelInfo.shipProg.req+' לפתיחת '+shipName(fuelInfo.shipProg.nextShip)+')'):'';
+    a.push([shipPrioNoTank,'שגר ספינת '+shipName(fuelInfo.target)+' ('+durLabel+') — תדלוק ישיר','מיכל הדלק נעול עד 100K SE — לחץ על כן השיגור לתדלוק ישיר מביצת Rocket Fuel ('+fuelInfo.reqNames+')'+progTxtNoTank+'.']);
+   }else if(fuelInfo.shipProg.multiFuelBlocked){
+    a.push([65,'ספינת '+shipName(fuelInfo.target)+' דורשת מיכל דלק (100K SE)','בחר Chicken Heavy בהגדרות ספינת יעד לתדלוק ישיר מ-Rocket Fuel עד שתגיע ל-100,000 SE.']);
+   }else if(fuelInfo.curEggIdx>=0 && fuelInfo.curEggIdx<fuelInfo.rfIdx){
+    a.push([66,'ספינות ('+shipName(fuelInfo.target)+'): התקדם לביצת Rocket Fuel','מיכל הדלק נעול עד 100K SE — ברגע שתגיע לביצת Rocket Fuel תוכל לתדלק ולשגר ישירות מהחווה.']);
+   }else{
+    a.push([66,'ספינה פנויה — אין מיכל דלק (נפתח ב-100K SE)','אתה מעבר לביצת Rocket Fuel ואין מיכל לאגירת דלק. צבור 100K SE לפתיחת המיכל, או תדלק ישירות מ-Rocket Fuel בריצת ה-Prestige הבאה.']);
+   }
+  }else if(fuelInfo.canLaunchNow){
    var shipPrio=(events.missionCapacityMultiplier>1)?14:22;
    var progTxt=fuelInfo.shipProg.nextShip?(' ('+fuelInfo.shipProg.launched+'/'+fuelInfo.shipProg.req+' לפתיחת '+shipName(fuelInfo.shipProg.nextShip)+')'):' (לאיכות ארטיפקטים מקסימלית)';
    var tankCyclesTxt=fuelInfo.minLaunchesInTank>0?(' • מספיק ל-'+fuelInfo.minLaunchesInTank+' שיגורים במיכל'):'';
@@ -2208,7 +2273,7 @@ function plan(b,R){
  var E=epicPlan(R,elv,avail,peCount,events.epicResearchDiscount);
  var geSpecRec={action:'SAVE_GE',target:'NONE',reason:'אין כרגע GE פנויות או מבצע פעיל.'};
  var needHyperloop=(!g.hyperloopStation && (logi.shipBottleneck || logi.ebPercent>=1e12));
- var needTankUpgrade=(fuelInfo.tankLevel<3 && SHIP_ORDER.indexOf(fuelInfo.target)>=3);
+ var needTankUpgrade=(fuelInfo.hasFuelTank && fuelInfo.tankLevel<3 && SHIP_ORDER.indexOf(fuelInfo.target)>=3);
 
  if(needHyperloop){
   geSpecRec={action:'BUY_HYPERLOOP_STATION',target:'HYPERLOOP_STATION',reason:'חובה (50,000 GE) לפתיחת רכבות Hyperloop ושחרור צוואר הבקבוק במשלוחים.'};
@@ -2267,6 +2332,21 @@ function copyDiag(){
  if(!last || !RES)return;
  var P=plan(last,RES);
  var sim=P.sim,g=P.g;
+ var shipRec={
+  launchpadUnlocked:P.fuelInfo.launchpadUnlocked,
+  hasFuelTank:P.fuelInfo.hasFuelTank,
+  ship:P.fuelInfo.target,
+  duration:P.fuelInfo.shipProg.missionDur
+ };
+ if(!P.fuelInfo.launchpadUnlocked){
+  shipRec.tankStatus='LOCKED_LAUNCHPAD (<10K SE)';
+ }else if(!P.fuelInfo.hasFuelTank){
+  shipRec.tankStatus='LOCKED_FUEL_TANK (<100K SE - Direct Farm Fueling)';
+ }else{
+  shipRec.tankLevel=P.fuelInfo.tankLevel;
+  shipRec.tankUsed=fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity);
+  shipRec.launchesAvailableInTank=P.fuelInfo.minLaunchesInTank;
+ }
  var diag={
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
@@ -2314,13 +2394,7 @@ function copyDiag(){
     reason:P.a[0][2]
    },
    goldenEggRecommendation:P.geSpecRec,
-   shipRecommendation:{
-    ship:P.fuelInfo.target,
-    duration:P.fuelInfo.shipProg.missionDur,
-    tankLevel:P.fuelInfo.tankLevel,
-    tankUsed:fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity),
-    launchesAvailableInTank:P.fuelInfo.minLaunchesInTank
-   },
+   shipRecommendation:shipRec,
    artifactLoadoutStatus:{
     isOptimal:P.isArtOptimal,
     equippedActiveSEMult:Number(P.art.equippedActiveSEMult.toFixed(3)),
@@ -2627,14 +2701,30 @@ function show(b,R){
  }
  h+='<div style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--line)">';
  var sp=P.fuelInfo.shipProg;
- if(sp.nextShip){
-  h+='<p><small><b>התקדמות ספינות:</b> '+esc(shipName(sp.target))+' ('+sp.launched+'/'+sp.req+' שיגורים לפתיחת '+esc(shipName(sp.nextShip))+')</small></p>';
- }
- h+='<p><small><b>מיכל דלק (רמה '+P.fuelInfo.tankLevel+'):</b> '+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+' ('+P.fuelInfo.minLaunchesInTank+' שיגורי '+esc(sp.missionDur)+' זמינים במיכל)</small></p>';
- if(P.ships.length){
-  P.ships.forEach(function(s){h+=row('🚀 '+esc(s[0]),'<b>'+esc(s[1])+'</b>')});
+ if(!P.fuelInfo.launchpadUnlocked){
+  h+='<p><small><b>כן השיגור (ספינות):</b> נעול — נפתח ב-<b>10,000 SE</b> (חסרים '+fmt(Math.max(0,10000-P.fuelInfo.curSE))+' SE) ובהגעה לביצת Rocket Fuel.</small></p>';
+ }else if(!P.fuelInfo.hasFuelTank){
+  if(sp.nextShip){
+   h+='<p><small><b>התקדמות ספינות:</b> '+esc(shipName(sp.target))+' ('+sp.launched+'/'+sp.req+' שיגורים לפתיחת '+esc(shipName(sp.nextShip))+')</small></p>';
+  }
+  h+='<p><small><b>מיכל דלק:</b> נעול (נפתח ב-<b>100,000 SE</b> • חסרים '+fmt(Math.max(0,100000-P.fuelInfo.curSE))+' SE). עד לפתיחתו, תדלק ספינות <b>ישירות מביצת Rocket Fuel</b>.</small></p>';
+  if(P.ships.length){
+   P.ships.forEach(function(s){h+=row('🚀 '+esc(s[0]),'<b>'+esc(s[1])+'</b>')});
+  }else if(P.fuelInfo.canLaunchNow){
+   h+='<small>מוכן לשיגור ישיר מביצת Rocket Fuel: <b>'+esc(shipName(P.fuelInfo.target))+' ('+sp.missionDur+')</b> • דלק: '+esc(P.fuelInfo.reqNames)+'</small>';
+  }else{
+   h+='<small>אין ספינות באוויר. '+esc(P.fuelInfo.missingDetails[0]||'')+'</small>';
+  }
  }else{
-  h+='<small>אין ספינות באוויר. יעד: <b>'+esc(shipName(P.fuelInfo.target))+' ('+sp.missionDur+')</b> • דלק נדרש: '+esc(P.fuelInfo.reqNames)+'</small>';
+  if(sp.nextShip){
+   h+='<p><small><b>התקדמות ספינות:</b> '+esc(shipName(sp.target))+' ('+sp.launched+'/'+sp.req+' שיגורים לפתיחת '+esc(shipName(sp.nextShip))+')</small></p>';
+  }
+  h+='<p><small><b>מיכל דלק (רמה '+P.fuelInfo.tankLevel+'):</b> '+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+' ('+P.fuelInfo.minLaunchesInTank+' שיגורי '+esc(sp.missionDur)+' זמינים במיכל)</small></p>';
+  if(P.ships.length){
+   P.ships.forEach(function(s){h+=row('🚀 '+esc(s[0]),'<b>'+esc(s[1])+'</b>')});
+  }else{
+   h+='<small>אין ספינות באוויר. יעד: <b>'+esc(shipName(P.fuelInfo.target))+' ('+sp.missionDur+')</b> • דלק נדרש: '+esc(P.fuelInfo.reqNames)+'</small>';
+  }
  }
  h+='</div></div>';
 
