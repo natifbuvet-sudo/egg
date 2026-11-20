@@ -105,7 +105,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 30</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 31</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -1145,7 +1145,6 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg,macro,events,hasActiveBoost,e
  var curSE=Number(g.soulEggsD||g.soulEggs||0);
  var rawUnclaimedSE=Number(sim.unclaimedSoulEggsD||sim.unclaimedSoulEggs||g.unclaimedSoulEggsD||g.unclaimedSoulEggs||0);
 
- // חישוב מדויק של SE שנצברו בריצה הנוכחית גם כשהשדה unclaimedSoulEggsD ריק בגיבוי
  var prestigeCash=Math.max(Number(g.prestigeCashEarned||0),Number(sim.cashEarned||0));
  var prestigeBonusMult=1 + 0.10*((elv&&elv['prestige_bonus'])||0);
  var featherMult=(art&&art.featherMult)?art.featherMult:1;
@@ -1265,7 +1264,6 @@ function analyzeArtifacts(b,slots,curEgg,peCount,elv,clv,R){
   });
  }
 
- // חישוב תרומת SE מדויקת לכל פריט כולל האבנים המשובצות בו (כמו Smart Assistant)
  function evalItemPrestigeSE(sp,stones,lunarMode){
   var lvl=normLevel(sp.level);
   var rar=normRarity(sp.rarity);
@@ -1463,7 +1461,6 @@ function analyzeArtifacts(b,slots,curEgg,peCount,elv,clv,R){
   var stoneLabels=formatStoneList(stones);
   var displayLabel=formatArtLabel(sp)+(stoneLabels.length?' ['+stoneLabels.join(', ')+']':'');
 
-  // דירוג ייעודי לסט Active Prestige ולסט Lunar Prestige לפי האבנים המשובצות בפועל
   if(ART_INFO[sp.name]){
    var evA=evalItemPrestigeSE(sp,stones,false);
    if(!bestActiveByType[sp.name] || evA.seGainMult>bestActiveByType[sp.name].seGainMult || (evA.seGainMult===bestActiveByType[sp.name].seGainMult && !evA.isPureDilithium && bestActiveByType[sp.name].isPureDilithium)){
@@ -1539,7 +1536,6 @@ function analyzeArtifacts(b,slots,curEgg,peCount,elv,clv,R){
  });
  var totalContractSlots=setContract.reduce(function(sum,item){return sum+(item.slotCap||0)},0);
 
- // ניתוח מלאי Crafting לייצור ארטיפקטי T4
  var craftTargets=T4_CRAFT_RECIPES.map(function(rec){
   var alreadyHasT4=!!bestOwned[rec.target] && bestOwned[rec.target].score>=40;
   var reqStatus=rec.reqs.map(function(rq){
@@ -2104,13 +2100,12 @@ function plan(b,R){
   a.push([19,'שדרג מחקרים ('+C.totalLevelsBought+' רמות ב-'+C.affordableList.length+' מחקרים)',top3+moreTxt,'research']);
  }
 
- // השוואה חכמה של סט הארטיפקטים לפי תפוקת SE אמיתית (כולל אבנים, ללא תלות בסדר הסלוטים)
  var useLunarTarget=(logi.lunarBeatsActive && macro.phase==='LATE_GAME_MULTISTIGE');
  var targetSet=useLunarTarget?art.setLunar:art.setMain;
  var optSE=useLunarTarget?art.optimalLunarSEMult:art.optimalActiveSEMult;
  var curSEOnMode=useLunarTarget?art.equippedLunarSEMult:art.equippedActiveSEMult;
  var bestCurSE=Math.max(art.equippedActiveSEMult,art.equippedLunarSEMult);
- var isArtOptimal=(art.equipped.length>=targetSet.length && bestCurSE>=optSE*0.98) || art.enlightenmentWarnings.length===0 && bestCurSE>=optSE*0.98;
+ var isArtOptimal=(art.equipped.length>=targetSet.length && bestCurSE>=optSE*0.98) || (art.enlightenmentWarnings.length===0 && bestCurSE>=optSE*0.98);
  var mainNames=targetSet.map(function(x){return x.name}).join(' + ');
  var eqNames=art.equipped.map(function(x){return x.name}).join(' + ');
  if(mainNames && !isArtOptimal && optSE>curSEOnMode*1.02){
@@ -2227,12 +2222,15 @@ function plan(b,R){
   if(E.buy.list && E.buy.list.length>0){
    var epSummary=E.buy.list.slice(0,3).map(function(x){return x.r.name+' (+'+x.n+')'}).join(' • ');
    geSpecRec={action:saleActive?'BUY_EPIC_RESEARCH':'WAIT_FOR_35_EPIC_SALE',target:E.buy.list[0].r.id,reason:saleActive?'מבצע 35% Epic פעיל כעת — מומלץ לקנות!':'מומלץ להמתין למבצע 35% Epic (ימי ראשון פעם בשבועיים) לחיסכון עצום ב-GE.'};
-   var saleHint=saleActive?' (מבצע 35% פעיל עכשיו!)':' (מומלץ להמתין למבצע 35% ביום ראשון)';
-   a.push([saleActive?20:27,'מחקר אפיק (ROI): '+epSummary,'סה"כ '+E.buy.totalLevels+' רמות ב-'+fmt(E.buy.totalSum)+' GE מתוך '+fmt(avail)+' פנויות'+saleHint+'.']);
+   if(saleActive){
+    a.push([20,'מבצע 35% Epic: קנה '+epSummary,'סה"כ '+E.buy.totalLevels+' רמות ב-'+fmt(E.buy.totalSum)+' GE מתוך '+fmt(avail)+' פנויות.']);
+   }else{
+    a.push([82,'שמור '+fmt(avail)+' GE למבצע 35% Epic ביום ראשון','התכנון מוכן ('+E.buy.totalLevels+' רמות של '+epSummary+'), אך מומלץ להמתין להנחה.']);
+   }
   }else{
    var f=E.buy.row;
    geSpecRec={action:'SAVE_FOR_EPIC',target:f.r.id,reason:'חסוך '+fmt(f.price)+' GE לשלב הבא של '+f.r.name+'.'};
-   a.push([66,'מחקר אפיק: חסוך ל-'+f.r.name,'חסרות '+fmt(f.price-avail)+' GE (עולה '+fmt(f.price)+').']);
+   a.push([84,'מחקר אפיק: חסוך ל-'+f.r.name,'חסרות '+fmt(f.price-avail)+' GE (עולה '+fmt(f.price)+').']);
   }
  }else{
   if(events.craftingDiscount>0 && avail>=100000){
@@ -2240,7 +2238,7 @@ function plan(b,R){
    a.push([25,'מבצע 30% Crafting פעיל: שדרג ארטיפקטי T4','כל מחקרי ה-Epic מלאים — נצל את ההנחה לשדרוג ארטיפקטים מרכזיים.','artifacts']);
   }else{
    geSpecRec={action:'BUY_BOOST_5_PACKS_ON_SALE',target:'PRESTIGE_BOOST_5PACKS',reason:'כל מחקרי ה-Epic מלאים! השקע GE בחבילות 5 בוסטים (20% הנחה) במבצע בוסטים, או שמור למבצע 30% Crafting.'};
-   a.push([55,'כל מחקרי ה-Epic הושלמו: קנה בוסטים בחבילות 5 במבצע','השקע GE בחבילות 5 (1000x Tachyon / 500x Soul / 50x Feed / 50x Beacon) במבצע, או שמור ל-30% Crafting.']);
+   a.push([85,'כל מחקרי ה-Epic הושלמו: קנה בוסטים בחבילות 5 במבצע','השקע GE בחבילות 5 (1000x Tachyon / 500x Soul / 50x Feed / 50x Beacon) במבצע, או שמור ל-30% Crafting.']);
   }
  }
 
@@ -2683,7 +2681,7 @@ $('go').addEventListener('click',function(){run(false)});
 $('btn-ref').addEventListener('click',function(){run(false)});
 $('btn-eid').addEventListener('click',function(){var b=$('eid-bar');b.style.display=(b.style.display==='none'?'flex':'none')});
 ['slots','run','shipTarget'].forEach(function(id){var v=sget(id);if(v)$(id).value=v;$(id).addEventListener('change',function(){sset(id,$(id).value);if(last&&RES)show(last,RES)})});
-var s=sget(eid);if(s){$('eid').value=s;run(false)}
+var s=sget('eid');if(s){$('eid').value=s;run(false)}
 setInterval(function(){if(!document.hidden&&$('eid').value.trim())run(true)},20000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&$('eid').value.trim())run(true)});
 </script></body></html>
