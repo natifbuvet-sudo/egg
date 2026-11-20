@@ -105,7 +105,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 28</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 29</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -134,11 +134,11 @@ details summary::-webkit-details-marker{display:none}
 <option value="ATREGGIES">Atreggies Henliner (Tachyon + Dilithium + Antimatter + Dark Matter)</option>
 </select></label>
 </div>
-<div style="margin-top:6px"><small><b>אירועים יומיים פעילים (ברירת מחדל לפי לוח שבועי — ניתן לדרוס ידנית):</b></small>
+<div style="margin-top:6px"><small><b>אירועים יומיים פעילים (סמן רק כשהאירוע מופיע במשחק):</b></small>
 <div class="chk-grid">
 <label class="chk-item"><input type="checkbox" id="ev-prestige"> 2x/3x Prestige (סופ"ש)</label>
-<label class="chk-item"><input type="checkbox" id="ev-epic"> 35% הנחת Epic (ראשון)</label>
-<label class="chk-item"><input type="checkbox" id="ev-common"> 70% הנחת מחקר (שישי)</label>
+<label class="chk-item"><input type="checkbox" id="ev-epic"> 35% הנחת Epic</label>
+<label class="chk-item"><input type="checkbox" id="ev-common"> 70% הנחת מחקר</label>
 <label class="chk-item"><input type="checkbox" id="ev-cap"> 2x קיבולת ספינות</label>
 <label class="chk-item"><input type="checkbox" id="ev-drones"> Generous Drones (GE)</label>
 <label class="chk-item"><input type="checkbox" id="ev-craft"> 30% הנחת Crafting</label>
@@ -187,7 +187,8 @@ var VIRT_FACILITY={
 var EGG_ORDER=['EDIBLE','SUPERFOOD','MEDICAL','ROCKET_FUEL','SUPER_MATERIAL','FUSION','QUANTUM','IMMORTALITY','TACHYON','GRAVITON','DILITHIUM','PRODIGY','TERRAFORM','ANTIMATTER','DARK_MATTER','AI','NEBULA','UNIVERSE','ENLIGHTENMENT'];
 var EGG_HE={EDIBLE:'Edible',SUPERFOOD:'Superfood',MEDICAL:'Medical',ROCKET_FUEL:'Rocket Fuel',SUPER_MATERIAL:'Super Material',FUSION:'Fusion',QUANTUM:'Quantum',IMMORTALITY:'Immortality',TACHYON:'Tachyon',GRAVITON:'Graviton',DILITHIUM:'Dilithium',PRODIGY:'Prodigy',TERRAFORM:'Terraform',ANTIMATTER:'Antimatter',DARK_MATTER:'Dark Matter',AI:'AI',NEBULA:'Nebula',UNIVERSE:'Universe',ENLIGHTENMENT:'Enlightenment'};
 var EGG_BASE_VAL={EDIBLE:0.25,SUPERFOOD:1.25,MEDICAL:6.25,ROCKET_FUEL:30,SUPER_MATERIAL:150,FUSION:700,QUANTUM:3000,IMMORTALITY:12500,TACHYON:50000,GRAVITON:175000,DILITHIUM:525000,PRODIGY:1500000,TERRAFORM:10000000,ANTIMATTER:1000000000,DARK_MATTER:100000000000,AI:1000000000000,NEBULA:15000000000000,UNIVERSE:100000000000000,ENLIGHTENMENT:1e-9};
-var EGG_UNLOCK_FV=[0,2.2e4,4.2e6,3.4e8,3.6e10,5.2e12,7.6e14,1.2e17,1.9e19,3.2e21,4.8e23,7.6e25,1.2e28,2.0e30,3.2e32,5.6e34,9.2e36,1.5e39,2.8e41];
+var EGG_DISCOVER_FV=[0,2.2e4,4.2e6,3.4e8,3.6e10,5.2e12,7.6e14,1.2e17,1.9e19,3.2e21,4.8e23,7.6e25,1.2e28,2.0e30,3.2e32,5.6e34,9.2e36,1.5e39,2.8e41];
+var EGG_UPGRADE_FV=[0,1.0e5,2.0e7,1.5e9,1.6e11,2.4e13,3.5e15,5.4e17,8.8e19,1.5e22,2.2e24,3.5e26,5.6e28,9.2e30,1.5e33,2.5e35,4.2e37,6.8e39,1.3e42];
 
 var SHIP_ORDER=['CHICKEN_ONE','CHICKEN_NINE','CHICKEN_HEAVY','BCR','QUINTILLION_CHICKEN','CORVETTE','GALENGG','DEFIHENT','VOYEGGER','HENERPRISE','ATREGGIES'];
 var SHIP_UNLOCK_REQ={CHICKEN_ONE:3,CHICKEN_NINE:4,CHICKEN_HEAVY:5,BCR:6,QUINTILLION_CHICKEN:8,CORVETTE:10,GALENGG:12,DEFIHENT:15,VOYEGGER:20,HENERPRISE:40,ATREGGIES:0};
@@ -360,6 +361,32 @@ function getVialAdd(level,rarity){
  }
  return ({INFERIOR:10,LESSER:50,NORMAL:100})[level]||0;
 }
+function getPuzzleCubeMult(level,rarity){
+ if(level==='GREATER'){
+  if(rarity==='LEGENDARY')return 0.40;
+  if(rarity==='EPIC')return 0.45;
+  if(rarity==='RARE')return 0.47;
+  return 0.50;
+ }
+ if(level==='NORMAL'){
+  if(rarity==='RARE')return 0.80;
+  return 0.85;
+ }
+ return ({INFERIOR:0.95,LESSER:0.90})[level]||1;
+}
+function getMercurysLensMult(level,rarity){
+ if(level==='GREATER'){
+  if(rarity==='LEGENDARY')return 3.00;
+  if(rarity==='EPIC')return 2.50;
+  if(rarity==='RARE')return 2.25;
+  return 2.00;
+ }
+ if(level==='NORMAL'){
+  if(rarity==='RARE')return 1.75;
+  return 1.50;
+ }
+ return ({INFERIOR:1.10,LESSER:1.20})[level]||1;
+}
 function getSlotCapacity(sp){
  if(sp.rarity==='LEGENDARY')return 3;
  if(sp.rarity==='EPIC')return 2;
@@ -448,9 +475,7 @@ var root=null,RES=null,last=null,busy=false;
 function getActiveEvents(){
  var d=new Date(),day=d.getDay(),hr=d.getHours(),mon=d.getMonth(),date=d.getDate();
  var isEggDay=(mon===6 && date===14);
- var autoPrestige=(day===6 || day===0 || (day===1 && hr<19) || isEggDay);
- var autoCommon=(day===5);
- var autoEpic=(day===0 && (Math.floor(Date.now()/(7*86400000))%2===0));
+ var autoPrestige=((day===6 && hr>=19) || day===0 || (day===1 && hr<19) || isEggDay);
  return {
   prestigeMultiplier:isEggDay?8.0:(($('ev-prestige')&&$('ev-prestige').checked)?2.0:1.0),
   commonResearchDiscount:($('ev-common')&&$('ev-common').checked)?0.70:0.0,
@@ -458,7 +483,7 @@ function getActiveEvents(){
   craftingDiscount:($('ev-craft')&&$('ev-craft').checked)?0.30:0.0,
   droneMultiplier:($('ev-drones')&&$('ev-drones').checked)?4.0:1.0,
   missionCapacityMultiplier:($('ev-cap')&&$('ev-cap').checked)?2.0:1.0,
-  autoDefaults:{prestige:autoPrestige,common:autoCommon,epic:autoEpic}
+  autoDefaults:{prestige:autoPrestige,common:false,epic:false}
  };
 }
 
@@ -594,10 +619,10 @@ function cgain(r,L,ctx,price){
  return g*w;
 }
 
-function commonPlan(R,lv,virt,cash,elv,ctx,commonDisc){
+function commonPlan(R,lv,virt,cash,elv,ctx,commonDisc,puzzleCubeMult){
  var simLv=Object.assign({},lv);
  var cm=R.filter(function(r){return r.type==='common'});
- var labDisc=(1-0.05*(elv['cheaper_research']||0))*(1-(commonDisc||0));
+ var labDisc=(1-0.05*(elv['cheaper_research']||0))*(puzzleCubeMult||1)*(1-(commonDisc||0));
  if(labDisc<0.05)labDisc=0.05;
  function bought(t){var n=0;cm.forEach(function(r){if(r.tier<=t)n+=simLv[r.id]||0});return n}
 
@@ -727,7 +752,8 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R){
 
  if(artInfo && artInfo.metronomeMult>1)layMult*=artInfo.metronomeMult;
  if(artInfo && artInfo.tachyonStoneMult>1)layMult*=artInfo.tachyonStoneMult;
- var totalLayRate=pop*2*layMult;
+ var layRatePerChicken=2*layMult;
+ var totalLayRate=pop*layRatePerChicken;
 
  var vehs=sim.vehicles||[];
  var trainLens=sim.trainLength||[];
@@ -765,6 +791,18 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R){
  var baseEggVal=EGG_BASE_VAL[sim.eggType]||0.25;
  var effectiveShippedPerMin=Math.min(totalLayRate,totalShipCap);
 
+ // חישוב שווי חווה חי (Farm Value) במקרה ששדה farmValue חסר או לא מעודכן בגיבוי
+ var layPerChickenPerSec=layRatePerChicken/60;
+ var maxSupportedPop=(layPerChickenPerSec>0 && totalShipCap>0)?((totalShipCap/60)/layPerChickenPerSec):maxCap;
+ var curSupportedPop=Math.min(pop,maxSupportedPop);
+ var unfilledSupportedPop=Math.max(0,Math.min(maxCap,maxSupportedPop)-pop);
+ var effPop=curSupportedPop + 0.2*unfilledSupportedPop;
+ var effIncPerSec=effPop * layPerChickenPerSec * baseEggVal * valMult * ebIncomeMult;
+ var accTricksMult=1 + 0.05*(elv['accounting_tricks']||0);
+ var lensMult=(artInfo && artInfo.mercurysLensMult)?artInfo.mercurysLensMult:1;
+ var estFarmValue=(effIncPerSec>0)?(60000 * Math.pow(effIncPerSec,0.75) * accTricksMult * lensMult):0;
+ var farmValue=Math.max(Number(sim.farmValue||0),estFarmValue);
+
  var baseMaxRCB=calcBaseMaxRCB(clv,elv,R);
  var maxRCB=Math.max(3,baseMaxRCB + (artInfo?artInfo.vialAdd:0) + (artInfo?artInfo.terraAdd:0));
  var lunarMult=2 * (artInfo?artInfo.lunarTotemMult:1) * (artInfo?artInfo.lunarStoneMult:1);
@@ -789,7 +827,7 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R){
   pop:pop,maxCap:maxCap,habPct:habPct,nearFull:habPct>=85,isFull:habPct>=97,
   emptyHabSlots:emptyHabSlots,unusedVehSlots:unusedVehSlots,
   totalLayRate:totalLayRate,totalShipCap:totalShipCap,shipUtilPct:shipUtilPct,rawPct:rawPct,shipBottleneck:shipBottleneck,
-  ebPercent:ebPercent,farmerRole:getFarmerRole(ebPercent),eotCount:eotCount,
+  ebPercent:ebPercent,farmerRole:getFarmerRole(ebPercent),eotCount:eotCount,farmValue:farmValue,
   bonusPerSE:bonusPerSE,bonusPerPE:bonusPerPE,peCount:peCount,
   idleIncomePerMin:idleIncomePerMin,activeIncomePerMin:activeIncomePerMin,baseMaxRCB:baseMaxRCB,maxRCB:maxRCB,lunarMult:lunarMult,lunarBeatsActive:lunarBeatsActive,
   ihrOnlinePerMin:ihrOnlinePerMin,ihrOfflinePerMin:ihrOfflinePerMin,minsToFullHabs:minsToFullHabs,
@@ -886,14 +924,18 @@ function analyzeMacroAndEndgame(b,sim,logi,art,clv){
  };
 }
 
-function calcEggProgress(b,sim,fuelInfo){
+function calcEggProgress(b,sim,logi,fuelInfo){
+ var g=b.game||{};
  var curEgg=sim.eggType||'EDIBLE';
  var idx=EGG_ORDER.indexOf(curEgg);
  var nextEgg=(idx>=0 && idx<EGG_ORDER.length-1)?EGG_ORDER[idx+1]:null;
- var reqFV=(idx>=0 && idx+1<EGG_UNLOCK_FV.length)?EGG_UNLOCK_FV[idx+1]:0;
- var curFV=Number(sim.farmValue||0);
- var pct=reqFV>0?Math.min(100,(curFV/reqFV)*100):100;
- var canUpgradeEgg=(nextEgg && curFV>=reqFV && reqFV>0);
+ var reqDiscoverFV=(idx>=0 && idx+1<EGG_DISCOVER_FV.length)?EGG_DISCOVER_FV[idx+1]:0;
+ var reqUpgradeFV=(idx>=0 && idx+1<EGG_UPGRADE_FV.length)?EGG_UPGRADE_FV[idx+1]:0;
+ var curFV=logi.farmValue;
+ var pct=reqUpgradeFV>0?Math.min(100,(curFV/reqUpgradeFV)*100):100;
+ var canUpgradeEgg=(nextEgg && curFV>=reqUpgradeFV && reqUpgradeFV>0);
+ var maxReachedIdx=EGG_ORDER.indexOf(g.maxEggReached||'');
+ var alreadyDiscovered=(maxReachedIdx>idx) || (reqDiscoverFV>0 && curFV>=reqDiscoverFV);
 
  var isFuelEggForShip=(fuelInfo.reqFuels.indexOf(curEgg)>=0);
  var shouldFillTankFirst=(isFuelEggForShip && !fuelInfo.hasFuelInTank);
@@ -901,7 +943,8 @@ function calcEggProgress(b,sim,fuelInfo){
  return {
   curEgg:curEgg,curName:EGG_HE[curEgg]||curEgg,
   nextEgg:nextEgg,nextName:nextEgg?(EGG_HE[nextEgg]||nextEgg):null,
-  curFV:curFV,reqFV:reqFV,pct:pct,canUpgradeEgg:canUpgradeEgg,
+  curFV:curFV,reqFV:reqUpgradeFV,reqDiscoverFV:reqDiscoverFV,pct:pct,
+  canUpgradeEgg:canUpgradeEgg,alreadyDiscovered:alreadyDiscovered,
   shouldFillTankFirst:shouldFillTankFirst
  };
 }
@@ -1001,7 +1044,7 @@ function analyzeArtifacts(b,slots,curEgg,peCount,elv,clv,R){
  var gussetMult=1, metronomeMult=1, compassMult=1, chaliceMult=1;
  var tachyonStoneMult=1, quantumStoneMult=1, dilithiumMult=1, lifeStoneMult=1;
  var lunarTotemMult=1, lunarStoneMult=1;
- var artifactEarningsMult=1;
+ var artifactEarningsMult=1, puzzleCubeMult=1, mercurysLensMult=1;
  var bookBonus=0, soulStonePts=0, prophStonePts=0, vialAdd=0, terraAdd=0;
  var enlightenmentWarnings=[];
 
@@ -1061,6 +1104,8 @@ function analyzeArtifacts(b,slots,curEgg,peCount,elv,clv,R){
     if(sp.name==='LUNAR_TOTEM')lunarTotemMult=Math.max(lunarTotemMult,1+(getTotemMult(sp.level,sp.rarity)-1)*effMult);
     if(sp.name==='BOOK_OF_BASAN')bookBonus=Math.max(bookBonus,getBookBonus(sp.level,sp.rarity)*effMult);
     if(sp.name==='VIAL_MARTIAN_DUST')vialAdd=Math.max(vialAdd,getVialAdd(sp.level,sp.rarity)*effMult);
+    if(sp.name==='PUZZLE_CUBE')puzzleCubeMult=Math.min(puzzleCubeMult,1-(1-getPuzzleCubeMult(sp.level,sp.rarity))*effMult);
+    if(sp.name==='MERCURYS_LENS')mercurysLensMult=Math.max(mercurysLensMult,1+(getMercurysLensMult(sp.level,sp.rarity)-1)*effMult);
    }
 
    equipped.push({
@@ -1221,6 +1266,7 @@ function analyzeArtifacts(b,slots,curEgg,peCount,elv,clv,R){
  return {
   equipped:equipped,maxArtSlots:maxArtSlots,virtueArtifactsOnly:isVirt,
   gussetMult:gussetMult,metronomeMult:metronomeMult,compassMult:compassMult,chaliceMult:chaliceMult,
+  puzzleCubeMult:puzzleCubeMult,mercurysLensMult:mercurysLensMult,
   contractMetronomeMult:contractMetronomeMult,contractCompassMult:contractCompassMult,
   tachyonStoneMult:tachyonStoneMult,quantumStoneMult:quantumStoneMult,lifeStoneMult:lifeStoneMult,
   dilithiumMult:dilithiumMult,potentialDilithiumMult:potentialDilithiumMult,
@@ -1540,7 +1586,7 @@ function contractInfo(c,b,R,elv,art,now){
  var researchHint='';
  var stoneAdvice='';
  if(cf && !waitingCoop){
-  var cp=commonPlan(R,lvMap(cf.commonResearch),false,farmCash(cf),elv,null,0);
+  var cp=commonPlan(R,lvMap(cf.commonResearch),false,farmCash(cf),elv,null,0,1);
   if(cp.affordableList.length){
    researchHint=cp.affordableList.slice(0,3).map(function(x){return x.r.name+' ← '+x.to}).join(', ');
   }else if(cp.nextList.length){
@@ -1656,10 +1702,10 @@ function plan(b,R){
  var trophies=analyzeDiamondTrophies(b,logi.ebPercent);
 
  var keepOneWD=(!macro.isEnl && runMode!=='ready');
- var C=commonPlan(R,clv,virt,cash,elv,{shipBottleneck:logi.shipBottleneck,shipUtilPct:logi.shipUtilPct,habPct:logi.habPct,cash:cash,keepOneWD:keepOneWD},events.commonResearchDiscount);
+ var C=commonPlan(R,clv,virt,cash,elv,{shipBottleneck:logi.shipBottleneck,shipUtilPct:logi.shipUtilPct,habPct:logi.habPct,cash:cash,keepOneWD:keepOneWD},events.commonResearchDiscount,art.puzzleCubeMult);
  var hasAffordableResearch=(C.affordableList.length>0);
  var fuelInfo=checkShipFuel(b,sim,virt,events);
- var eggProg=calcEggProgress(b,sim,fuelInfo);
+ var eggProg=calcEggProgress(b,sim,logi,fuelInfo);
 
  var hasActiveBoost=(sim.activeBoosts||[]).some(function(ab){
   return (ab.boostId||ab.id) && (ab.timeRemaining||0)>0;
@@ -1705,7 +1751,7 @@ function plan(b,R){
   }else if(eggProg.shouldFillTankFirst){
    a.push([10,'מלא מיכל דלק ('+eggProg.curName+') לפני שתעבור ל-'+eggProg.nextName,'הביצה הבאה פתוחה! מלא קודם את מיכל הדלק לספינות ואז שדרג ביצה.']);
   }else{
-   a.push([11,'שדרג לביצה הבאה: '+eggProg.nextName,'שווי החווה הגיע ליעד! מעבר ביצה יכפיל את ההכנסות שלך.']);
+   a.push([11,'שדרג לביצה הבאה: '+eggProg.nextName,'שווי החווה ('+fmt(eggProg.curFV)+') עבר את הסף ('+fmt(eggProg.reqFV)+')! מעבר ביצה יכפיל את ההכנסות שלך.']);
   }
  }
 
@@ -1850,7 +1896,7 @@ function plan(b,R){
   else a.push([64,'חסוך ל-Hyperloop Station (50,000 GE)','חסרות '+fmt(50000-avail)+' GE.']);
  }else if(needTankUpgrade){
   geSpecRec={action:'UPGRADE_FUEL_TANK',target:'FUEL_TANK',reason:'שדרג מיכל דלק (רמה '+fuelInfo.tankLevel+') ללפחות 100T (רמה 3) לשיגור ספינות מתקדמות ברצף.'};
-  a.push([24,'שדרג מיכל דלק (Fuel Tank) ל-100T+ (רמה 3)','מונע החלפות ביצה מיותרות בין שיגורים (רמה נוכחית: '+fuelInfo.tankLevel+').']);
+  a.push([24,'שדרג מיכל דלק (Fuel Tank) ל-100T+ (רמה 3)','מונע החלפות ביצה מיותרות בין שיגורים (רמה נוכית: '+fuelInfo.tankLevel+').']);
  }else if(E.buy){
   var saleActive=(events.epicResearchDiscount>0);
   if(E.buy.list && E.buy.list.length>0){
@@ -1908,6 +1954,7 @@ function copyDiag(){
    goldenEggs:P.avail,
    proPermit:(P.slots===3),
    currentEgg:sim.eggType,
+   farmValue:Number(P.logi.farmValue.toExponential(3)),
    diamondTrophiesCompleted:P.trophies.completed+'/18',
    nextDiamondTrophy:P.trophies.nextTarget?P.trophies.nextTarget.eggId:'ALL_DONE',
    farmMetrics:{
@@ -2064,7 +2111,7 @@ function show(b,R){
  if(P.eggProg.nextName && !P.macro.isVirt){
   h+='<div class="c-box"><div class="c-head"><span>התקדמות לביצת '+esc(P.eggProg.nextName)+'</span><small>'+P.eggProg.pct.toFixed(0)+'%</small></div>';
   h+='<div class="prog-bar"><div class="prog-fill '+(P.eggProg.canUpgradeEgg?'ok':'')+'" style="width:'+P.eggProg.pct.toFixed(0)+'%"></div></div>';
-  h+='<small>שווי חווה: '+fmt(P.eggProg.curFV)+' / יעד: '+fmt(P.eggProg.reqFV)+'</small></div>';
+  h+='<small>שווי חווה: '+fmt(P.eggProg.curFV)+' / יעד מעבר: '+fmt(P.eggProg.reqFV)+(P.eggProg.canUpgradeEgg?' • <b>מוכן לשדרוג!</b>':'')+'</small></div>';
  }
  h+='<div class="c-box"><div class="c-head"><span>עומס משלוחים (רכבים)</span><span class="badge '+(P.logi.shipBottleneck?'b-rew':'b-pts')+'">'+(P.logi.shipBottleneck?'צוואר בקבוק (>90%)!':P.logi.shipUtilPct.toFixed(0)+'% עומס')+'</span></div>';
  h+='<div class="prog-bar"><div class="prog-fill '+(P.logi.shipBottleneck?'bad':'')+'" style="width:'+P.logi.shipUtilPct.toFixed(0)+'%"></div></div>';
@@ -2255,14 +2302,19 @@ async function run(silent){
 }
 
 (function initEvents(){
+ var today=new Date().toDateString();
+ var savedDate=sget('ev_date');
+ var sameDay=(savedDate===today);
+ if(!sameDay)sset('ev_date',today);
  var def=getActiveEvents().autoDefaults;
  var map={'ev-prestige':def.prestige,'ev-epic':def.epic,'ev-common':def.common,'ev-cap':false,'ev-drones':false,'ev-craft':false};
  Object.keys(map).forEach(function(id){
   var el=$(id);
   if(!el)return;
-  var saved=sget(id);
+  var saved=sameDay?sget(id):null;
   el.checked=(saved!==null)?(saved==='1'):map[id];
-  el.addEventListener('change',function(){sset(id,el.checked?'1':'0');if(last&&RES)show(last,RES)});
+  if(!sameDay)sset(id,el.checked?'1':'0');
+  el.addEventListener('change',function(){sset('ev_date',new Date().toDateString());sset(id,el.checked?'1':'0');if(last&&RES)show(last,RES)});
  });
 })();
 
