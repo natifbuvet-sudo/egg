@@ -105,7 +105,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 35</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 36</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -967,7 +967,6 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg){
  }
  if(baseCap===0)baseCap=1000;
 
- // נפריד בין מכפילי מחקר בלבד (לנוסחת Farm Value המדויקת של המשחק) לבין מכפילים כוללים (ארטיפקטים + Colleggtibles)
  var resHabMult=1, resLayMult=1, resShipMult=1, resValMult=1, extraFleet=0, ihrAddPerHab=0;
  if(R && R.length){
   for(var k=0;k<R.length;k++){
@@ -1025,7 +1024,6 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg){
  var ebPercent=curSE * bonusPerSE * Math.pow(bonusPerPE,peCount) * eotMult * artEarnMult;
  var ebIncomeMult=1 + ebPercent/100;
 
- // EB עבור Farm Value (כולל SE, PE, Truth Eggs, Book of Basan, Soul/Prophecy Stones — ללא Necklace/Ankh/Shell Stones)
  var fvEbPercent=curSE * bonusPerSE * Math.pow(bonusPerPE,peCount) * eotMult;
  var fvEbMult=1 + fvEbPercent/100;
 
@@ -1048,7 +1046,7 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg){
  var siloBottleneck=(minsToFullHabs > maxSiloMins && habPct < 97 && pop > 1000);
 
  // נוסחת Farm Value הרשמית של המשחק (Egg, Inc. Wiki: Farm Value):
- // Farm Value = 500 * L * V_res * E_res * EB * A * P_eff
+ // P_eff = 100% תרנגולות קיימות + 20% דגירה אופליין בזמן הממגורות + 2% יתרת מקום פנוי בלולים
  var resLayPerChicken=2*resLayMult;
  var resMaxCap=Math.floor(baseCap*resHabMult);
  var resTotalShipCap=baseShip*resShipMult;
@@ -1056,7 +1054,7 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg){
  var pCur=Math.min(pop,maxShippablePop);
  var sSpace=Math.max(0,Math.min(resMaxCap,maxShippablePop)-pop);
  var hAway=Math.min(sSpace,resIhrOfflinePerMin*maxSiloMins);
- var pEff=pCur + 0.2*sSpace + 0.8*hAway;
+ var pEff=pCur + 0.02*(sSpace - hAway) + 0.20*hAway;
  var fvCoeff=isVirt?6:(EGG_FV_COEFF[sim.eggType]||2);
  var accTricksMult=1 + 0.05*(elv['accounting_tricks']||0);
  var lensMult=(artInfo && artInfo.mercurysLensMult)?artInfo.mercurysLensMult:1;
@@ -2560,6 +2558,7 @@ function copyDiag(){
    farmValue:Number(P.logi.farmValue.toExponential(3)),
    nextEggDiscoverFV:P.eggProg.reqDiscoverFV,
    nextEggUpgradeFV:P.eggProg.reqFV,
+   nextEggPct:Number(P.eggProg.pct.toFixed(1)),
    colleggtiblesUnlocked:P.collegg.unlocked.length,
    diamondTrophiesCompleted:P.trophies.completed+'/18',
    nextDiamondTrophy:P.trophies.nextTarget?P.trophies.nextTarget.eggId:'ALL_DONE',
