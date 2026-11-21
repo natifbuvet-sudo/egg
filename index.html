@@ -33,7 +33,9 @@ button.copy-btn{background:var(--acc);color:var(--accink);width:100%;padding:8px
 
 .phase-bar{background:var(--s);border:1px solid var(--line);border-radius:10px;padding:7px 10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:.8rem}
 .phase-tag{background:var(--acc);color:var(--accink);padding:2px 8px;border-radius:6px;font-weight:700;font-size:.74rem}
-.event-pill{background:rgba(245,184,46,.22);color:var(--ink);border:1px solid var(--y);padding:2px 7px;border-radius:6px;font-size:.73rem;font-weight:700}
+.event-pills{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;width:100%}
+.event-pill{background:rgba(245,184,46,.24);color:var(--ink);border:1px solid var(--y);padding:2px 7px;border-radius:6px;font-size:.72rem;font-weight:700;cursor:pointer;user-select:none}
+.event-pill.off{background:var(--bg);color:var(--mut);border:1px dashed var(--line);font-weight:500;opacity:.82}
 
 .hud{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-bottom:10px}
 .hud-box{background:var(--s);border:1px solid var(--line);border-radius:10px;padding:7px 9px}
@@ -87,6 +89,14 @@ li.it span{color:var(--mut);font-size:.82rem;display:block;margin-top:2px}
 .b-rew{background:var(--acc);color:var(--accink)}
 .b-pts{background:var(--line);color:var(--ink)}
 .b-wait{background:var(--ok);color:#fff}
+.b-hold{background:#f59e0b;color:#12151d}
+.b-seas{background:#0ea5e9;color:#fff}
+.slot-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin-bottom:8px;font-size:.8rem}
+.slot-pills{display:inline-flex;gap:4px;align-items:center}
+.slot-pill{width:10px;height:10px;border-radius:3px;background:var(--line);display:inline-block}
+.slot-pill.used{background:var(--acc)}
+.slot-pill.wait{background:var(--ok)}
+.slot-pill.warn{background:#f59e0b}
 .note{color:var(--mut);font-size:.76rem;margin-top:10px}
 details summary{list-style:none}
 details summary::-webkit-details-marker{display:none}
@@ -105,7 +115,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 39</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 41</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -658,24 +668,137 @@ function esc(s){return String(s).split('&').join('&amp;').split('<').join('&lt;'
 function $(id){return document.getElementById(id)}
 function sget(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function sset(k,v){try{localStorage.setItem(k,v)}catch(e){}}
-var root=null,RES=null,last=null,liveServerEvents=null,liveEventsSyncNote='not_run',busy=false;
+var root=null,RES=null,last=null,liveServerEvents=null,liveEventsSyncNote='not_run',manualEventOverrides={},busy=false;
+
+function getEggIncPacificSchedule(){
+ var ptDay=new Date().getUTCDay(),ptHour=new Date().getUTCHours(),ptMonth=new Date().getUTCMonth()+1,ptDate=new Date().getUTCDate();
+ try{
+  var parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',weekday:'short',month:'numeric',day:'numeric',hour:'numeric',hour12:false}).formatToParts(new Date());
+  var map={};parts.forEach(function(p){map[p.type]=p.value});
+  var wMap={Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
+  if(wMap[map.weekday]!==undefined)ptDay=wMap[map.weekday];
+  if(map.hour!==undefined)ptHour=parseInt(map.hour,10)%24;
+  if(map.month!==undefined)ptMonth=parseInt(map.month,10);
+  if(map.day!==undefined)ptDate=parseInt(map.day,10);
+ }catch(e){
+  var pst=new Date(Date.now()-8*3600*1000);
+  ptDay=pst.getUTCDay();ptHour=pst.getUTCHours();ptMonth=pst.getUTCMonth()+1;ptDate=pst.getUTCDate();
+ }
+ // Egg Inc daily events switch at 09:00 AM Pacific Time (18:00-19:00 IST)
+ var evDay=(ptHour<9)?((ptDay+6)%7):ptDay;
+ var isEggDay=(ptMonth===7 && ptDate===14 && ptHour>=9) || (ptMonth===7 && ptDate===15 && ptHour<9);
+ return {
+  evDay:evDay,
+  isEggDay:isEggDay,
+  isFridayResearch:(evDay===5),
+  isWeekendPrestige:(evDay===6 || evDay===0 || isEggDay)
+ };
+}
+
+function pt9AmToUtcMs(y,m,d){
+ // Convert 09:00 AM America/Los_Angeles on (y,m,d) to exact UTC epoch ms (DST-aware)
+ var utc=Date.UTC(y,m-1,d,17,0,0);
+ try{
+  var fmt=new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',hour12:false});
+  for(var iter=0;iter<2;iter++){
+   var parts=fmt.formatToParts(new Date(utc)),mp={};
+   parts.forEach(function(p){mp[p.type]=p.value});
+   var fy=parseInt(mp.year,10),fm=parseInt(mp.month,10),fd=parseInt(mp.day,10),fh=parseInt(mp.hour,10)%24,fmin=parseInt(mp.minute,10);
+   var targetUtc=Date.UTC(y,m-1,d,9,0,0);
+   var gotUtc=Date.UTC(fy,fm-1,fd,fh,fmin,0);
+   utc+=(targetUtc-gotUtc);
+  }
+ }catch(e){}
+ return utc;
+}
+
+function getNextContractRelease(nowSec){
+ var nowMs=(nowSec>0?nowSec*1000:Date.now());
+ var ptY=new Date(nowMs).getUTCFullYear(),ptM=new Date(nowMs).getUTCMonth()+1,ptD=new Date(nowMs).getUTCDate();
+ try{
+  var parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',year:'numeric',month:'numeric',day:'numeric'}).formatToParts(new Date(nowMs));
+  var mp={};parts.forEach(function(p){mp[p.type]=p.value});
+  ptY=parseInt(mp.year,10);ptM=parseInt(mp.month,10);ptD=parseInt(mp.day,10);
+ }catch(e){}
+ var dayNamesHe=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+ var dropMeta={
+  1:{type:'SEASONAL',shortLabel:'יום שני (עונתי)',label:'חוזה עונתי חדש (Seasonal)',isPE:false,isSeasonal:true,guardHours:48},
+  3:{type:'LEGGACY_REWARDS',shortLabel:'יום רביעי (Leggacy)',label:'חוזה Leggacy (פרסים/בוסטים)',isPE:false,isSeasonal:false,guardHours:36},
+  5:{type:'LEGGACY_PE',shortLabel:'יום שישי (PE)',label:'חוזה Leggacy עם Prophecy Egg',isPE:true,isSeasonal:false,guardHours:48}
+ };
+ var nextDrop=null,prevDropMs=0;
+ for(var offset=-3;offset<=8;offset++){
+  var probe=new Date(Date.UTC(ptY,ptM-1,ptD+offset,12,0,0));
+  var cy=probe.getUTCFullYear(),cm=probe.getUTCMonth()+1,cd=probe.getUTCDate(),wd=probe.getUTCDay();
+  if(!dropMeta[wd])continue;
+  var relMs=pt9AmToUtcMs(cy,cm,cd);
+  if(relMs<=nowMs){
+   if(relMs>prevDropMs)prevDropMs=relMs;
+  }else if(!nextDrop){
+   var meta=dropMeta[wd];
+   var locDate=new Date(relMs);
+   var locDay=dayNamesHe[locDate.getDay()];
+   var locHH=String(locDate.getHours()).padStart(2,'0');
+   var locMM=String(locDate.getMinutes()).padStart(2,'0');
+   nextDrop={
+    type:meta.type,
+    weekday:wd,
+    shortLabel:meta.shortLabel,
+    label:meta.label,
+    isPE:meta.isPE,
+    isSeasonal:meta.isSeasonal,
+    guardHours:meta.guardHours,
+    releaseEpoch:Math.floor(relMs/1000),
+    secsLeft:Math.max(0,Math.floor((relMs-nowMs)/1000)),
+    localTimeStr:'יום '+locDay+' ב-'+locHH+':'+locMM
+   };
+  }
+ }
+ var hoursSinceLast=prevDropMs>0?((nowMs-prevDropMs)/3600000):999;
+ return {
+  nextDrop:nextDrop,
+  hoursSinceLast:hoursSinceLast,
+  inGoldenWindow:(hoursSinceLast>=0 && hoursSinceLast<=6)
+ };
+}
 
 function getActiveEvents(){
- var d=new Date(),day=d.getDay(),hr=d.getHours(),mon=d.getMonth(),date=d.getDate();
- var isEggDay=(mon===6 && date===14);
- var autoPrestige=((day===6 && hr>=19) || day===0 || (day===1 && hr<19) || isEggDay);
+ var sched=getEggIncPacificSchedule();
+ var autoPrestige=sched.isWeekendPrestige;
+ var autoCommon=sched.isFridayResearch;
+ var prestChecked=($('ev-prestige')?$('ev-prestige').checked:autoPrestige);
+ var commChecked=($('ev-common')?$('ev-common').checked:autoCommon);
+ var epicChecked=($('ev-epic')?$('ev-epic').checked:false);
+ var craftChecked=($('ev-craft')?$('ev-craft').checked:false);
+ var droneChecked=($('ev-drones')?$('ev-drones').checked:false);
+ var capChecked=($('ev-cap')?$('ev-cap').checked:false);
  return {
-  prestigeMultiplier:isEggDay?8.0:(($('ev-prestige')&&$('ev-prestige').checked)?(liveServerEvents&&liveServerEvents.prestigeMultiplier>1?liveServerEvents.prestigeMultiplier:2.0):1.0),
-  commonResearchDiscount:($('ev-common')&&$('ev-common').checked)?(liveServerEvents&&liveServerEvents.commonResearchDiscount>0?liveServerEvents.commonResearchDiscount:0.70):0.0,
-  epicResearchDiscount:($('ev-epic')&&$('ev-epic').checked)?(liveServerEvents&&liveServerEvents.epicResearchDiscount>0?liveServerEvents.epicResearchDiscount:0.35):0.0,
-  craftingDiscount:($('ev-craft')&&$('ev-craft').checked)?(liveServerEvents&&liveServerEvents.craftingDiscount>0?liveServerEvents.craftingDiscount:0.30):0.0,
-  droneMultiplier:($('ev-drones')&&$('ev-drones').checked)?(liveServerEvents&&liveServerEvents.droneMultiplier>1?liveServerEvents.droneMultiplier:4.0):1.0,
-  missionCapacityMultiplier:($('ev-cap')&&$('ev-cap').checked)?(liveServerEvents&&liveServerEvents.missionCapacityMultiplier>1?liveServerEvents.missionCapacityMultiplier:2.0):1.0,
+  prestigeMultiplier:sched.isEggDay?8.0:(prestChecked?(liveServerEvents&&liveServerEvents.prestigeMultiplier>1?liveServerEvents.prestigeMultiplier:2.0):1.0),
+  commonResearchDiscount:commChecked?(liveServerEvents&&liveServerEvents.commonResearchDiscount>0?liveServerEvents.commonResearchDiscount:0.70):0.0,
+  epicResearchDiscount:epicChecked?(liveServerEvents&&liveServerEvents.epicResearchDiscount>0?liveServerEvents.epicResearchDiscount:0.35):0.0,
+  craftingDiscount:craftChecked?(liveServerEvents&&liveServerEvents.craftingDiscount>0?liveServerEvents.craftingDiscount:0.30):0.0,
+  droneMultiplier:droneChecked?(liveServerEvents&&liveServerEvents.droneMultiplier>1?liveServerEvents.droneMultiplier:4.0):1.0,
+  missionCapacityMultiplier:capChecked?(liveServerEvents&&liveServerEvents.missionCapacityMultiplier>1?liveServerEvents.missionCapacityMultiplier:2.0):1.0,
   fromServer:!!liveServerEvents,
   syncNote:liveEventsSyncNote,
   extraLabels:(liveServerEvents&&liveServerEvents.extraLabels)||[],
-  autoDefaults:{prestige:autoPrestige,common:false,epic:false}
+  autoDefaults:{prestige:autoPrestige,common:autoCommon,epic:false}
  };
+}
+
+function applyDefaultEventsIfUnset(){
+ var defEv=getActiveEvents().autoDefaults;
+ if($('ev-prestige') && !manualEventOverrides['ev-prestige'])$('ev-prestige').checked=defEv.prestige;
+ if($('ev-common') && !manualEventOverrides['ev-common'])$('ev-common').checked=defEv.common;
+ if($('ev-epic') && !manualEventOverrides['ev-epic'])$('ev-epic').checked=defEv.epic;
+}
+
+function toggleEvent(id){
+ var el=$(id);
+ if(!el)return;
+ el.checked=!el.checked;
+ manualEventOverrides[id]=true;
+ if(last&&RES)show(last,RES);
 }
 
 function getFarmerRole(ebPct){
@@ -717,19 +840,15 @@ async function fetchPeriodicals(eid,b){
   var Req=R.lookupType('ei.GetPeriodicalsRequest');
   var Res=R.lookupType('ei.PeriodicalsResponse');
   var cleanEid=eid.indexOf('mk2!')===0?eid.slice(4):eid;
-  var g=(b&&b.game)||{};
   var msg=Req.create({
    rinfo:{eiUserId:cleanEid,clientVersion:72,version:'1.35.7',build:'111343',platform:'IOS'},
    userId:cleanEid,
-   soulEggs:Number(g.soulEggsD||g.soulEggs||0),
-   mysticalEggs:Number(g.eggsOfProphecy||0),
-   clientVersion:72,
-   platform:1
+   clientVersion:72
   });
   var bytes=Req.encode(msg).finish();
   var bin='';for(var i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
   var b64=btoa(bin);
-  var endpoints=['/proxy?endpoint=ei/get_periodicals','/proxy/ei/get_periodicals'];
+  var endpoints=['/proxy?endpoint=ei/get_periodicals','/proxy?path=/ei/get_periodicals','/proxy?url=https://www.auxbrain.com/ei/get_periodicals','/proxy/ei/get_periodicals','/proxy/get_periodicals'];
   var resObj=null;
   var notes=[];
   for(var k=0;k<endpoints.length;k++){
@@ -742,44 +861,53 @@ async function fetchPeriodicals(eid,b){
     var raw=atob(txt);
     var u=new Uint8Array(raw.length);for(var j=0;j<raw.length;j++)u[j]=raw.charCodeAt(j);
     var decoded=Res.toObject(Res.decode(u),{longs:Number,enums:String,defaults:false});
-    if(decoded && decoded.events){resObj=decoded;liveEventsSyncNote='ok ('+endpoints[k]+')';break}
+    if(decoded && decoded.events && Array.isArray(decoded.events.events)){resObj=decoded;liveEventsSyncNote='ok ('+endpoints[k]+')';break}
     else{notes.push(endpoints[k]+':no_events_field');}
    }catch(inner){notes.push(endpoints[k]+':err_'+(inner&&inner.message?inner.message:'decode'));}
   }
   if(!resObj || !resObj.events || !Array.isArray(resObj.events.events)){
    liveEventsSyncNote=notes.join(' | ')||'no_events';
+   applyDefaultEventsIfUnset();
+   if($('ev-source-note'))$('ev-source-note').innerHTML='<b>אירועים יומיים פעילים (זיהוי אוטומטי לפי לוח המשחק + שליטה ידנית):</b>';
    return null;
   }
   var now=Date.now()/1000;
   var parsed={prestigeMultiplier:1,commonResearchDiscount:0,epicResearchDiscount:0,craftingDiscount:0,droneMultiplier:1,missionCapacityMultiplier:1,extraLabels:[]};
   resObj.events.events.forEach(function(ev){
-   var st=Number(ev.startTime||0);if(st>1e12)st/=1000;
-   var dur=Number(ev.duration||0);if(dur>1e12)dur/=1000;
-   if(st>0 && dur>0 && (st>now || st+dur<now))return;
-   if(ev.secondsRemaining!==undefined && Number(ev.secondsRemaining)<=0)return;
-   var t=String(ev.type||'').toLowerCase();
+   var remSec=(ev.secondsRemaining!==undefined)?Number(ev.secondsRemaining):null;
+   if(remSec!==null && remSec<=0)return;
+   if(remSec===null){
+    var st=Number(ev.startTime||0);if(st>1e12)st/=1000;
+    var dur=Number(ev.duration||0);if(dur>1e12)dur/=1000;
+    if(st>0 && dur>0 && (st>now || st+dur<now))return;
+   }
+   var t=String(ev.type||'').toLowerCase().replace(/_/g,'-');
    var m=Number(ev.multiplier||1);
-   if(t==='prestige-boost')parsed.prestigeMultiplier=Math.max(parsed.prestigeMultiplier,m);
-   else if(t==='research-sale')parsed.commonResearchDiscount=Math.max(parsed.commonResearchDiscount,m<1?(1-m):0.70);
-   else if(t==='epic-research-sale')parsed.epicResearchDiscount=Math.max(parsed.epicResearchDiscount,m<1?(1-m):0.35);
-   else if(t==='crafting-sale')parsed.craftingDiscount=Math.max(parsed.craftingDiscount,m<1?(1-m):0.30);
-   else if(t==='drone-boost'||t==='generous-drones')parsed.droneMultiplier=Math.max(parsed.droneMultiplier,m);
-   else if(t==='mission-capacity')parsed.missionCapacityMultiplier=Math.max(parsed.missionCapacityMultiplier,m);
-   else if(t==='mission-duration')parsed.extraLabels.push('-'+Math.round((1-m)*100)+'% זמן ספינות');
-   else if(t==='mission-fuel')parsed.extraLabels.push(m+'x תדלוק');
-   else if(t==='boost-sale')parsed.extraLabels.push('-'+Math.round((1-m)*100)+'% בוסטים');
-   else if(t==='boost-duration')parsed.extraLabels.push(m+'x משך בוסטים');
-   else if(t==='earnings-boost')parsed.extraLabels.push(m+'x הכנסות');
-   else if(t==='hab-sale')parsed.extraLabels.push('-'+Math.round((1-m)*100)+'% לולים');
-   else if(t==='vehicle-sale')parsed.extraLabels.push('-'+Math.round((1-m)*100)+'% רכבים');
-   else if(t==='gift-boost')parsed.extraLabels.push(m+'x מתנות');
+   var discVal=(m>0 && m<1)?(1-m):((m>1 && m<100)?(m/100):0);
+   if(t.indexOf('prestige')>=0)parsed.prestigeMultiplier=Math.max(parsed.prestigeMultiplier,m>1?m:2.0);
+   else if(t.indexOf('research')>=0 && t.indexOf('epic')<0)parsed.commonResearchDiscount=Math.max(parsed.commonResearchDiscount,discVal||0.70);
+   else if(t.indexOf('epic')>=0)parsed.epicResearchDiscount=Math.max(parsed.epicResearchDiscount,discVal||0.35);
+   else if(t.indexOf('craft')>=0)parsed.craftingDiscount=Math.max(parsed.craftingDiscount,discVal||0.30);
+   else if(t.indexOf('drone')>=0)parsed.droneMultiplier=Math.max(parsed.droneMultiplier,m>1?m:4.0);
+   else if(t.indexOf('capacity')>=0)parsed.missionCapacityMultiplier=Math.max(parsed.missionCapacityMultiplier,m>1?m:2.0);
+   else if(t.indexOf('duration')>=0 && t.indexOf('boost')<0)parsed.extraLabels.push('-'+Math.round((discVal||0.5)*100)+'% זמן ספינות');
+   else if(t.indexOf('fuel')>=0)parsed.extraLabels.push(m+'x תדלוק');
+   else if(t.indexOf('boost-sale')>=0)parsed.extraLabels.push('-'+Math.round((discVal||0.2)*100)+'% בוסטים');
+   else if(t.indexOf('boost-duration')>=0)parsed.extraLabels.push(m+'x משך בוסטים');
+   else if(t.indexOf('earnings')>=0)parsed.extraLabels.push(m+'x הכנסות');
+   else if(t.indexOf('hab')>=0)parsed.extraLabels.push('-'+Math.round((discVal||0.5)*100)+'% לולים');
+   else if(t.indexOf('vehicle')>=0)parsed.extraLabels.push('-'+Math.round((discVal||0.5)*100)+'% רכבים');
+   else if(t.indexOf('gift')>=0)parsed.extraLabels.push(m+'x מתנות');
   });
   liveServerEvents=parsed;
   var syncMap={'ev-prestige':parsed.prestigeMultiplier>1,'ev-epic':parsed.epicResearchDiscount>0,'ev-common':parsed.commonResearchDiscount>0,'ev-cap':parsed.missionCapacityMultiplier>1,'ev-drones':parsed.droneMultiplier>1,'ev-craft':parsed.craftingDiscount>0};
-  Object.keys(syncMap).forEach(function(id){if($(id))$(id).checked=syncMap[id]});
+  Object.keys(syncMap).forEach(function(id){if($(id) && !manualEventOverrides[id])$(id).checked=syncMap[id]});
   if($('ev-source-note'))$('ev-source-note').innerHTML='<b>אירועים יומיים פעילים (סונכרנו אוטומטית משרתי המשחק!):</b>';
   return parsed;
- }catch(e){return null}
+ }catch(e){
+  applyDefaultEventsIfUnset();
+  return null;
+ }
 }
 
 var TH=[0,30,80,160,280,400,520,650,800,980,1185,1390,1655];
@@ -2073,9 +2201,21 @@ function availableContractInfo(c,b,archivedMap,now){
  var rew=analyzeContractRewards(c,b);
  var coll=checkColleggtibleStatus(k,b);
 
+ var gradeRank={GRADE_C:1,GRADE_B:2,GRADE_A:3,GRADE_AA:4,GRADE_AAA:5};
+ var curGradeRaw=c.grade || (b.contracts && b.contracts.lastGraded) || '';
+ var prevGradeRaw=(arch && arch.grade) || '';
+ var curGrade=String(curGradeRaw).replace('GRADE_','');
+ var prevGrade=String(prevGradeRaw).replace('GRADE_','');
+ var gradeUpgraded=!!(isReplay && prevGradeRaw && curGradeRaw && (gradeRank[curGradeRaw]||0)>(gradeRank[prevGradeRaw]||0));
+ var seasonId=k.seasonId||'';
+ var startT=Number(k.startTime||0);
+ if(startT>1e12)startT/=1000;
  var exp=Number(k.expirationTime||0);
  if(exp>1e12)exp/=1000;
  var joinLeft=(exp>now)?(exp-now):0;
+ var joinWindow=(startT>0 && exp>startT)?(exp-startT):0;
+ // Monday seasonal contracts have a 21-day join window; Leggacy contracts have a 7-day window
+ var isCurrentSeason=!!(seasonId && (joinWindow>=14*86400 || (startT>0 && (now-startT)<95*86400 && joinLeft>7*86400)));
 
  var dur=Number(k.lengthSeconds||0);
  if(dur>1e12)dur/=1000;
@@ -2083,9 +2223,10 @@ function availableContractInfo(c,b,archivedMap,now){
  var maxCoop=k.maxCoopSize||0;
 
  var prio=2;
- var badgeText='עדיפות 2 • פרסים חדשים';
+ var badgeText=isCurrentSeason?'עדיפות 2 • חוזה עונתי חדש':'עדיפות 2 • פרסים חדשים';
  var badgeClass='b-rew';
- var adviceText='חוזה חדש עם פרסים שטרם אספת. הצטרף דרך קבוצה פעילה בדיסקורד/רדיט ולא ב-Auto-Join.';
+ var adviceText=(isCurrentSeason?'חוזה עונתי פעיל (תורם לניקוד העונתי בדרך ל-PE). ':'חוזה עם פרסים שטרם אספת. ')
+  +'הצטרף דרך קבוצה פעילה בדיסקורד/רדיט ולא ב-Auto-Join.';
 
  if(coll.isColleggtible && coll.needs10B){
   prio=1;
@@ -2094,9 +2235,16 @@ function availableContractInfo(c,b,archivedMap,now){
   adviceText='חובה! ביצת Colleggtible שטרם הגעת בה ל-10B (בונוס קבוע לחשבון). הפעל 1000x Tachyon (10m) + 10x Boost Beacon (10m) בתחילת החוזה לנעילת 10B.';
  }else if(isReplay){
   prio=3;
-  badgeText='עדיפות 3 • Points Replay';
+  badgeText=gradeUpgraded
+   ?('Points Replay • שדרוג דרגה ('+prevGrade+' ← '+curGrade+')')
+   :(isCurrentSeason?'Points Replay • ניקוד עונתי (CS)':'Points Replay • ניקוד כללי');
   badgeClass='b-pts';
-  adviceText='כבר אספת את כל הפרסים בחוזה זה בעבר. הצטרף רק לשיפור ניקוד דירוג (ללא בוסטים).';
+  adviceText=(gradeUpgraded
+   ?('השלמת בעבר בדרגת '+prevGrade+' וכעת אתה ב-'+curGrade+' — ריצה חוזרת תקפיץ משמעותית את ה-Contract Score! ')
+   :(isCurrentSeason
+    ?'חוזה מהעונה הנוכחית — ריצה חוזרת מהירה תשפר את הניקוד העונתי (בדרך ל-PE העונתי). '
+    :'חוזה Leggacy שכבר השלמת (ניקוד כללי בלבד, לא תורם לעונה הנוכחית). '))
+   +'הצטרף רק לקבוצה מהירה בדיסקורד/רדיט עם Deflector (לעולם לא Auto-Join איטי, כי ציון נמוך דורס את שיא ה-CS הקיים שלך).';
  }else if(rew.hasPE){
   prio=1;
   badgeText='עדיפות 1 • Prophecy Egg'+(rew.peCount>1?' (×'+rew.peCount+')':'');
@@ -2105,9 +2253,11 @@ function availableContractInfo(c,b,archivedMap,now){
  }
 
  return {
-  id:id,name:name,prio:prio,isReplay:isReplay,hasPE:rew.hasPE,peCount:rew.peCount,isColleggtible:coll.isColleggtible,needs10B:coll.needs10B,
+  id:id,name:name,prio:prio,isReplay:isReplay,isCurrentSeason:isCurrentSeason,gradeUpgraded:gradeUpgraded,prevGrade:prevGrade,curGrade:curGrade,seasonId:seasonId,
+  hasPE:rew.hasPE,peCount:rew.peCount,isColleggtible:coll.isColleggtible,needs10B:coll.needs10B,
   rewardsText:rew.rewardsText,joinLeft:joinLeft,exp:exp,dur:dur,eggName:eggName,maxCoop:maxCoop,
-  badgeText:badgeText,badgeClass:badgeClass,adviceText:adviceText
+  badgeText:badgeText,badgeClass:badgeClass,adviceText:adviceText,
+  guardState:'OPEN',guardReason:''
  };
 }
 
@@ -2192,8 +2342,6 @@ function contractInfo(c,b,R,elv,art,now,collegg){
    }
    if(cLogi.siloBottleneck && cLogi.canBuyMoreSilos){
     cfAlerts.push('בנה ממגורה נוספת בחוזה ('+cLogi.silosOwned+'/'+cLogi.maxPossibleSilos+')');
-   }else if(cLogi.siloBottleneck){
-    cfAlerts.push('ממגורות בחוזה ייגמרו בעוד '+fmtWait(cLogi.maxSiloMins));
    }
    if(!pointsOnly && art && art.setContract){
     var defItem=art.setContract.filter(function(x){return x.rawName==='TACHYON_DEFLECTOR'})[0];
@@ -2535,12 +2683,8 @@ function plan(b,R){
   a.push([17,'יש לך '+logi.unusedVehSlots+' מקומות פנויים לרכבים — הוסף משאית','הוספת משאית תמנע סתימה במשלוחים.']);
  }
 
- if(logi.siloBottleneck){
-  if(logi.canBuyMoreSilos){
-   a.push([20,'בנה ממגורה נוספת ('+logi.silosOwned+'/'+logi.maxPossibleSilos+') — ייגמרו בעוד '+fmtWait(logi.maxSiloMins),'מילוי הלולים דורש ~'+fmtWait(logi.minsToFullHabs)+', ובניית ממגורה נוספת תאריך את זמן האופליין.']);
-  }else{
-   a.push([54,'תזכורת ממגורות: פגות בעוד '+fmtWait(logi.maxSiloMins)+' ('+logi.silosOwned+'/'+logi.maxPossibleSilos+')','מילוי הלולים דורש ~'+fmtWait(logi.minsToFullHabs)+'. היכנס לרענן לפני שיפוגו או שדרג Silo Capacity.']);
-  }
+ if(logi.siloBottleneck && logi.canBuyMoreSilos){
+  a.push([20,'בנה ממגורה נוספת ('+logi.silosOwned+'/'+logi.maxPossibleSilos+') — ייגמרו בעוד '+fmtWait(logi.maxSiloMins),'מילוי הלולים דורש ~'+fmtWait(logi.minsToFullHabs)+', ובניית ממגורה נוספת תאריך את זמן האופליין.']);
  }
 
  if(ready>0)a.push([18,'אסוף '+ready+' ספינות שחזרו','פנה מקום לשיגור המשימה הבאה.']);
@@ -2667,18 +2811,107 @@ function plan(b,R){
  var pointsContracts=activeRunning.filter(function(d){return d.pointsOnly});
  var waitingContracts=CD.filter(function(d){return d.waitingCoop});
 
- var topAvail=availContracts[0]||null;
- if(topAvail){
-  if(topAvail.prio===1){
-   var p1Title=topAvail.needs10B?('הצטרף לחוזה Colleggtible (<10B): '+topAvail.name):('הצטרף לחוזה Prophecy Egg: '+topAvail.name);
-   a.push([17,p1Title,'זמין להצטרפות'+(topAvail.joinLeft>0?' (עוד '+hrs(topAvail.joinLeft)+')':'')+' • פרסים: '+topAvail.rewardsText+'.','contracts']);
-  }else if(topAvail.prio===2 && (activeRunning.length===0 || rewardContracts.length===0)){
-   a.push([25,'הצטרף לחוזה פרסים חדש: '+topAvail.name,'פרסים: '+topAvail.rewardsText+'. מומלץ דרך קבוצה בדיסקורד/רדיט.','contracts']);
-  }else if(topAvail.prio===3 && activeRunning.length===0){
-   a.push([60,'אופציונלי: הצטרף לחוזה חוזר (Points Replay) — '+topAvail.name,'כבר אספת בו את הפרסים בעבר; פתוח לשיפור ניקוד דירוג.','contracts']);
+ // Smart Slot & Schedule Guard (Egg Inc caps active contracts at 4, including yellow-scroll waiting co-ops)
+ var maxContractSlots=4;
+ var slotsUsed=CD.length;
+ var slotsFree=Math.max(0,maxContractSlots-slotsUsed);
+ var relSched=getNextContractRelease(now);
+ var nextDrop=relSched.nextDrop;
+ var hrsToNextDrop=nextDrop?(nextDrop.secsLeft/3600):999;
+ var guardWindowHrs=nextDrop?nextDrop.guardHours:48;
+ var dropImminent=!!(nextDrop && hrsToNextDrop<=guardWindowHrs);
+ // Always keep at least 1 buffer slot (for surprise PE/Colleggtible), and keep 2 slots if a Mon/Wed/Fri drop is within guard window.
+ var reserveSlotsNeeded=dropImminent?2:1;
+ var safeReplaySlots=Math.max(0,slotsFree-reserveSlotsNeeded);
+
+ availContracts.forEach(function(av){
+  if(av.prio===1 && slotsFree===0){
+   av.guardState='SLOTS_FULL_P1';
+   av.guardReason=(pointsContracts.length>0)
+    ?('כל 4 הסלוטים תפוסים! מומלץ לנטוש (Exit Contract) חוזה Points Replay פעיל ('+pointsContracts[0].name+') כדי לפנות מקום מיידית לחוזה עדיפות 1 זה.')
+    :(waitingContracts.length>0
+     ?('כל 4 הסלוטים תפוסים (כולל '+waitingContracts.length+' שממתין לסגירת קבוצה). המתן לסגירה והצטרף מיד.')
+     :'כל 4 הסלוטים תפוסים כרגע. פנה סלוט בהקדם כדי לא לפספס את החוזה.');
+   av.adviceText=av.guardReason+' '+av.adviceText;
+  }else if(av.prio===2 && slotsFree===0){
+   av.guardState='SLOTS_FULL_P2';
+   av.guardReason='כל 4 הסלוטים תפוסים כרגע — המתן לסיום חוזה פעיל לפני ההצטרפות.';
+   av.adviceText=av.guardReason+' '+av.adviceText;
+  }else if(av.prio===3){
+   // Apply Slot & Schedule Guard to Points Replay contracts
+   if(slotsFree<=1){
+    av.prio=4;
+    av.guardState='BLOCK_LAST_SLOT';
+    av.badgeClass='b-hold';
+    av.badgeText='המתן • אל תמלא סלוט אחרון ('+slotsUsed+'/4)';
+    av.guardReason='תפוסים כרגע '+slotsUsed+'/4 סלוטים. השאר לפחות סלוט 1 פנוי כרזרבה לחוזה Prophecy Egg או Colleggtible.';
+    av.adviceText=av.guardReason+' '+av.adviceText;
+   }else if(dropImminent && slotsFree<=reserveSlotsNeeded){
+    av.prio=4;
+    av.guardState='HOLD_FOR_DROP';
+    av.badgeClass='b-hold';
+    av.badgeText='המתן • שמור סלוט ל-'+nextDrop.shortLabel;
+    av.guardReason='בעוד '+hrs(nextDrop.secsLeft)+' ('+nextDrop.localTimeStr+') יוצא '+nextDrop.label+'. עם '+slotsUsed+'/4 סלוטים תפוסים לא כדאי להיכנס ל-Points Replay שעלול לתקוע סלוט.';
+    av.adviceText=av.guardReason+' '+av.adviceText;
+   }else{
+    av.guardState='SAFE';
+    av.guardReason='חלון בטוח ל-Points Replay ('+slotsFree+' סלוטים פנויים'+(nextDrop?(', '+hrs(nextDrop.secsLeft)+' עד '+nextDrop.shortLabel):'')+').';
+   }
   }
- }else if(activeRunning.length===0){
-  a.push([30,'בדוק חוזים חדשים להצטרפות','אין כרגע חוזים זמינים בגיבוי. בדוק בלשונית Contracts.','contracts']);
+ });
+
+ availContracts.sort(function(x,y){
+  if(x.prio!==y.prio)return x.prio-y.prio;
+  if(x.isCurrentSeason!==y.isCurrentSeason)return x.isCurrentSeason?-1:1;
+  if(x.gradeUpgraded!==y.gradeUpgraded)return x.gradeUpgraded?-1:1;
+  if(x.joinLeft>0 && y.joinLeft>0)return x.joinLeft-y.joinLeft;
+  return 0;
+ });
+
+ var contractSlotInfo={
+  maxSlots:maxContractSlots,
+  slotsUsed:slotsUsed,
+  slotsFree:slotsFree,
+  runningCount:activeRunning.length,
+  waitingCount:waitingContracts.length,
+  pointsRunningCount:pointsContracts.length,
+  reserveSlotsNeeded:reserveSlotsNeeded,
+  safeReplaySlots:safeReplaySlots,
+  dropImminent:dropImminent,
+  nextDrop:nextDrop,
+  inGoldenWindow:relSched.inGoldenWindow,
+  hoursSinceLastDrop:Number(relSched.hoursSinceLast.toFixed(1))
+ };
+
+ var availP1=availContracts.filter(function(x){return x.prio===1});
+ var availP2=availContracts.filter(function(x){return x.prio===2});
+ var availP3Safe=availContracts.filter(function(x){return x.prio===3 && x.guardState==='SAFE'});
+ if(availP1.length>0){
+  var p1=availP1[0];
+  var p1Title=p1.needs10B?('הצטרף לחוזה Colleggtible (<10B): '+p1.name):('הצטרף לחוזה Prophecy Egg: '+p1.name);
+  var p1Desc=(slotsFree===0 && p1.guardReason)?p1.guardReason:('זמין להצטרפות'+(p1.joinLeft>0?' (עוד '+hrs(p1.joinLeft)+')':'')+' • פרסים: '+p1.rewardsText+'.');
+  a.push([17,p1Title,p1Desc,'contracts']);
+ }else if(availP2.length>0 && slotsFree>0 && (activeRunning.length<2 || rewardContracts.length===0)){
+  var p2=availP2[0];
+  a.push([25,'הצטרף לחוזה פרסים חדש: '+p2.name,'פרסים: '+p2.rewardsText+(p2.isCurrentSeason?' (חוזה עונתי — צובר ניקוד ל-PE העונתי)':'')+'. מומלץ דרך קבוצה בדיסקורד/רדיט.','contracts']);
+ }else if(availP3Safe.length>0){
+  var p3=availP3Safe[0];
+  var p3Title=p3.gradeUpgraded
+   ?('שפר ניקוד בחוזה חוזר ('+p3.prevGrade+' ← '+p3.curGrade+'): '+p3.name)
+   :(p3.isCurrentSeason?('שפר ניקוד עונתי (Points Replay): '+p3.name):('הצטרף לחוזה ניקוד (Points Replay): '+p3.name));
+  var p3Reason=p3.guardReason+' '
+   +(p3.gradeUpgraded
+    ?('השלמת בעבר ב-'+p3.prevGrade+' וכעת אתה ב-'+p3.curGrade+' — שדרוג משמעותי ל-Contract Score! ')
+    :(p3.isCurrentSeason?'חוזה מהעונה הנוכחית המקדם ל-PE העונתי. ':'אין כרגע חוזי פרסים חדשים, וזמין חוזה לצבירת Contract Score. '))
+   +'הצטרף לקבוצה פעילה עם Deflector (ללא Auto-Join).';
+  if(activeRunning.length<2){
+   a.push([29,p3Title,p3Reason,'contracts']);
+  }else{
+   a.push([52,'אופציונלי: '+p3Title,p3Reason,'contracts']);
+  }
+ }else if(activeRunning.length===0 && slotsFree>0){
+  var nextDropHint=nextDrop?(' החוזה הבא ('+nextDrop.label+') יוצא בעוד '+hrs(nextDrop.secsLeft)+' ('+nextDrop.localTimeStr+').'):'';
+  a.push([30,'בדוק חוזים חדשים להצטרפות','אין לך כרגע חוזה פעיל.'+nextDropHint,'contracts']);
  }
 
  CD.forEach(function(d){d.urgent.forEach(function(u){a.push(u)})});
@@ -2739,7 +2972,7 @@ function plan(b,R){
  if((sim.unclaimedBoostTokens||0)>0)a.push([34,'אסוף '+sim.unclaimedBoostTokens+' טוקני בוסט בחווה','מוכנים לאיסוף.']);
  a.sort(function(x,y){return x[0]-y[0]});
  if(!a.length)a.push([99,'הכל מסודר כרגע','חזור לבדוק בעוד כמה דקות.']);
- return {CD:CD,availContracts:availContracts,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,permitTier:permitTier,shipSlots:shipSlots,free:free,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,logi:logi,eggProg:eggProg,cash:cash,art:art,isArtOptimal:isArtOptimal,stoneOpt:stoneOpt,prestigeInfo:prestigeInfo,boostInfo:boostInfo,macro:macro,trophies:trophies,events:events,collegg:collegg,geSpecRec:geSpecRec,keepOneWD:keepOneWD};
+ return {CD:CD,availContracts:availContracts,contractSlotInfo:contractSlotInfo,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,permitTier:permitTier,shipSlots:shipSlots,free:free,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,logi:logi,eggProg:eggProg,cash:cash,art:art,isArtOptimal:isArtOptimal,stoneOpt:stoneOpt,prestigeInfo:prestigeInfo,boostInfo:boostInfo,macro:macro,trophies:trophies,events:events,collegg:collegg,geSpecRec:geSpecRec,keepOneWD:keepOneWD};
 }
 
 function jumpTo(id){
@@ -2836,6 +3069,7 @@ function copyDiag(){
     equippedLunarSEMult:Number(P.art.equippedLunarSEMult.toFixed(3)),
     optimalLunarSEMult:Number(P.art.optimalLunarSEMult.toFixed(3))
    },
+   contractSlotGuard:P.contractSlotInfo,
    stoneOptimization:{
     prestige:P.stoneOpt.prestigeStoneAdvice,
     contract:P.stoneOpt.contractStoneAdvice
@@ -2863,17 +3097,21 @@ function show(b,R){
  var age=Math.round((Date.now()/1000-(b.approxTime||0))/60);
  if(age>3)h+='<div class="warn">גיבוי בן '+age+' דקות. לעדכון מיידי: פתח לרגע חוזה וחזור.</div>';
 
- var evBadges=[];
- if(P.events.prestigeMultiplier>1)evBadges.push(P.events.prestigeMultiplier+'x Prestige');
- if(P.events.epicResearchDiscount>0)evBadges.push('-'+Math.round(P.events.epicResearchDiscount*100)+'% Epic');
- if(P.events.commonResearchDiscount>0)evBadges.push('-'+Math.round(P.events.commonResearchDiscount*100)+'% מחקר');
- if(P.events.missionCapacityMultiplier>1)evBadges.push(P.events.missionCapacityMultiplier+'x ספינות');
- if(P.events.droneMultiplier>1)evBadges.push(P.events.droneMultiplier+'x רחפנים');
- if(P.events.craftingDiscount>0)evBadges.push('-'+Math.round(P.events.craftingDiscount*100)+'% Craft');
- (P.events.extraLabels||[]).forEach(function(lbl){evBadges.push(lbl)});
+ var togglePills=[
+  {id:'ev-common',on:P.events.commonResearchDiscount>0,lbl:'-'+(Math.round(P.events.commonResearchDiscount*100)||70)+'% מחקר'},
+  {id:'ev-prestige',on:P.events.prestigeMultiplier>1,lbl:(P.events.prestigeMultiplier>1?P.events.prestigeMultiplier:2)+'x Prestige'},
+  {id:'ev-epic',on:P.events.epicResearchDiscount>0,lbl:'-'+(Math.round(P.events.epicResearchDiscount*100)||35)+'% Epic'},
+  {id:'ev-craft',on:P.events.craftingDiscount>0,lbl:'-'+(Math.round(P.events.craftingDiscount*100)||30)+'% Craft'},
+  {id:'ev-drones',on:P.events.droneMultiplier>1,lbl:(P.events.droneMultiplier>1?P.events.droneMultiplier:4)+'x רחפנים'},
+  {id:'ev-cap',on:P.events.missionCapacityMultiplier>1,lbl:(P.events.missionCapacityMultiplier>1?P.events.missionCapacityMultiplier:2)+'x ספינות'}
+ ];
+ var pillsHtml=togglePills.map(function(p){
+  return '<span class="event-pill'+(p.on?'':' off')+'" onclick="toggleEvent(\''+p.id+'\')" title="לחץ להפעלה/כיבוי אירוע">'+(p.on?'✓ ':'')+esc(p.lbl)+'</span>';
+ }).join('');
+ (P.events.extraLabels||[]).forEach(function(lbl){pillsHtml+='<span class="event-pill">✓ '+esc(lbl)+'</span>'});
 
  h+='<div class="phase-bar"><span><span class="phase-tag">'+esc(P.logi.farmerRole)+'</span> <small>EB: '+fmt(P.logi.ebPercent)+'% • SE: '+fmt(P.prestigeInfo.curSE)+'</small></span>';
- if(evBadges.length)h+='<span>'+evBadges.map(function(x){return '<span class="event-pill">'+esc(x)+'</span>'}).join(' ')+'</span>';
+ h+='<div class="event-pills">'+pillsHtml+'</div>';
  h+='<div style="width:100%"><small><b>'+esc(P.macro.phaseTitle)+':</b> '+esc(P.macro.phaseTip)+'</small></div></div>';
 
  var contractsBadge=(P.CD.length+P.availContracts.length);
@@ -2966,10 +3204,11 @@ function show(b,R){
  h+='<div class="prog-bar"><div class="prog-fill '+(P.logi.shipBottleneck?'bad':'')+'" style="width:'+P.logi.shipUtilPct.toFixed(0)+'%"></div></div>';
  h+='<small>הטלה: '+fmt(P.logi.totalLayRate)+'/דקה • קיבולת משלוח: '+fmt(P.logi.totalShipCap)+'/דקה</small></div>';
 
- h+='<div class="c-box"><div class="c-head"><span>דגירה פנימית (IHR) וממגורות (Silos)</span><span class="badge '+(P.logi.siloBottleneck?'b-pe':'b-pts')+'">Silos: '+fmtWait(P.logi.maxSiloMins)+' ('+P.logi.silosOwned+')</span></div>';
+ var actionableSilo=(P.logi.siloBottleneck && P.logi.canBuyMoreSilos);
+ h+='<div class="c-box"><div class="c-head"><span>דגירה פנימית (IHR) וממגורות (Silos)</span><span class="badge '+(actionableSilo?'b-pe':'b-pts')+'">Silos: '+fmtWait(P.logi.maxSiloMins)+' ('+P.logi.silosOwned+'/'+P.logi.maxPossibleSilos+')</span></div>';
  h+='<small>אונליין: '+fmt(P.logi.ihrOnlinePerMin)+'/דק\' • אופליין: '+fmt(P.logi.ihrOfflinePerMin)+'/דק\' • '+(P.logi.minsToFullHabs>0?('מילוי מלא בעוד ~'+fmtWait(P.logi.minsToFullHabs)):'לולים מלאים')+'</small>';
- if(P.logi.siloBottleneck){
-  h+='<p style="color:var(--bad);margin-top:4px"><small><b>אזהרת ממגורות:</b> זמן מילוי הלולים ארוך מזמן האופליין המקסימלי של הממגורות!</small></p>';
+ if(actionableSilo){
+  h+='<p style="color:var(--bad);margin-top:4px"><small><b>ניתן לבנות ממגורה נוספת:</b> יש לך '+P.logi.silosOwned+' מתוך '+P.logi.maxPossibleSilos+' ממגורות — הוספת ממגורה תאריך את זמן האופליין.</small></p>';
  }
  h+='</div>';
 
@@ -3079,16 +3318,37 @@ function show(b,R){
  h+='<div class="c-box"><small><b>טיפ Crafting:</b> שמור ארטיפקטים רגילים (T1) ואל תפרק אותם — שדרוגם מעלה Crafting XP ל-Legendaries. בצע Crafting רק במבצע 30%.</small></div>';
  h+='</div></details>';
 
- // 5. חוזים (Contracts v2 + Colleggtibles)
+ // 5. חוזים (Contracts v2 + Colleggtibles + Smart Slot & Schedule Guard)
+ var csInfo=P.contractSlotInfo;
  var hasHighPriorityAvail=P.availContracts.some(function(x){return x.prio<=2});
  var contractsOpen=(P.activeRunning>0 || hasHighPriorityAvail)?'open':'';
- h+='<details id="sec-contracts" class="card" '+contractsOpen+'><summary class="sum-head"><span>חוזים ו-Colleggtibles ('+P.CD.length+' פעילים • '+P.availContracts.length+' זמינים)</span><small>▼</small></summary>';
+ h+='<details id="sec-contracts" class="card" '+contractsOpen+'><summary class="sum-head"><span>חוזים ו-Colleggtibles ('+csInfo.slotsUsed+'/4 סלוטים • '+P.availContracts.length+' זמינים)</span><small>▼</small></summary>';
  h+='<div style="margin-top:8px">';
 
+ // Slot & Next Release Status Bar
+ var pillsHtml='<span class="slot-pills">';
+ for(var si=0;si<csInfo.maxSlots;si++){
+  var pCls='slot-pill';
+  if(si<csInfo.runningCount)pCls+=' used';
+  else if(si<csInfo.slotsUsed)pCls+=' wait';
+  else if(si>=(csInfo.maxSlots-csInfo.reserveSlotsNeeded))pCls+=' warn';
+  pillsHtml+='<span class="'+pCls+'"></span>';
+ }
+ pillsHtml+='</span>';
+ var slotStatusTxt='<b>סלוטים: '+csInfo.slotsUsed+'/4 תפוסים</b> ('+csInfo.slotsFree+' פנויים'+(csInfo.waitingCount>0?', מתוכם '+csInfo.waitingCount+' במגילה צהובה':'')+')';
+ var nextDropTxt='';
+ if(csInfo.inGoldenWindow){
+  nextDropTxt='<span class="tag-ok">חלון זהב (6 שעות ראשונות משחרור החוזה — הקבוצות המהירות פעילות עכשיו!)</span>';
+ }else if(csInfo.nextDrop){
+  nextDropTxt='השחרור הבא: <b>'+esc(csInfo.nextDrop.label)+'</b> בעוד <b>'+hrs(csInfo.nextDrop.secsLeft)+'</b> ('+esc(csInfo.nextDrop.localTimeStr)+')';
+ }
+ h+='<div class="slot-bar"><div>'+pillsHtml+' '+slotStatusTxt+'</div><div><small>'+nextDropTxt+'</small></div></div>';
+
  if(P.availContracts.length){
-  h+='<div class="sec-sub">זמינים להצטרפות (מדורגים לפי סדר עדיפויות)</div>';
+  h+='<div class="sec-sub">זמינים להצטרפות (מדורגים לפי עדיפות ושמירת סלוטים)</div>';
   P.availContracts.forEach(function(av,idx){
-   h+='<div class="c-box"><div class="c-head"><span><span class="step-num">'+(idx+1)+'</span>'+esc(av.name)+'</span><span class="badge '+av.badgeClass+'">'+esc(av.badgeText)+'</span></div>';
+   var extraBadge=av.isCurrentSeason?' <span class="badge b-seas">עונה נוכחית</span>':'';
+   h+='<div class="c-box"><div class="c-head"><span><span class="step-num">'+(idx+1)+'</span>'+esc(av.name)+'</span><span>'+extraBadge+' <span class="badge '+av.badgeClass+'">'+esc(av.badgeText)+'</span></span></div>';
    var meta=[];
    if(av.eggName)meta.push(av.eggName);
    if(av.maxCoop>0)meta.push('עד '+av.maxCoop+' שחקנים');
@@ -3198,10 +3458,7 @@ async function run(q){
  }
 }
 
-var defEv=getActiveEvents().autoDefaults;
-if($('ev-prestige'))$('ev-prestige').checked=defEv.prestige;
-if($('ev-epic'))$('ev-epic').checked=defEv.epic;
-if($('ev-common'))$('ev-common').checked=defEv.common;
+applyDefaultEventsIfUnset();
 
 $('go').onclick=function(){run(false)};
 $('btn-ref').onclick=function(){run(false)};
@@ -3209,7 +3466,10 @@ $('btn-eid').onclick=function(){var b=$('eid-bar');b.style.display=(b.style.disp
 $('eid').onkeydown=function(e){if(e.key==='Enter')run(false)};
 ['slots','run','shipTarget','ev-prestige','ev-epic','ev-common','ev-cap','ev-drones','ev-craft'].forEach(function(id){
  var el=$(id);
- if(el)el.onchange=function(){if(last&&RES)show(last,RES)};
+ if(el)el.onchange=function(){
+  if(id.indexOf('ev-')===0)manualEventOverrides[id]=true;
+  if(last&&RES)show(last,RES);
+ };
 });
 
 var s=sget('eid');
