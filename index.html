@@ -82,6 +82,23 @@ li.it span{color:var(--mut);font-size:.82rem;display:block;margin-top:2px}
 .c-box{border-top:1px solid var(--line);padding:8px 0}
 .c-box:first-of-type{border-top:0;padding-top:2px}
 .c-head{font-weight:700;font-size:.92rem;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
+.c-card{background:var(--bg);border:1px solid var(--line);border-inline-start:4px solid var(--acc);border-radius:10px;padding:9px 11px;margin-bottom:8px}
+.c-card.p1{border-inline-start-color:var(--y)}
+.c-card.col{border-inline-start-color:var(--purp)}
+.c-card.pts{border-inline-start-color:var(--mut)}
+.c-card.alert{border-inline-start-color:var(--bad)}
+.c-chips{display:flex;flex-wrap:wrap;gap:4px;margin:5px 0;font-size:.74rem}
+.c-chip{background:var(--s);border:1px solid var(--line);border-radius:6px;padding:2px 7px;color:var(--ink);font-weight:500}
+.c-chip.ok{border-color:var(--ok);color:var(--ok);font-weight:600}
+.c-chip.bad{border-color:var(--bad);color:var(--bad);font-weight:700}
+.c-next{margin-top:6px;padding:6px 9px;border-radius:7px;background:var(--s);border-inline-start:3px solid var(--acc);font-size:.82rem;line-height:1.4}
+.c-next.do{border-inline-start-color:var(--ok)}
+.c-next.alert{border-inline-start-color:var(--bad)}
+.c-meta-line{font-size:.78rem;color:var(--mut);margin-top:4px}
+details.c-fold{margin-top:7px;border-top:1px dashed var(--line);padding-top:6px}
+.c-fold-sum{cursor:pointer;font-size:.79rem;font-weight:700;color:var(--acc);display:flex;justify-content:space-between;align-items:center;user-select:none}
+.c-mini-row{padding:7px 0;border-top:1px solid var(--line);font-size:.81rem}
+.c-mini-row:first-child{border-top:0;padding-top:3px}
 .sec-sub{font-size:.78rem;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.3px;margin:8px 0 4px;padding-bottom:3px;border-bottom:1px dashed var(--line)}
 .badge{font-size:.72rem;padding:2px 7px;border-radius:5px;font-weight:700}
 .b-pe{background:var(--y);color:#12151d}
@@ -117,7 +134,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 42</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 43</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -2088,29 +2105,33 @@ function availableContractInfo(c,b,archivedMap,now,art){
  },art):null;
 
  var prio=2;
- var badgeText=isCurrentSeason?'עדיפות 2 • חוזה עונתי חדש':'עדיפות 2 • פרסים חדשים';
+ var badgeText=isCurrentSeason?'חוזה עונתי חדש':'פרסים חדשים';
  var badgeClass='b-rew';
- var adviceText=(isCurrentSeason?'חוזה עונתי פעיל (תורם לניקוד העונתי בדרך ל-PE). ':'חוזה עם פרסים שטרם אספת. ')
-  +'הצטרף דרך קבוצה פעילה בדיסקורד/רדיט ולא ב-Auto-Join.';
+ var shortWhy=isCurrentSeason
+  ?'חוזה עונתי שטרם הושלם — תורם לניקוד העונתי בדרך ל-PE. הצטרף לקבוצה פעילה ב-Discord/Reddit.'
+  :'פרסים חדשים שטרם אספת. הצטרף לקבוצה פעילה ב-Discord/Reddit (לא Auto-Join).';
+ var adviceText=shortWhy;
 
  if(coll.isColleggtible && coll.needs10B){
   prio=1;
-  badgeText='עדיפות 1 • Colleggtible (<10B)';
+  badgeText='חובה • Colleggtible (<10B)';
   badgeClass='b-col';
-  adviceText='חובה! ביצת Colleggtible שטרם הגעת בה ל-10B (בונוס קבוע לחשבון). הפעל 1000x Tachyon (10m) + 10x Boost Beacon (10m) בתחילת החוזה לנעילת 10B.';
+  shortWhy='ביצת Colleggtible שטרם הגעת בה ל-10B (בונוס קבוע לחשבון). הפעל 1000x Tachyon + 10x Beacon בתחילת הריצה.';
+  adviceText=shortWhy;
  }else if(isReplay){
   prio=3;
   badgeText=gradeUpgraded
    ?('Points Replay • שדרוג דרגה ('+prevGrade+' ← '+curGrade+')')
-   :(isCurrentSeason?'Points Replay • ניקוד עונתי (CS)':'Points Replay • ניקוד כללי'+(prevCS>0?' ('+fmt(prevCS)+' CS)':''));
+   :(isCurrentSeason?'Points Replay • עונתי (CS)':'Points Replay'+(prevCS>0?' • שיא: '+fmt(prevCS)+' CS':''));
   badgeClass='b-pts';
-  adviceText=(playbook?playbook.whyPick+' ':'')
-   +'ציון חדש מחליף את השיא הקודם — היכנס רק לקבוצה מהירה ב-Discord/Reddit עם '+((playbook&&playbook.defLabel)||'Tachyon Deflector')+' ובצע '+((playbook&&playbook.runCap)||20)+' ריצות תרנגולות.';
+  shortWhy=playbook?playbook.whyPick:'חוזה חוזר לשיפור ציון Contract Score בקבוצה מהירה.';
+  adviceText=shortWhy+' היכנס רק לקבוצה מהירה ב-Discord/Reddit עם '+((playbook&&playbook.defLabel)||'Tachyon Deflector')+' ובצע '+((playbook&&playbook.runCap)||20)+' ריצות תרנגולות.';
  }else if(rew.hasPE){
   prio=1;
-  badgeText='עדיפות 1 • Prophecy Egg'+(rew.peCount>1?' (×'+rew.peCount+')':'');
+  badgeText='חובה • Prophecy Egg'+(rew.peCount>1?' (×'+rew.peCount+')':'');
   badgeClass='b-pe';
-  adviceText='חובה להצטרף! מעניק ביצת Prophecy נדירה. חפש קבוצה פעילה בדיסקורד/רדיט (r/EggsIncCoOp) כדי לסיים מהר.';
+  shortWhy='מעניק ביצת Prophecy נדירה — הצטרף מיד דרך קבוצה פעילה ב-Discord / r/EggsIncCoOp.';
+  adviceText=shortWhy;
  }
 
  return {
@@ -2118,7 +2139,7 @@ function availableContractInfo(c,b,archivedMap,now,art){
   prevCS:prevCS,csPotentialScore:csPotentialScore,playbook:playbook,
   hasPE:rew.hasPE,peCount:rew.peCount,isColleggtible:coll.isColleggtible,needs10B:coll.needs10B,
   rewardsText:rew.rewardsText,joinLeft:joinLeft,exp:exp,dur:dur,eggName:eggName,maxCoop:maxCoop,
-  badgeText:badgeText,badgeClass:badgeClass,adviceText:adviceText,
+  badgeText:badgeText,badgeClass:badgeClass,shortWhy:shortWhy,adviceText:adviceText,
   guardState:'OPEN',guardReason:''
  };
 }
@@ -2187,8 +2208,15 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
  var cf=(b.farms||[]).filter(function(f){return f.farmType==='CONTRACT'&&f.contractId===id})[0];
  var researchHint='';
  var stoneAdvice='';
+ var cfMetrics=null;
+ var nextStep='';
+ var nextStepLevel='info';
+ var defItem=(art && art.setContract)?art.setContract.filter(function(x){return x.rawName==='TACHYON_DEFLECTOR'})[0]:null;
+ var defLabel=defItem?defItem.name:'Tachyon Deflector';
+
  if(cf && !waitingCoop){
-  var cp=commonPlan(R,lvMap(cf.commonResearch),false,farmCash(cf),elv,null,0,1,(collegg&&collegg.mults&&collegg.mults.researchCost)||1);
+  var cfCash=farmCash(cf);
+  var cp=commonPlan(R,lvMap(cf.commonResearch),false,cfCash,elv,null,0,1,(collegg&&collegg.mults&&collegg.mults.researchCost)||1);
   if(cp.affordableList.length){
    researchHint=cp.affordableList.slice(0,3).map(function(x){return x.r.name+' ← '+x.to}).join(', ');
   }else if(cp.nextList.length){
@@ -2201,34 +2229,76 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
    quantumStoneMult:1
   }):null;
   var cLogi=calcFarmLogistics(b,cf,lvMap(cf.commonResearch),elv,contractArt,R,collegg,getPermitTier(b));
+  cfMetrics={
+   pop:cLogi.pop,
+   maxCap:cLogi.maxCap,
+   habPct:cLogi.habPct,
+   shipUtilPct:cLogi.rawPct,
+   shipBottleneck:cLogi.shipBottleneck,
+   cash:cfCash,
+   silosOwned:cLogi.silosOwned,
+   maxPossibleSilos:cLogi.maxPossibleSilos,
+   siloBottleneck:cLogi.siloBottleneck,
+   emptyHabSlots:cLogi.emptyHabSlots
+  };
   if(cLogi.pop>1e6 && contractArt){
    var cStones=optimizeStones(contractArt,cLogi);
-   stoneAdvice=cStones.contractStoneAdvice+' (עומס משלוחים עם סט החוזים: '+cLogi.rawPct.toFixed(0)+'%)';
+   stoneAdvice=cStones.contractStoneAdvice+' (עומס משלוחים: '+cLogi.rawPct.toFixed(0)+'%)';
   }
   var cfAlerts=[];
-  if(!waitingCoop){
-   if(cLogi.shipBottleneck){
-    cfAlerts.push('צוואר בקבוק במשלוחים ('+cLogi.shipUtilPct.toFixed(0)+'%) — קנה/שדרג משאיות בחוזה');
-    if(!pointsOnly)urgent.push([25,'שחרר משלוחים בחוזה '+name+' ('+cLogi.shipUtilPct.toFixed(0)+'%)','המשאיות בחוזה עמוסות ומאטות משלוח ביצים! הוסף משאית או שדרג Shipping.','contracts']);
-   }
-   if(cLogi.emptyHabSlots>0 && farmCash(cf)>500){
-    cfAlerts.push(cLogi.emptyHabSlots+' מקומות ריקים ללולים בחוזה');
-   }
-   if(cLogi.siloBottleneck && cLogi.canBuyMoreSilos){
-    cfAlerts.push('בנה ממגורה נוספת בחוזה ('+cLogi.silosOwned+'/'+cLogi.maxPossibleSilos+')');
-   }
-   if(art && art.setContract){
-    var defItem=art.setContract.filter(function(x){return x.rawName==='TACHYON_DEFLECTOR'})[0];
-    if(defItem)cfAlerts.push('וודא ש-'+defItem.name+' מורכב בחוזה (מכפיל Teamwork ×10)');
-   }
+  if(cLogi.shipBottleneck){
+   cfAlerts.push('צוואר בקבוק במשלוחים ('+cLogi.shipUtilPct.toFixed(0)+'%) — קנה/שדרג משאיות');
+   if(!pointsOnly)urgent.push([25,'שחרר משלוחים בחוזה '+name+' ('+cLogi.shipUtilPct.toFixed(0)+'%)','המשאיות בחוזה עמוסות ומאטות משלוח ביצים! הוסף משאית או שדרג Shipping.','contracts']);
+  }
+  if(cLogi.emptyHabSlots>0 && cfCash>500){
+   cfAlerts.push(cLogi.emptyHabSlots+' מקומות ריקים ללולים');
+  }
+  if(cLogi.siloBottleneck && cLogi.canBuyMoreSilos){
+   cfAlerts.push('בנה ממגורה נוספת ('+cLogi.silosOwned+'/'+cLogi.maxPossibleSilos+')');
+  }
+  if(defItem){
+   cfAlerts.push('וודא ש-'+defItem.name+' מורכב (מכפיל Teamwork ×10)');
   }
  }
 
+ if(!c.coopIdentifier){
+  nextStep='הצטרף לקו-אופ דרך קוד קבוצה פעילה (Discord / Reddit)';
+  nextStepLevel='alert';
+ }else if(waitingCoop){
+  var graceLeft2=graceEnd>now?(graceEnd-now):0;
+  nextStep='כל היעדים הושלמו! ממתין לסגירת הקבוצה'+(graceLeft2>0?' ('+hrs(graceLeft2)+')':'');
+  nextStepLevel='do';
+ }else if(cfMetrics && cfMetrics.shipBottleneck){
+  nextStep='שחרר צוואר בקבוק במשלוחים ('+cfMetrics.shipUtilPct.toFixed(0)+'%) — קנה או שדרג משאיות בחוזה';
+  nextStepLevel='alert';
+ }else if(cfMetrics && cfMetrics.emptyHabSlots>0 && cfMetrics.cash>500){
+  nextStep='בנה לול נוסף בחוזה ('+cfMetrics.emptyHabSlots+' מקומות ריקים)';
+  nextStepLevel='alert';
+ }else if(cfMetrics && cfMetrics.siloBottleneck && cfMetrics.silosOwned<cfMetrics.maxPossibleSilos){
+  nextStep='בנה ממגורה נוספת בחוזה ('+cfMetrics.silosOwned+'/'+cfMetrics.maxPossibleSilos+')';
+  nextStepLevel='alert';
+ }else if(typeof cp!=='undefined' && cp && cp.affordableList.length>0){
+  nextStep='שדרג מחקר בחוזה: '+cp.affordableList.slice(0,2).map(function(x){return x.r.name+' ← '+x.to}).join(', ');
+  nextStepLevel='do';
+ }else if(coll.needs10B){
+  nextStep='הפעל 1000x Tachyon + 10x Boost Beacon (4 טוקנים) להגעה ל-10B ונעילת Colleggtible';
+  nextStepLevel='do';
+ }else if(pointsOnly){
+  nextStep='שמור '+defLabel+' מורכב, בצע '+runCapActive+' ריצות תרנגולות לחברים והגע ל-100%–200% מהחלק היחסי';
+  nextStepLevel='info';
+ }else{
+  nextStep='שמור '+defLabel+' מורכב ובצע עד '+runCapActive+' ריצות תרנגולות לחברים לקידום היעדים ('+achieved+'/3)';
+  nextStepLevel='info';
+ }
+
+ var timeLeftGeneric=sharedEnd>now?(sharedEnd-now):0;
  return {
   id:id,name:name,grade:String(c.grade||'').replace('GRADE_',''),coop:c.coopIdentifier||'',
+  timeLeft:timeLeftGeneric,
   statusType:statusType,badgeText:badgeText,badgeClass:badgeClass,
   waitingCoop:waitingCoop,pointsOnly:pointsOnly,pointsPlaybook:pointsPlaybook,achieved:achieved,hasPE:rew.hasPE,needs10B:coll.needs10B,rewardsText:rew.rewardsText,
   ownAmt:ownAmt,lastRewAmt:lastRewAmt,
+  cfMetrics:cfMetrics,nextStep:nextStep,nextStepLevel:nextStepLevel,
   actionText:actionText,researchHint:researchHint,stoneAdvice:stoneAdvice,cfAlerts:(typeof cfAlerts!=='undefined'?cfAlerts:[]),urgent:urgent
  };
 }
@@ -2775,7 +2845,7 @@ function plan(b,R){
    ?('חוזה מומלץ לנקודות ('+bestPointsRec.prevGrade+' ← '+bestPointsRec.curGrade+'): '+bestPointsRec.name)
    :(bestPointsRec.isCurrentSeason?('חוזה עונתי מומלץ לנקודות (CS): '+bestPointsRec.name):('חוזה מומלץ לנקודות (Points Replay): '+bestPointsRec.name));
   var p3Reason=(pb?pb.whyPick+' ':'')
-   +'איך למקסם CS: (1) קבוצה מהירה ב-Discord/r/EggsIncCoOp (לא Auto-Join!); (2) בוסט 1000x Tachyon + 10x Beacon ב-4 טוקנים; (3) הרכב '+((pb&&pb.defLabel)||'Tachyon Deflector')+' + בצע '+((pb&&pb.runCap)||20)+' ריצות תרנגולות לחברים (שליחת טוקנים כבר לא נותנת CS ישיר); (4) אסוף מיד בסיום.';
+   +'הצטרף לקבוצה מהירה ב-Discord/Reddit עם '+((pb&&pb.defLabel)||'Tachyon Deflector')+' ובצע '+((pb&&pb.runCap)||20)+' ריצות תרנגולות.';
   if(activeRunning.length<2){
    a.push([29,p3Title,p3Reason,'contracts']);
   }else{
@@ -2786,16 +2856,23 @@ function plan(b,R){
   a.push([30,'בדוק חוזים חדשים להצטרפות','אין לך כרגע חוזה פעיל.'+nextDropHint,'contracts']);
  }
 
- CD.forEach(function(d){d.urgent.forEach(function(u){a.push(u)})});
+ var urgentContractIds={};
+ CD.forEach(function(d){
+  d.urgent.forEach(function(u){
+   a.push(u);
+   urgentContractIds[d.id]=true;
+  });
+ });
 
- if(rewardContracts.length>0){
-  a.push([32,'טפל ב-'+rewardContracts.length+' חוזי פרסים פעילים','טרם הושגו כל הפרסים/יעדי Colleggtible.','contracts']);
- }else if(pointsContracts.length>0){
+ var unhandledRewards=rewardContracts.filter(function(d){return !urgentContractIds[d.id]});
+ if(unhandledRewards.length>0){
+  var rc0=unhandledRewards[0];
+  a.push([32,'קדם חוזה פרסים: '+rc0.name,rc0.nextStep,'contracts']);
+ }else if(pointsContracts.length>0 && !urgentContractIds[pointsContracts[0].id]){
   var pc0=pointsContracts[0];
-  var pcPb=pc0.pointsPlaybook;
-  a.push([33,'מקסם ניקוד (CS) בחוזה הפעיל: '+pc0.name,'הרכב '+((pcPb&&pcPb.defLabel)||'Tachyon Deflector')+' לאורך כל הריצה, בצע '+((pcPb&&pcPb.runCap)||20)+' ריצות תרנגולות לחברים, הגע ל-100%–200% מהחלק היחסי ואסוף מיד בסיום.','contracts']);
- }else if(waitingContracts.length>0){
-  a.push([75,'חוזים ממתינים לסגירת קבוצה ('+waitingContracts.length+')','סיימת ואספת הכל.','contracts']);
+  a.push([33,'מקסם ניקוד (CS) בחוזה: '+pc0.name,pc0.nextStep,'contracts']);
+ }else if(waitingContracts.length>0 && activeRunning.length===0){
+  a.push([75,'חוזים ממתינים לסגירת קבוצה ('+waitingContracts.length+')','כל היעדים נאספו — ממתינים לסנכרון חברי הקבוצה.','contracts']);
  }
 
  var avail=(g.goldenEggsEarned||0)-(g.goldenEggsSpent||0);
@@ -2955,6 +3032,12 @@ function copyDiag(){
     optimalLunarSEMult:Number(P.art.optimalLunarSEMult.toFixed(3))
    },
    contractSlotGuard:P.contractSlotInfo,
+   contractsSummary:{
+    activeRunning:P.CD.filter(function(d){return !d.waitingCoop}).map(function(d){return {id:d.id,name:d.name,grade:d.grade,achieved:d.achieved,pointsOnly:d.pointsOnly,nextStep:d.nextStep,cfMetrics:d.cfMetrics};}),
+    waitingCoopCount:P.CD.filter(function(d){return d.waitingCoop}).length,
+    recommendedAvailCount:P.availContracts.filter(function(x){return x.prio<=2 || (P.bestPointsRec && x.id===P.bestPointsRec.id)}).length,
+    deferredAvailCount:P.availContracts.filter(function(x){return !(x.prio<=2 || (P.bestPointsRec && x.id===P.bestPointsRec.id))}).length
+   },
    pointsReplayRecommendation:ptsRec,
    stoneOptimization:{
     prestige:P.stoneOpt.prestigeStoneAdvice,
@@ -3161,49 +3244,98 @@ function show(b,R){
   var pCls=(si<slotInf.runningCount)?'used':((si<slotInf.slotsUsed)?'wait':(si>=slotInf.maxSlots-slotInf.reserveSlotsNeeded?'warn':''));
   h+='<span class="slot-pill '+pCls+'"></span>';
  }
- h+='</span> <b>'+slotInf.slotsFree+' פנויים</b> (רזרבה מומלצת: '+slotInf.reserveSlotsNeeded+')</div>';
+ h+='</span> <b>'+slotInf.slotsFree+' פנויים</b> (רזרבה: '+slotInf.reserveSlotsNeeded+')</div>';
  if(slotInf.nextDrop){
-  h+='<small>החוזה הבא: <b>'+esc(slotInf.nextDrop.shortLabel)+'</b> בעוד '+hrs(slotInf.nextDrop.secsLeft)+' ('+esc(slotInf.nextDrop.localTimeStr)+')</small>';
+  h+='<small>הבא: <b>'+esc(slotInf.nextDrop.shortLabel)+'</b> בעוד '+hrs(slotInf.nextDrop.secsLeft)+' ('+esc(slotInf.nextDrop.localTimeStr)+')</small>';
  }
  h+='</div>';
  if(slotInf.inGoldenWindow){
-  h+='<div class="status-banner do"><b>חלון הזהב פתוח כעת!</b><small>יצא חוזה חדש לפני פחות מ-6 שעות — זה הזמן הטוב ביותר למצוא קבוצה חזקה ומהירה.</small></div>';
+  h+='<div class="status-banner do"><b>חלון הזהב פתוח כעת!</b><small>יצא חוזה חדש לפני פחות מ-6 שעות — הזמן הטוב ביותר למצוא קבוצה חזקה ומהירה.</small></div>';
  }else if(slotInf.dropImminent && slotInf.slotsFree<=slotInf.reserveSlotsNeeded){
   h+='<div class="status-banner hold"><b>שומר סלוטים פעיל:</b><small>בעוד '+hrs(slotInf.nextDrop.secsLeft)+' יוצא '+esc(slotInf.nextDrop.label)+'. הימנע מ-Points Replay כדי לא לתקוע סלוט.</small></div>';
  }
- if(!P.CD.length && !P.availContracts.length){
+
+ var activeNowList=P.CD.filter(function(d){return !d.waitingCoop});
+ var waitingList=P.CD.filter(function(d){return d.waitingCoop});
+ var recAvailList=P.availContracts.filter(function(av){
+  return av.prio<=2 || (P.bestPointsRec && av.id===P.bestPointsRec.id);
+ });
+ var recIds={};
+ recAvailList.forEach(function(av){recIds[av.id]=true});
+ var otherAvailList=P.availContracts.filter(function(av){return !recIds[av.id]});
+
+ if(!activeNowList.length && !recAvailList.length && !waitingList.length && !otherAvailList.length){
   h+='<p><small>אין חוזים פעילים או זמינים להצטרפות כרגע.</small></p>';
  }
- if(P.availContracts.length){
-  h+='<div class="sec-sub">חוזים זמינים להצטרפות ('+P.availContracts.length+')</div>';
-  P.availContracts.forEach(function(av){
-   h+='<div class="c-box"><div class="c-head"><span>'+esc(av.name)+'</span><div>';
-   if(av.isCurrentSeason)h+='<span class="badge b-seas" style="margin-inline-end:4px">עונתי</span>';
-   h+='<span class="badge '+av.badgeClass+'">'+esc(av.badgeText)+'</span></div></div>';
-   h+='<div><small>'+esc(av.eggName)+(av.maxCoop?' • עד '+av.maxCoop+' שחקנים':'')+(av.joinLeft>0?' • נסגר בעוד '+hrs(av.joinLeft):'')+'</small></div>';
-   if(av.rewardsText)h+='<div><small><b>פרסים:</b> '+esc(av.rewardsText)+'</small></div>';
-   h+='<p>'+esc(av.adviceText)+'</p>';
-   if(av.isReplay && av.guardState==='SAFE' && P.bestPointsRec && P.bestPointsRec.id===av.id && av.playbook){
-    h+=renderPlaybookBox(av.playbook,'תוכנית פעולה למקסימום נקודות בחוזה '+av.name+':');
+
+ if(activeNowList.length){
+  h+='<div class="sec-sub">פעילים לביצוע עכשיו ('+activeNowList.length+')</div>';
+  activeNowList.forEach(function(d){
+   var cardCls=(d.nextStepLevel==='alert')?'alert':(d.pointsOnly?'pts':(d.needs10B?'col':'p1'));
+   h+='<div class="c-card '+cardCls+'">';
+   h+='<div class="c-head"><span>'+esc(d.name)+' <small>'+(d.grade?'['+esc(d.grade)+']':'')+'</small></span><span class="badge '+d.badgeClass+'">'+esc(d.badgeText)+'</span></div>';
+   h+='<div class="c-chips">';
+   h+='<span class="c-chip">יעדים: <b>'+d.achieved+'/3</b></span>';
+   h+=d.coop?'<span class="c-chip ok">קו-אופ: '+esc(d.coop)+'</span>':'<span class="c-chip bad">ללא קו-אופ</span>';
+   if(d.timeLeft>0)h+='<span class="c-chip">נותרו '+hrs(d.timeLeft)+'</span>';
+   if(d.cfMetrics){
+    h+='<span class="c-chip">אוכלוסייה: '+fmt(d.cfMetrics.pop)+'/'+fmt(d.cfMetrics.maxCap)+'</span>';
+    h+='<span class="c-chip'+(d.cfMetrics.shipBottleneck?' bad':'')+'">משלוחים: '+d.cfMetrics.shipUtilPct.toFixed(0)+'%</span>';
+    h+='<span class="c-chip">מזומן: '+fmt(d.cfMetrics.cash)+'</span>';
+   }
+   h+='</div>';
+   if(d.rewardsText)h+='<div class="c-meta-line"><b>פרסים:</b> '+esc(d.rewardsText)+'</div>';
+   h+='<div class="c-next '+d.nextStepLevel+'"><b>הצעד הבא:</b> '+esc(d.nextStep)+'</div>';
+   if(d.stoneAdvice)h+='<div class="c-meta-line"><b>אבנים:</b> '+esc(d.stoneAdvice)+'</div>';
+   if(d.researchHint && d.nextStep.indexOf('שדרג מחקר')!==0)h+='<div class="c-meta-line"><b>מחקר:</b> '+esc(d.researchHint)+'</div>';
+   if(d.pointsPlaybook){
+    h+='<details class="c-fold"><summary class="c-fold-sum"><span>מדריך 5 שלבים למקסימום CS בחוזה זה</span><span>▼</span></summary>';
+    h+=renderPlaybookBox(d.pointsPlaybook,'תוכנית פעולה למקסימום נקודות:');
+    h+='</details>';
    }
    h+='</div>';
   });
  }
- if(P.CD.length){
-  h+='<div class="sec-sub">חוזים פעילים בחשבון ('+P.CD.length+')</div>';
-  P.CD.forEach(function(d){
-   h+='<div class="c-box"><div class="c-head"><span>'+esc(d.name)+' <small>'+(d.grade?'['+esc(d.grade)+']':'')+'</small></span><span class="badge '+d.badgeClass+'">'+esc(d.badgeText)+'</span></div>';
-   h+='<div><small>יעדים: '+d.achieved+'/3 • נשלחו: '+fmt(d.ownAmt)+' • קו-אופ: '+(d.coop?esc(d.coop):'טרם הצטרפת')+'</small></div>';
-   if(d.rewardsText)h+='<div><small><b>פרסים:</b> '+esc(d.rewardsText)+'</small></div>';
-   h+='<p>'+esc(d.actionText)+'</p>';
-   if(d.pointsPlaybook){
-    h+=renderPlaybookBox(d.pointsPlaybook,'איך למקסם Contract Score בחוזה '+d.name+':');
+
+ if(recAvailList.length){
+  h+='<div class="sec-sub">מומלץ להצטרף עכשיו ('+recAvailList.length+')</div>';
+  recAvailList.forEach(function(av){
+   var cardCls=av.needs10B?'col':(av.prio===1?'p1':(av.prio===2?'p2':'pts'));
+   h+='<div class="c-card '+cardCls+'">';
+   h+='<div class="c-head"><span>'+esc(av.name)+'</span><div>';
+   if(av.isCurrentSeason)h+='<span class="badge b-seas" style="margin-inline-end:4px">עונתי</span>';
+   h+='<span class="badge '+av.badgeClass+'">'+esc(av.badgeText)+'</span></div></div>';
+   h+='<div class="c-chips">';
+   if(av.eggName)h+='<span class="c-chip">'+esc(av.eggName)+'</span>';
+   if(av.maxCoop)h+='<span class="c-chip">עד '+av.maxCoop+' שחקנים</span>';
+   if(av.joinLeft>0)h+='<span class="c-chip">נסגר בעוד '+hrs(av.joinLeft)+'</span>';
+   h+='</div>';
+   if(av.rewardsText)h+='<div class="c-meta-line"><b>פרסים:</b> '+esc(av.rewardsText)+'</div>';
+   h+='<div class="c-next '+(av.guardState==='SLOTS_FULL_P1'?'alert':'do')+'">'+esc(av.guardReason?av.guardReason+' ':'')+esc(av.shortWhy)+'</div>';
+   if(av.isReplay && av.playbook){
+    h+='<details class="c-fold"><summary class="c-fold-sum"><span>תוכנית פעולה למקסימום CS (5 שלבים)</span><span>▼</span></summary>';
+    h+=renderPlaybookBox(av.playbook,'תוכנית פעולה למקסימום נקודות בחוזה '+av.name+':');
+    h+='</details>';
    }
-   if(d.cfAlerts && d.cfAlerts.length)h+='<div><small style="color:var(--bad)"><b>התראות חוות חוזה:</b> '+esc(d.cfAlerts.join(' • '))+'</small></div>';
-   if(d.stoneAdvice)h+='<div><small><b>אבנים בחוזה:</b> '+esc(d.stoneAdvice)+'</small></div>';
-   if(d.researchHint)h+='<div><small><b>מחקר בחוזה:</b> '+esc(d.researchHint)+'</small></div></div>';
-   else h+='</div>';
+   h+='</div>';
   });
+ }
+
+ var totalDeferred=waitingList.length + otherAvailList.length;
+ if(totalDeferred>0){
+  h+='<details class="c-fold" style="margin-top:10px"><summary class="c-fold-sum"><span>ממתינים לסגירה וחוזים נוספים ('+totalDeferred+')</span><span>▼</span></summary>';
+  h+='<div style="margin-top:6px">';
+  waitingList.forEach(function(d){
+   h+='<div class="c-mini-row"><div class="c-head"><span>'+esc(d.name)+'</span><span class="badge b-wait">ממתין לסגירת קבוצה</span></div>';
+   h+='<small>כל 3 היעדים נאספו'+(d.coop?' • קבוצה: '+esc(d.coop):'')+'. אין פעולה נדרשת.</small></div>';
+  });
+  otherAvailList.forEach(function(av){
+   h+='<div class="c-mini-row"><div class="c-head"><span>'+esc(av.name)+'</span><div>';
+   if(av.isCurrentSeason)h+='<span class="badge b-seas" style="margin-inline-end:4px">עונתי</span>';
+   h+='<span class="badge '+av.badgeClass+'">'+esc(av.badgeText)+'</span></div></div>';
+   h+='<small>'+(av.guardReason?esc(av.guardReason):esc(av.shortWhy))+(av.joinLeft>0?' • נסגר בעוד '+hrs(av.joinLeft):'')+'</small></div>';
+  });
+  h+='</div></details>';
  }
  h+='</div>';
 
