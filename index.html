@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 45</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 46</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -1376,11 +1376,13 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg,macro,events,hasActiveBoost,e
  var nextRes=C.nextList[0]||null;
  var neededCash=nextRes?Math.max(0,nextRes.cost-(hasAffordableResearch?C.remCash:cash)):0;
  var bestRate=Math.max(hab.activeIncomePerMin,hab.idleIncomePerMin);
- var activeMinsToNext=(nextRes && bestRate>0)?(neededCash/bestRate):0;
- var idleMinsToNext=(nextRes && hab.idleIncomePerMin>0)?(neededCash/hab.idleIncomePerMin):0;
+ var activeMinsToNext=!nextRes?0:(bestRate>0?(neededCash/bestRate):Infinity);
+ var idleMinsToNext=!nextRes?0:(hab.idleIncomePerMin>0?(neededCash/hab.idleIncomePerMin):Infinity);
 
- var hasPop=(hab.pop>=100);
- var hitTimeWall=(hasPop && !hasAffordableResearch && nextRes && eggProg.pct<75 && (activeMinsToNext>=15 || idleMinsToNext>=90));
+ var hasPop=(hab.pop>=1000 && hab.totalLayRate>0);
+ var MIN_ACTIVE_WALL_MINS=4;
+ var withinReach=!!(!hasAffordableResearch && nextRes && isFinite(activeMinsToNext) && (activeMinsToNext<MIN_ACTIVE_WALL_MINS || cash>=nextRes.cost*0.70));
+ var hitTimeWall=!!(hasPop && !hasAffordableResearch && !withinReach && nextRes && eggProg.pct<75 && (activeMinsToNext>=15 || (activeMinsToNext>=MIN_ACTIVE_WALL_MINS && idleMinsToNext>=90)));
 
  var status='push';
  var title='המשך בריצה הנוכחית';
@@ -1423,26 +1425,34 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg,macro,events,hasActiveBoost,e
  }else if(hitTimeWall && (gainPct>=minWallGainPct || (curSE<5000 && unclaimedSE>=50))){
   status='ready';
   title='הגעת לקיר — בצע Prestige עכשיו (+'+fmt(unclaimedSE)+' SE)';
-  reason='השדרוג הבא ('+nextRes.r.name+') דורש ~'+fmtWait(activeMinsToNext)+', וכבר צברת +'+gainPct.toFixed(0)+'% SE.'+(isWeekend?' (אירוע '+events.prestigeMultiplier+'x Prestige פעיל!)':'');
+  reason='השדרוג הבא ('+nextRes.r.name+') דורש ~'+fmtWait(activeMinsToNext)+' אקטיבי'+(isFinite(idleMinsToNext)?' (~'+fmtWait(idleMinsToNext)+' אופליין)':'')+', וכבר צברת +'+gainPct.toFixed(0)+'% SE.'+(isWeekend?' (אירוע '+events.prestigeMultiplier+'x Prestige פעיל!)':'');
  }else if(hitTimeWall && isWeekend && gainPct>=5 && hasPrestigeBoosts){
   status='boost_then_prestige';
   title='אירוע '+events.prestigeMultiplier+'x Prestige: דחיפה קצרה ואז Prestige';
-  reason='הגעת לקיר עם +'+gainPct.toFixed(1)+'% SE. בגלל אירוע ה-Prestige משתלם להריץ סבב בוסטים קצר ולבצע Prestige.';
- }else if(gainPct>=autoReadyGainPct && !hasAffordableResearch){
+  reason='הגעת לקיר (~'+fmtWait(activeMinsToNext)+' אקטיבי) עם +'+gainPct.toFixed(1)+'% SE. בגלל אירוע ה-Prestige משתלם להריץ סבב בוסטים קצר ולבצע Prestige.';
+ }else if(gainPct>=autoReadyGainPct && !hasAffordableResearch && !(withinReach && activeMinsToNext<=2 && gainPct<autoReadyGainPct*1.5)){
   status='ready';
   title='בצע Prestige עכשיו (+'+gainPct.toFixed(0)+'% Soul Eggs)';
   reason='צברת '+fmt(unclaimedSE)+' Soul Eggs חדשים ואין מחקרים זולים. בגלל התפוקה הפוחתת (^0.21), איפוס הריצה משתלם יותר.';
  }else{
-  var waitHint=(!hasAffordableResearch && nextRes && isFinite(activeMinsToNext))?(' • השדרוג הבא בעוד ~'+fmtWait(activeMinsToNext)+'.'):'';
-  var tankGoalHint=(curSE>=10000 && curSE<100000)?(' • יעד מיכל דלק: '+fmt(totalAfterPrestige)+'/100K SE לאחר Prestige'):'';
-  reason=(unclaimedSE>0?('נצבר בריצה: +'+fmt(unclaimedSE)+' SE'+(gainPct>0?' (+'+gainPct.toFixed(1)+'%)':'')):'המשך לשדרג מחקרים ולמלא לולים כדי לצבור Soul Eggs')+tankGoalHint+waitHint;
+  if(withinReach){
+   var fundedPct=Math.min(99,Math.round((cash/Math.max(1,nextRes.cost))*100));
+   title='המשך בריצה — שדרוג כמעט בהישג יד';
+   var nearMsg='השדרוג הבא ('+nextRes.r.name+') במרחק ~'+fmtWait(activeMinsToNext)+' הכנסה אקטיבית ('+fundedPct+'% מהעלות)';
+   var seMsg=(unclaimedSE>0?(' • נצבר בריצה: +'+fmt(unclaimedSE)+' SE'+(gainPct>0?' (+'+gainPct.toFixed(1)+'%)':'')):'');
+   reason=nearMsg+seMsg+'.';
+  }else{
+   var waitHint=(!hasAffordableResearch && nextRes && isFinite(activeMinsToNext))?(' • השדרוג הבא בעוד ~'+fmtWait(activeMinsToNext)+'.'):'';
+   var tankGoalHint=(curSE>=10000 && curSE<100000)?(' • יעד מיכל דלק: '+fmt(totalAfterPrestige)+'/100K SE לאחר Prestige'):'';
+   reason=(unclaimedSE>0?('נצבר בריצה: +'+fmt(unclaimedSE)+' SE'+(gainPct>0?' (+'+gainPct.toFixed(1)+'%)':'')):'המשך לשדרג מחקרים ולמלא לולים כדי לצבור Soul Eggs')+tankGoalHint+waitHint;
+  }
  }
  return {
   curSE:curSE,unclaimedSE:unclaimedSE,totalAfterPrestige:totalAfterPrestige,
   unlocksTankOnPrestige:unlocksTankOnPrestige,unlocksPadOnPrestige:unlocksPadOnPrestige,
   prestigeCash:prestigeCash,gainPct:gainPct,
   status:status,title:title,reason:reason,isWeekend:isWeekend,
-  hitTimeWall:hitTimeWall,activeMinsToNext:activeMinsToNext,idleMinsToNext:idleMinsToNext,nextRes:nextRes
+  withinReach:withinReach,hitTimeWall:hitTimeWall,activeMinsToNext:activeMinsToNext,idleMinsToNext:idleMinsToNext,nextRes:nextRes
  };
 }
 
@@ -1957,7 +1967,7 @@ function analyzeBoosts(b,sim,permitTier,hab,prestigeInfo,hasAffordableResearch,a
    recCombo.push({name:bestTachyon.name,count:bestTachyon.count,useQty:1});
    recTitle='דחיפת Prestige (שלב 1): מלא לולים עם Tachyon';
    recReason='אירוע Prestige פעיל! מלא לולים ל-~90% עם '+bestTachyon.name+' (שמור רמת WD פתוחה) ואז הפעל Bird Feed + Soul Beacon.'+dilNote;
-  }else if((macro.phase==='LATE_GAME_MULTISTIGE' || hab.habPct>=45 || prestigeInfo.status==='boost_then_prestige' || prestigeInfo.hitTimeWall) && (bestFeed || bestSoul)){
+  }else if((macro.phase==='LATE_GAME_MULTISTIGE' || ((!prestigeInfo.withinReach || hab.isFull) && (hab.habPct>=45 || prestigeInfo.status==='boost_then_prestige' || prestigeInfo.hitTimeWall))) && (bestFeed || bestSoul)){
    shouldUseNow=true;
    var usedSlots=0;
    if(bestTachyon && macro.phase==='LATE_GAME_MULTISTIGE' && maxBoostSlots===5){
@@ -3282,6 +3292,16 @@ function copyDiag(){
    primaryAction:{
     title:P.a[0][1],
     reason:P.a[0][2]
+   },
+   prestigeDecision:{
+    status:P.prestigeInfo.status,
+    title:P.prestigeInfo.title,
+    hitTimeWall:P.prestigeInfo.hitTimeWall,
+    withinReach:P.prestigeInfo.withinReach,
+    activeMinsToNext:isFinite(P.prestigeInfo.activeMinsToNext)?Number(P.prestigeInfo.activeMinsToNext.toFixed(2)):null,
+    idleMinsToNext:isFinite(P.prestigeInfo.idleMinsToNext)?Number(P.prestigeInfo.idleMinsToNext.toFixed(2)):null,
+    gainPct:Number(P.prestigeInfo.gainPct.toFixed(2)),
+    boostShouldUseNow:P.boostInfo.shouldUseNow
    },
    goldenEggRecommendation:P.geSpecRec,
    shipRecommendation:shipRec,
