@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 47</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 48</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -1914,7 +1914,7 @@ function optimizeStones(art,logi){
  return {useProphecy:useProphecy,prestigeStoneAdvice:prestigeStoneAdvice,contractStoneAdvice:contractStoneAdvice};
 }
 
-function analyzeBoosts(b,sim,permitTier,hab,prestigeInfo,hasAffordableResearch,art,eggProg,hasPEContract,macro){
+function analyzeBoosts(b,sim,permitTier,hab,prestigeInfo,hasAffordableResearch,art,eggProg,hasPEContract,macro,events){
  var g=b.game||{};
  var maxBoostSlots=(permitTier===3)?5:2;
  var isWeekend=prestigeInfo.isWeekend;
@@ -1983,12 +1983,13 @@ function analyzeBoosts(b,sim,permitTier,hab,prestigeInfo,hasAffordableResearch,a
  }else if(isWeekend && !hasAffordableResearch && hab.pop>=10000){
   if(holdForNextEgg){
    shouldUseNow=false;
+   var prestigeMult=((events||getActiveEvents()).prestigeMultiplier)||2;
    if(eggProg.willCrossNextEggAt90){
     recTitle='המתן עם בוסטים — מעבר לביצת '+eggProg.nextName+' בהישג יד';
-    recReason='אירוע '+events.prestigeMultiplier+'x Prestige פעיל, אך הגעה ל-90% תפוסת לולים תעלה את שווי החווה ל-'+fmt(eggProg.fvAt90Pct)+' ותפתח את ביצת '+eggProg.nextName+' (סף '+fmt(eggProg.reqFV)+'). שדרג ביצה קודם כדי לא לבזבז בוסטים!';
+    recReason='אירוע '+prestigeMult+'x Prestige פעיל, אך הגעה ל-90% תפוסת לולים תעלה את שווי החווה ל-'+fmt(eggProg.fvAt90Pct)+' ותפתח את ביצת '+eggProg.nextName+' (סף '+fmt(eggProg.reqFV)+'). שדרג ביצה קודם כדי לא לבזבז בוסטים!';
    }else{
     recTitle='המתן עם בוסטים — טפס קודם לביצת השיא ('+eggProg.peakPrestigeName+')';
-    recReason='אירוע '+events.prestigeMultiplier+'x Prestige פעיל, אך אתה עדיין בביצת '+eggProg.curName+' (מתחת לביצת השיא שלך: '+eggProg.peakPrestigeName+'). התקדם קודם ל-'+eggProg.peakPrestigeName+' לפני הפעלת בוסטים של Prestige.';
+    recReason='אירוע '+prestigeMult+'x Prestige פעיל, אך אתה עדיין בביצת '+eggProg.curName+' (מתחת לביצת השיא שלך: '+eggProg.peakPrestigeName+'). התקדם קודם ל-'+eggProg.peakPrestigeName+' לפני הפעלת בוסטים של Prestige.';
    }
   }else if(macro.phase!=='LATE_GAME_MULTISTIGE' && hab.habPct<45 && bestTachyon && (bestTachyon.power>=100 || bestTachyon.count>=4)){
    shouldUseNow=true;
@@ -2857,7 +2858,7 @@ function plan(b,R){
   return analyzeContractRewards(c,b).hasPE;
  });
 
- var boostInfo=analyzeBoosts(b,sim,permitTier,logi,prestigeInfo,hasAffordableResearch,art,eggProg,hasPEContract,macro);
+ var boostInfo=analyzeBoosts(b,sim,permitTier,logi,prestigeInfo,hasAffordableResearch,art,eggProg,hasPEContract,macro,events);
 
  var run=runMode;
  if(run==='auto'){
