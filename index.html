@@ -95,6 +95,10 @@ li.it span{color:var(--mut);font-size:.82rem;display:block;margin-top:2px}
 .c-next.do{border-inline-start-color:var(--ok)}
 .c-next.alert{border-inline-start-color:var(--bad)}
 .c-meta-line{font-size:.78rem;color:var(--mut);margin-top:4px}
+.c-res-box{margin-top:7px;background:var(--s);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+.c-res-head{display:flex;justify-content:space-between;align-items:center;font-size:.86rem;font-weight:700;margin-bottom:4px}
+.c-res-head small{font-weight:500;color:var(--mut)}
+.c-res-sum{font-size:.8rem;color:var(--mut);margin:0 0 4px}
 details.c-fold{margin-top:7px;border-top:1px dashed var(--line);padding-top:6px}
 .c-fold-sum{cursor:pointer;font-size:.79rem;font-weight:700;color:var(--acc);display:flex;justify-content:space-between;align-items:center;user-select:none}
 .c-mini-row{padding:7px 0;border-top:1px solid var(--line);font-size:.81rem}
@@ -134,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 43</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 44</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -2206,6 +2210,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
  }
 
  var cf=(b.farms||[]).filter(function(f){return f.farmType==='CONTRACT'&&f.contractId===id})[0];
+ var cp=null;
  var researchHint='';
  var stoneAdvice='';
  var cfMetrics=null;
@@ -2216,7 +2221,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
 
  if(cf && !waitingCoop){
   var cfCash=farmCash(cf);
-  var cp=commonPlan(R,lvMap(cf.commonResearch),false,cfCash,elv,null,0,1,(collegg&&collegg.mults&&collegg.mults.researchCost)||1);
+  cp=commonPlan(R,lvMap(cf.commonResearch),false,cfCash,elv,null,0,1,(collegg&&collegg.mults&&collegg.mults.researchCost)||1);
   if(cp.affordableList.length){
    researchHint=cp.affordableList.slice(0,3).map(function(x){return x.r.name+' ← '+x.to}).join(', ');
   }else if(cp.nextList.length){
@@ -2277,8 +2282,8 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
  }else if(cfMetrics && cfMetrics.siloBottleneck && cfMetrics.silosOwned<cfMetrics.maxPossibleSilos){
   nextStep='בנה ממגורה נוספת בחוזה ('+cfMetrics.silosOwned+'/'+cfMetrics.maxPossibleSilos+')';
   nextStepLevel='alert';
- }else if(typeof cp!=='undefined' && cp && cp.affordableList.length>0){
-  nextStep='שדרג מחקר בחוזה: '+cp.affordableList.slice(0,2).map(function(x){return x.r.name+' ← '+x.to}).join(', ');
+ }else if(cp && cp.affordableList.length>0){
+  nextStep='שדרג '+cp.totalLevelsBought+' רמות מחקר בחוזה ('+cp.affordableList.length+' מחקרים • עלות '+fmt(cp.totalSpent)+')';
   nextStepLevel='do';
  }else if(coll.needs10B){
   nextStep='הפעל 1000x Tachyon + 10x Boost Beacon (4 טוקנים) להגעה ל-10B ונעילת Colleggtible';
@@ -2299,7 +2304,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
   waitingCoop:waitingCoop,pointsOnly:pointsOnly,pointsPlaybook:pointsPlaybook,achieved:achieved,hasPE:rew.hasPE,needs10B:coll.needs10B,rewardsText:rew.rewardsText,
   ownAmt:ownAmt,lastRewAmt:lastRewAmt,
   cfMetrics:cfMetrics,nextStep:nextStep,nextStepLevel:nextStepLevel,
-  actionText:actionText,researchHint:researchHint,stoneAdvice:stoneAdvice,cfAlerts:(typeof cfAlerts!=='undefined'?cfAlerts:[]),urgent:urgent
+  actionText:actionText,researchHint:researchHint,researchPlan:cp,stoneAdvice:stoneAdvice,cfAlerts:(typeof cfAlerts!=='undefined'?cfAlerts:[]),urgent:urgent
  };
 }
 
@@ -3033,7 +3038,7 @@ function copyDiag(){
    },
    contractSlotGuard:P.contractSlotInfo,
    contractsSummary:{
-    activeRunning:P.CD.filter(function(d){return !d.waitingCoop}).map(function(d){return {id:d.id,name:d.name,grade:d.grade,achieved:d.achieved,pointsOnly:d.pointsOnly,nextStep:d.nextStep,cfMetrics:d.cfMetrics};}),
+    activeRunning:P.CD.filter(function(d){return !d.waitingCoop}).map(function(d){return {id:d.id,name:d.name,grade:d.grade,achieved:d.achieved,pointsOnly:d.pointsOnly,nextStep:d.nextStep,cfMetrics:d.cfMetrics,researchSummary:d.researchPlan?{affordableCount:d.researchPlan.affordableList.length,totalLevelsBought:d.researchPlan.totalLevelsBought,nextCount:d.researchPlan.nextList.length}:null};}),
     waitingCoopCount:P.CD.filter(function(d){return d.waitingCoop}).length,
     recommendedAvailCount:P.availContracts.filter(function(x){return x.prio<=2 || (P.bestPointsRec && x.id===P.bestPointsRec.id)}).length,
     deferredAvailCount:P.availContracts.filter(function(x){return !(x.prio<=2 || (P.bestPointsRec && x.id===P.bestPointsRec.id))}).length
@@ -3287,7 +3292,28 @@ function show(b,R){
    if(d.rewardsText)h+='<div class="c-meta-line"><b>פרסים:</b> '+esc(d.rewardsText)+'</div>';
    h+='<div class="c-next '+d.nextStepLevel+'"><b>הצעד הבא:</b> '+esc(d.nextStep)+'</div>';
    if(d.stoneAdvice)h+='<div class="c-meta-line"><b>אבנים:</b> '+esc(d.stoneAdvice)+'</div>';
-   if(d.researchHint && d.nextStep.indexOf('שדרג מחקר')!==0)h+='<div class="c-meta-line"><b>מחקר:</b> '+esc(d.researchHint)+'</div>';
+   if(d.researchPlan && d.cfMetrics){
+    var crp=d.researchPlan;
+    h+='<div class="c-res-box"><div class="c-res-head"><span>שדרוגי מחקר מומלצים בחוזה</span><small>תקציב: '+fmt(d.cfMetrics.cash)+'</small></div>';
+    if(crp.affordableList.length){
+     h+='<p class="c-res-sum">סה"כ '+crp.totalLevelsBought+' רמות • עלות '+fmt(crp.totalSpent)+' (יישארו '+fmt(crp.remCash)+')</p>';
+     crp.affordableList.forEach(function(x){
+      var isMax=(x.to>=x.r.levels);
+      var targetTxt=isMax?('למקסימום ('+x.to+')'):('לרמה '+x.to);
+      h+=row('<span class="tier-pill">T'+x.r.tier+'</span><b>'+esc(x.r.name)+'</b> <small>('+x.from+' ← '+targetTxt+')</small>','<span class="tag-ok">'+fmt(x.cost)+'</span>');
+     });
+    }else{
+     h+='<p class="c-res-sum">אין מספיק מזומן לשדרוג הבא כרגע.</p>';
+    }
+    if(crp.nextList.length){
+     h+='<div style="margin-top:6px"><small><b>הבאים בתור (כשיצטבר מזומן):</b></small></div>';
+     crp.nextList.forEach(function(x){
+      var targetTxt=(x.to>=x.r.levels)?('למקסימום ('+x.to+')'):('לרמה '+x.to);
+      h+=row('<span class="tier-pill">T'+x.r.tier+'</span>'+esc(x.r.name)+' <small>('+x.from+' ← '+targetTxt+')</small>','<span class="tag-wait">'+fmt(x.cost)+'</span>');
+     });
+    }
+    h+='</div>';
+   }
    if(d.pointsPlaybook){
     h+='<details class="c-fold"><summary class="c-fold-sum"><span>מדריך 5 שלבים למקסימום CS בחוזה זה</span><span>▼</span></summary>';
     h+=renderPlaybookBox(d.pointsPlaybook,'תוכנית פעולה למקסימום נקודות:');
