@@ -134,7 +134,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 43</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 44</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -223,7 +223,7 @@ var EGG_DISCOVER_FV=[
  0,1e7,8.4e8,3.8e10,2.7e13,8e15,3.6e18,1.5e22,2.7e25,1.5e29,7.6e32,2.5e36,3.2e39,2e43,1.9e47,5.1e51,3.2e55,6.4e58,5.7e64
 ];
 var EGG_UPGRADE_FV=[
- 0,6.8e7,5.3e9,2.4e11,1.7e14,5e16,2.3e19,9.4e22,1.7e26,9.8e29,4.8e33,1.6e37,2e40,1.3e44,1.2e48,3.2e52,2e56,4e60,3.6e65
+ 0,6.8e7,5.3e9,2.4e11,1.7e14,5e16,2.3e19,9.4e22,1.7e26,9.8e29,4.8e33,1.6e37,2e40,1.3e44,1.2e48,3.2e52,2.2e56,4e60,3.6e65
 ];
 
 var SHIP_ORDER=['CHICKEN_ONE','CHICKEN_NINE','CHICKEN_HEAVY','BCR','QUINTILLION_CHICKEN','CORVETTE','GALENGG','DEFIHENT','VOYEGGER','HENERPRISE','ATREGGIES'];
@@ -486,7 +486,7 @@ function esc(s){return String(s).split('&').join('&amp;').split('<').join('&lt;'
 function $(id){return document.getElementById(id)}
 function sget(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function sset(k,v){try{localStorage.setItem(k,v)}catch(e){}}
-var root=null,RES=null,last=null,liveServerEvents=null,liveEventsSyncNote='not_run',manualEventOverrides={},busy=false;
+var root=null,RES=null,last=null,liveServerEvents=null,liveEventsSyncNote='not_run',periodicalsProxyUnsupported=false,manualEventOverrides={},busy=false;
 
 function getEggIncPacificSchedule(){
  var ptDay=new Date().getUTCDay(),ptHour=new Date().getUTCHours(),ptMonth=new Date().getUTCMonth()+1,ptDate=new Date().getUTCDate();
@@ -651,10 +651,15 @@ async function load(eid){
 }
 
 async function fetchPeriodicals(eid,b){
+ if(periodicalsProxyUnsupported){
+  applyDefaultEventsIfUnset();
+  return null;
+ }
  try{
   var R=await getRoot();
   var Req=R.lookupType('ei.GetPeriodicalsRequest');
   var Res=R.lookupType('ei.PeriodicalsResponse');
+  var FirstContactRes=R.lookupType('ei.EggIncFirstContactResponse');
   var cleanEid=eid.indexOf('mk2!')===0?eid.slice(4):eid;
   var msg=Req.create({
    rinfo:{eiUserId:cleanEid,clientVersion:72,version:'1.35.7',build:'111343',platform:'IOS'},
@@ -664,27 +669,37 @@ async function fetchPeriodicals(eid,b){
   var bytes=Req.encode(msg).finish();
   var bin='';for(var i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
   var b64=btoa(bin);
-  var endpoints=['/proxy?endpoint=ei/get_periodicals','/proxy?path=/ei/get_periodicals','/proxy?url=https://www.auxbrain.com/ei/get_periodicals','/proxy/ei/get_periodicals','/proxy/get_periodicals'];
+  var endpoints=['/proxy?endpoint=ei/get_periodicals','/proxy/ei/get_periodicals'];
   var resObj=null;
   var notes=[];
+  var detectedSingleEndpointProxy=false;
   for(var k=0;k<endpoints.length;k++){
    try{
     var r=await postTo(endpoints[k],b64,false);
-    if(!r.ok)r=await postTo(endpoints[k],b64,true);
+    if(!r.ok && r.status!==405)r=await postTo(endpoints[k],b64,true);
     if(!r.ok){notes.push(endpoints[k]+':http_'+r.status);continue;}
     var txt=(await r.text()).trim();
     if(!txt || txt.indexOf('<')===0){notes.push(endpoints[k]+':html_or_empty');continue;}
     var raw=atob(txt);
     var u=new Uint8Array(raw.length);for(var j=0;j<raw.length;j++)u[j]=raw.charCodeAt(j);
+    try{
+     var fcProbe=FirstContactRes.toObject(FirstContactRes.decode(u),{longs:Number,enums:String,defaults:false});
+     if(fcProbe && (fcProbe.errorMessage || fcProbe.backup)){
+      detectedSingleEndpointProxy=true;
+      notes.push('proxy_first_contact_only');
+      break;
+     }
+    }catch(fcErr){}
     var decoded=Res.toObject(Res.decode(u),{longs:Number,enums:String,defaults:false});
     if(decoded && decoded.events && Array.isArray(decoded.events.events)){resObj=decoded;liveEventsSyncNote='ok ('+endpoints[k]+')';break}
     else{notes.push(endpoints[k]+':no_events_field');}
-   }catch(inner){notes.push(endpoints[k]+':err_'+(inner&&inner.message?inner.message:'decode'));}
+   }catch(inner){notes.push(endpoints[k]+':decode_skip');}
   }
   if(!resObj || !resObj.events || !Array.isArray(resObj.events.events)){
-   liveEventsSyncNote=notes.join(' | ')||'no_events';
+   if(detectedSingleEndpointProxy || notes.length>0)periodicalsProxyUnsupported=true;
+   liveEventsSyncNote=detectedSingleEndpointProxy?'fallback_pacific_schedule (proxy_first_contact_only)':('fallback_pacific_schedule ('+(notes.join(', ')||'no_events')+')');
    applyDefaultEventsIfUnset();
-   if($('ev-source-note'))$('ev-source-note').innerHTML='<b>אירועים יומיים פעילים (זיהוי אוטומטי לפי לוח המשחק + שליטה ידנית):</b>';
+   if($('ev-source-note'))$('ev-source-note').innerHTML='<b>אירועים יומיים פעילים (לוח זמנים אוטומטי PT + שליטה ידנית):</b>';
    return null;
   }
   var now=Date.now()/1000;
@@ -1311,7 +1326,21 @@ function calcEggProgress(b,sim,logi,fuelInfo){
  var reqDiscoverFV=(idx>=0 && idx+1<EGG_DISCOVER_FV.length)?EGG_DISCOVER_FV[idx+1]:0;
  var reqUpgradeFV=(idx>=0 && idx+1<EGG_UPGRADE_FV.length)?EGG_UPGRADE_FV[idx+1]:0;
  var curFV=logi.farmValue;
- var pct=reqUpgradeFV>0?Math.min(100,(curFV/reqUpgradeFV)*100):100;
+ var linearPct=reqUpgradeFV>0?Math.min(100,(curFV/reqUpgradeFV)*100):100;
+
+ var prevFV=(idx>0 && EGG_DISCOVER_FV[idx]>0)?EGG_DISCOVER_FV[idx]:1;
+ var logPct=100;
+ if(nextEgg && reqUpgradeFV>0){
+  if(curFV>=reqUpgradeFV)logPct=100;
+  else if(curFV<=0)logPct=0;
+  else if(curFV<=prevFV){
+   logPct=Math.max(0,Math.min(25,(Math.log10(Math.max(1,curFV))/Math.log10(Math.max(10,prevFV)))*25));
+  }else{
+   var span=Math.max(0.1,Math.log10(reqUpgradeFV)-Math.log10(prevFV));
+   logPct=Math.min(99.9,25+75*((Math.log10(curFV)-Math.log10(prevFV))/span));
+  }
+ }
+
  var canUpgradeEgg=(nextEgg && curFV>=reqUpgradeFV && reqUpgradeFV>0);
  var maxReachedIdx=EGG_ORDER.indexOf(g.maxEggReached||'');
  var alreadyDiscovered=(maxReachedIdx>idx) || (reqDiscoverFV>0 && curFV>=reqDiscoverFV);
@@ -1322,7 +1351,7 @@ function calcEggProgress(b,sim,logi,fuelInfo){
  return {
   curEgg:curEgg,curName:EGG_HE[curEgg]||curEgg,
   nextEgg:nextEgg,nextName:nextEgg?(EGG_HE[nextEgg]||nextEgg):null,
-  curFV:curFV,reqFV:reqUpgradeFV,reqDiscoverFV:reqDiscoverFV,pct:pct,
+  curFV:curFV,reqFV:reqUpgradeFV,reqDiscoverFV:reqDiscoverFV,pct:logPct,linearPct:linearPct,
   canUpgradeEgg:canUpgradeEgg,alreadyDiscovered:alreadyDiscovered,
   shouldFillTankFirst:shouldFillTankFirst
  };
@@ -1373,7 +1402,7 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg,macro,events,hasActiveBoost,e
  var idleMinsToNext=(nextRes && hab.idleIncomePerMin>0)?(neededCash/hab.idleIncomePerMin):0;
 
  var hasPop=(hab.pop>=100);
- var hitTimeWall=(hasPop && !hasAffordableResearch && nextRes && eggProg.pct<75 && (activeMinsToNext>=15 || idleMinsToNext>=90));
+ var hitTimeWall=(hasPop && !hasAffordableResearch && nextRes && eggProg.linearPct<75 && (activeMinsToNext>=15 || idleMinsToNext>=90));
 
  var status='push';
  var title='המשך בריצה הנוכחית';
@@ -1890,11 +1919,11 @@ function analyzeBoosts(b,sim,permitTier,hab,prestigeInfo,hasAffordableResearch,a
   recReason=hab.lunarBeatsActive
    ?'סט Lunar פעיל: סגור/מזער את המשחק ל-65+ שניות כדי להפעיל מכפיל אופליין מקסימלי ובצע Prestige ב-4.2B!'
    :'החזק את כפתור התרנגולות הרצות (רמת WD 24/25 פתוחה) ובצע Prestige ב-4.2B תרנגולות!';
- }else if(eggProg && eggProg.nextEgg && !eggProg.canUpgradeEgg && eggProg.pct>=75 && !hasAffordableResearch && bestFeed && (bestFeed.count>1 || bestFeed.power>=10)){
+ }else if(eggProg && eggProg.nextEgg && !eggProg.canUpgradeEgg && eggProg.linearPct>=75 && !hasAffordableResearch && bestFeed && (bestFeed.count>1 || bestFeed.power>=10)){
   shouldUseNow=true;
   recCombo.push({name:bestFeed.name,count:bestFeed.count,useQty:1});
   recTitle='הפעל בוסט הכנסות לפריצה לביצת '+eggProg.nextName;
-  recReason='אתה ב-'+eggProg.pct.toFixed(0)+'% בדרך לביצה הבאה! הפעלת '+bestFeed.name+' תעביר אותך ביצה ותשבור את הקיר.'+dilNote;
+  recReason='אתה ב-'+eggProg.linearPct.toFixed(0)+'% מהסף הישיר לביצה הבאה! הפעלת '+bestFeed.name+' תעביר אותך ביצה ותשבור את הקיר.'+dilNote;
  }else if(isWeekend && !hasAffordableResearch && hab.pop>=10000){
   if(macro.phase!=='LATE_GAME_MULTISTIGE' && hab.habPct<45 && bestTachyon && (bestTachyon.power>=100 || bestTachyon.count>=4)){
    shouldUseNow=true;
@@ -2703,11 +2732,11 @@ function plan(b,R){
  }
 
  if(!eggProg.canUpgradeEgg && eggProg.nextName && !macro.isVirt && !macro.isEnl){
-  var nextEggPrio=(eggProg.pct>=40)?27:49;
+  var nextEggPrio=(eggProg.linearPct>=40)?27:49;
   var stageNote=eggProg.alreadyDiscovered
    ?('הביצה כבר התגלתה — נותר להגיע לסף קניית המעבר ('+fmt(eggProg.reqFV)+').')
    :('סף גילוי הביצה: '+fmt(eggProg.reqDiscoverFV)+' • סף מעבר: '+fmt(eggProg.reqFV)+'.');
-  a.push([nextEggPrio,'התקדמות לביצת '+eggProg.nextName+' ('+eggProg.pct.toFixed(0)+'% משווי החווה)','שווי חווה: '+fmt(eggProg.curFV)+' / '+fmt(eggProg.reqFV)+' • '+stageNote]);
+  a.push([nextEggPrio,'התקדמות לביצת '+eggProg.nextName+' ('+eggProg.pct.toFixed(0)+'% בסולם לוגריתמי)','שווי חווה: '+fmt(eggProg.curFV)+' / '+fmt(eggProg.reqFV)+' • '+stageNote]);
  }
 
  if(trophies.eligible && trophies.unlocked && trophies.nextTarget && !macro.isEnl && !macro.isVirt){
@@ -2790,14 +2819,14 @@ function plan(b,R){
     av.adviceText=av.guardReason+' '+av.adviceText;
    }else if(dropImminent && slotsFree<=reserveSlotsNeeded){
     av.prio=4;
-    av.guardState='HOLD_FOR_DROP';
+    av.guardState='BLOCK_BEFORE_DROP';
     av.badgeClass='b-hold';
-    av.badgeText='המתן • שמור סלוט ל-'+nextDrop.shortLabel;
-    av.guardReason='בעוד '+hrs(nextDrop.secsLeft)+' ('+nextDrop.localTimeStr+') יוצא '+nextDrop.label+'. עם '+slotsUsed+'/4 סלוטים תפוסים לא כדאי להיכנס ל-Points Replay שעלול לתקוע סלוט.';
+    av.badgeText='המתן • חוזה חדש בעוד '+hrs(nextDrop.secsLeft);
+    av.guardReason='ב-'+nextDrop.localTimeStr+' יוצא '+nextDrop.label+' (תפוסים '+slotsUsed+'/4 סלוטים). שמור '+reserveSlotsNeeded+' סלוטים פנויים כדי להיכנס ב-"חלון הזהב" של ה-6 שעות הראשונות!';
     av.adviceText=av.guardReason+' '+av.adviceText;
    }else{
-    av.guardState='SAFE';
-    av.guardReason='חלון בטוח ל-Points Replay ('+slotsFree+' סלוטים פנויים'+(nextDrop?(', '+hrs(nextDrop.secsLeft)+' עד '+nextDrop.shortLabel):'')+').';
+    av.guardState='SAFE_REPLAY';
+    av.guardReason='בטוח להצטרף ('+slotsUsed+'/4 סלוטים תפוסים • '+safeReplaySlots+' סלוטי Replay פנויים לאחר שמירת רזרבה).';
    }
   }
  });
@@ -2805,10 +2834,17 @@ function plan(b,R){
  availContracts.sort(function(x,y){
   if(x.prio!==y.prio)return x.prio-y.prio;
   if(x.prio>=3 && x.csPotentialScore!==y.csPotentialScore)return y.csPotentialScore-x.csPotentialScore;
-  if(x.isCurrentSeason!==y.isCurrentSeason)return x.isCurrentSeason?-1:1;
-  if(x.gradeUpgraded!==y.gradeUpgraded)return x.gradeUpgraded?-1:1;
   if(x.joinLeft>0 && y.joinLeft>0)return x.joinLeft-y.joinLeft;
   return 0;
+ });
+
+ var bestReplayCandidate=null;
+ var replayCount=0;
+ availContracts.forEach(function(av){
+  if(av.isReplay){
+   replayCount++;
+   if(av.guardState==='SAFE_REPLAY' && !bestReplayCandidate)bestReplayCandidate=av;
+  }
  });
 
  var contractSlotInfo={
@@ -2823,38 +2859,9 @@ function plan(b,R){
   dropImminent:dropImminent,
   nextDrop:nextDrop,
   inGoldenWindow:relSched.inGoldenWindow,
-  hoursSinceLastDrop:Number(relSched.hoursSinceLast.toFixed(1))
+  hoursSinceLastDrop:Number(relSched.hoursSinceLast.toFixed(1)),
+  bestReplayCandidate:bestReplayCandidate
  };
-
- var availP1=availContracts.filter(function(x){return x.prio===1});
- var availP2=availContracts.filter(function(x){return x.prio===2});
- var availP3Safe=availContracts.filter(function(x){return x.prio===3 && x.guardState==='SAFE'});
- var bestPointsRec=availP3Safe[0]||null;
-
- if(availP1.length>0){
-  var p1=availP1[0];
-  var p1Title=p1.needs10B?('הצטרף לחוזה Colleggtible (<10B): '+p1.name):('הצטרף לחוזה Prophecy Egg: '+p1.name);
-  var p1Desc=(slotsFree===0 && p1.guardReason)?p1.guardReason:('זמין להצטרפות'+(p1.joinLeft>0?' (עוד '+hrs(p1.joinLeft)+')':'')+' • פרסים: '+p1.rewardsText+'.');
-  a.push([17,p1Title,p1Desc,'contracts']);
- }else if(availP2.length>0 && slotsFree>0 && (activeRunning.length<2 || rewardContracts.length===0)){
-  var p2=availP2[0];
-  a.push([25,'הצטרף לחוזה פרסים חדש: '+p2.name,'פרסים: '+p2.rewardsText+(p2.isCurrentSeason?' (חוזה עונתי — צובר ניקוד ל-PE העונתי)':'')+'. מומלץ דרך קבוצה בדיסקורד/רדיט.','contracts']);
- }else if(bestPointsRec){
-  var pb=bestPointsRec.playbook;
-  var p3Title=bestPointsRec.gradeUpgraded
-   ?('חוזה מומלץ לנקודות ('+bestPointsRec.prevGrade+' ← '+bestPointsRec.curGrade+'): '+bestPointsRec.name)
-   :(bestPointsRec.isCurrentSeason?('חוזה עונתי מומלץ לנקודות (CS): '+bestPointsRec.name):('חוזה מומלץ לנקודות (Points Replay): '+bestPointsRec.name));
-  var p3Reason=(pb?pb.whyPick+' ':'')
-   +'הצטרף לקבוצה מהירה ב-Discord/Reddit עם '+((pb&&pb.defLabel)||'Tachyon Deflector')+' ובצע '+((pb&&pb.runCap)||20)+' ריצות תרנגולות.';
-  if(activeRunning.length<2){
-   a.push([29,p3Title,p3Reason,'contracts']);
-  }else{
-   a.push([52,'אופציונלי: '+p3Title,p3Reason,'contracts']);
-  }
- }else if(activeRunning.length===0 && slotsFree>0){
-  var nextDropHint=nextDrop?(' החוזה הבא ('+nextDrop.label+') יוצא בעוד '+hrs(nextDrop.secsLeft)+' ('+nextDrop.localTimeStr+').'):'';
-  a.push([30,'בדוק חוזים חדשים להצטרפות','אין לך כרגע חוזה פעיל.'+nextDropHint,'contracts']);
- }
 
  var urgentContractIds={};
  CD.forEach(function(d){
@@ -2864,181 +2871,187 @@ function plan(b,R){
   });
  });
 
- var unhandledRewards=rewardContracts.filter(function(d){return !urgentContractIds[d.id]});
- if(unhandledRewards.length>0){
-  var rc0=unhandledRewards[0];
-  a.push([32,'קדם חוזה פרסים: '+rc0.name,rc0.nextStep,'contracts']);
- }else if(pointsContracts.length>0 && !urgentContractIds[pointsContracts[0].id]){
-  var pc0=pointsContracts[0];
-  a.push([33,'מקסם ניקוד (CS) בחוזה: '+pc0.name,pc0.nextStep,'contracts']);
- }else if(waitingContracts.length>0 && activeRunning.length===0){
-  a.push([75,'חוזים ממתינים לסגירת קבוצה ('+waitingContracts.length+')','כל היעדים נאספו — ממתינים לסנכרון חברי הקבוצה.','contracts']);
+ var nonUrgentRewardContracts=rewardContracts.filter(function(d){return !urgentContractIds[d.id]});
+ if(nonUrgentRewardContracts.length>0){
+  var rcNames=nonUrgentRewardContracts.map(function(d){return d.name+' ('+d.achieved+'/3)'}).join(', ');
+  var rcPrio=nonUrgentRewardContracts.some(function(d){return d.hasPE||d.needs10B})?32:45;
+  a.push([rcPrio,'חוזי פרסים פעילים ('+nonUrgentRewardContracts.length+'): '+rcNames,'בדוק מצב משלוחים והמשך לבצע ריצות תרנגולות לחברים.','contracts']);
  }
 
- var avail=(g.goldenEggsEarned||0)-(g.goldenEggsSpent||0);
- var E=epicPlan(R,elv,avail,peCount,events.epicResearchDiscount);
- var geSpecRec={action:'SAVE_GE',target:'NONE',reason:'אין כרגע GE פנויות או מבצע פעיל.'};
- var needHyperloop=(!g.hyperloopStation && (logi.shipBottleneck || logi.ebPercent>=1e12));
- var needTankUpgrade=(permitTier===3 && fuelInfo.hasFuelTank && fuelInfo.tankLevel<3 && SHIP_ORDER.indexOf(fuelInfo.target)>=4);
+ var p1Avail=availContracts.filter(function(x){return x.prio===1});
+ if(p1Avail.length>0){
+  var topAvail=p1Avail[0];
+  var slotNote=(topAvail.guardState==='SLOTS_FULL_P1')
+   ?(' (4/4 סלוטים תפוסים — פנה סלוט מחוזה Points Replay! נשארו '+hrs(topAvail.joinLeft)+')')
+   :(topAvail.joinLeft>0?(' (זמין להצטרפות עוד '+hrs(topAvail.joinLeft)+')'):'');
+  a.push([17,'הצטרף לחוזה חובה: '+topAvail.name+' ('+topAvail.badgeText+')',topAvail.adviceText+slotNote,'contracts']);
+ }else if(relSched.inGoldenWindow && slotsFree>0){
+  a.push([29,'חלון הזהב של חוזה חדש פעיל! בדוק חוזים זמינים ('+slotsFree+' סלוטים פנויים)','חוזה חדש יצא לפני '+relSched.hoursSinceLast.toFixed(1)+' שעות — כניסה מוקדמת מבטיחה קבוצות חזקות ב-Discord/Reddit.','contracts']);
+ }else if(bestReplayCandidate && slotsFree>=2){
+  var scNote=bestReplayCandidate.isCurrentSeason?'חוזה עונתי לניקוד CS':(bestReplayCandidate.gradeUpgraded?('שדרוג דרגה '+bestReplayCandidate.prevGrade+' ← '+bestReplayCandidate.curGrade):'שיפור שיא CS');
+  a.push([54,'מומלץ לשחק לניקוד CS ('+slotsUsed+'/4 סלוטים): '+bestReplayCandidate.name,scNote+' — '+bestReplayCandidate.playbook.whyPick,'contracts']);
+ }else if(pointsContracts.length>0){
+  var pcNames=pointsContracts.map(function(d){return d.name}).join(', ');
+  a.push([58,'חוזה Points Replay פעיל: '+pcNames,'למקסום CS: שמור Tachyon Deflector מורכב, בצע 15–20 ריצות תרנגולות והיכנס מיד בסיום היעד ה-3.','contracts']);
+ }
 
- if(needHyperloop){
-  geSpecRec={action:'BUY_HYPERLOOP_STATION',target:'HYPERLOOP_STATION',reason:'חובה (50,000 GE) לפתיחת רכבות Hyperloop ושחרור צוואר הבקבוק במשלוחים.'};
-  if(avail>=50000)a.push([13,'קנה Hyperloop Station (50,000 GE)','חובה לשחרור צוואר הבקבוק במשלוחים לפני השקעה במחקרי Epic.']);
-  else a.push([64,'חסוך ל-Hyperloop Station (50,000 GE)','חסרות '+fmt(50000-avail)+' GE.']);
- }else if(needTankUpgrade){
-  geSpecRec={action:'UPGRADE_FUEL_TANK',target:'FUEL_TANK',reason:'שדרג מיכל דלק (רמה '+fuelInfo.tankLevel+' • קיבולת '+fmt(fuelInfo.tankCapacity)+') ללפחות 100T (רמה 3) לשיגור ספינות מתקדמות ברצף.'};
-  a.push([24,'שדרג מיכל דלק (Fuel Tank) ל-100T+ (רמה 3)','מונע החלפות ביצה מיותרות בין שיגורים (רמה נוכחית: '+fuelInfo.tankLevel+' • '+fmt(fuelInfo.tankCapacity)+').']);
- }else if(E.buy){
-  var saleActive=(events.epicResearchDiscount>0);
-  if(E.buy.list && E.buy.list.length>0){
-   var epSummary=E.buy.list.slice(0,3).map(function(x){return x.r.name+' (+'+x.n+')'}).join(' • ');
-   geSpecRec={action:saleActive?'BUY_EPIC_RESEARCH':'WAIT_FOR_35_EPIC_SALE',target:E.buy.list[0].r.id,reason:saleActive?'מבצע 35% Epic פעיל כעת — מומלץ לקנות!':'מומלץ להמתין למבצע 35% Epic (ימי ראשון פעם בשבועיים) לחיסכון עצום ב-GE.'};
-   if(saleActive){
-    a.push([20,'מבצע 35% Epic: קנה '+epSummary,'סה"כ '+E.buy.totalLevels+' רמות ב-'+fmt(E.buy.totalSum)+' GE מתוך '+fmt(avail)+' פנויות.']);
-   }else{
-    a.push([82,'שמור '+fmt(avail)+' GE למבצע 35% Epic ביום ראשון','התכנון מוכן ('+E.buy.totalLevels+' רמות של '+epSummary+'), אך מומלץ להמתין להנחה.']);
-   }
+ if(g.piggyFull&&g.piggyFound)a.push([88,'ה-Piggy Bank מלא ('+fmt(g.piggyFound)+' GE)','מומלץ לשבור רק מעל 10M+ GE כדי לכסות מחקרי Epic ו-Crafting.']);
+
+ var E=epicPlan(R,elv,g.goldenEggs||0,peCount,events.epicResearchDiscount);
+ if(E.buy){
+  var b=E.buy,r=b.row;
+  var isEpicSale=(events.epicResearchDiscount>0);
+  var geCount=g.goldenEggs||0;
+  var hasEnoughForNext=(b.totalLevels>0 && b.list.length>0);
+  if(isEpicSale && hasEnoughForNext){
+   var buySummary=b.list.slice(0,3).map(function(it){return it.r.name+' ('+it.from+' ← '+it.to+')'}).join(' • ');
+   var moreEp=b.list.length>3?(' (+'+(b.list.length-3)+' נוספים)'):'';
+   a.push([25,'מבצע 35% Epic פעיל! קנה '+b.totalLevels+' שדרוגים ב-'+fmt(b.totalSum)+' GE',buySummary+moreEp,'epic']);
+  }else if(hasEnoughForNext && geCount>=50000){
+   a.push([78,'שדרג Epic: '+r.name+' ('+b.list[0].from+' ← '+b.list[0].to+' • '+fmt(b.list[0].sum)+' GE)','יש לך '+fmt(geCount)+' GE. ניתן לקנות עכשיו או להמתין למבצע 35% לחיסכון נוסף.','epic']);
+  }else if(hasEnoughForNext){
+   a.push([82,'שמור '+fmt(geCount)+' GE למבצע 35% Epic ביום ראשון','היעד הבא: '+r.name+' (תוכל לקנות '+b.totalLevels+' רמות ב-'+fmt(b.totalSum)+' GE במקום במבצע!).','epic']);
   }else{
-   var f=E.buy.row;
-   geSpecRec={action:'SAVE_FOR_EPIC',target:f.r.id,reason:'חסוך '+fmt(f.price)+' GE לשלב הבא של '+f.r.name+'.'};
-   a.push([84,'מחקר אפיק: חסוך ל-'+f.r.name,'חסרות '+fmt(f.price-avail)+' GE (עולה '+fmt(f.price)+').']);
-  }
- }else{
-  if(events.craftingDiscount>0 && avail>=100000){
-   geSpecRec={action:'CRAFT_ARTIFACTS_30_SALE',target:'T4_ARTIFACTS',reason:'כל מחקרי ה-Epic מלאים ומבצע 30% Crafting פעיל כעת — זמן אידיאלי לשדרוג ארטיפקטי T4!'};
-   a.push([25,'מבצע 30% Crafting פעיל: שדרג ארטיפקטי T4','כל מחקרי ה-Epic מלאים — נצל את ההנחה לשדרוג ארטיפקטים מרכזיים.','artifacts']);
-  }else{
-   geSpecRec={action:'BUY_BOOST_5_PACKS_ON_SALE',target:'PRESTIGE_BOOST_5PACKS',reason:'כל מחקרי ה-Epic מלאים! השקע GE בחבילות 5 בוסטים (20% הנחה) במבצע בוסטים, או שמור למבצע 30% Crafting.'};
-   a.push([85,'כל מחקרי ה-Epic הושלמו: קנה בוסטים בחבילות 5 במבצע','השקע GE בחבילות 5 (1000x Tachyon / 500x Soul / 50x Feed / 50x Beacon) במבצע, או שמור ל-30% Crafting.']);
+   a.push([84,'מחקר אפיק: חסוך ל-'+r.name,'רמה '+r.L+'/'+r.r.levels+' — עולה '+fmt(r.price)+' GE'+(isEpicSale?' (כולל 35% הנחה!)':' (מומלץ להמתין למבצע 35% ביום ראשון)')+'.','epic']);
   }
  }
 
- if(C.affordableList.length===0 && C.nextList.length>0){
-  var nx=C.nextList[0];
-  var waitStr=isFinite(prestigeInfo.activeMinsToNext)?(' (~'+fmtWait(prestigeInfo.activeMinsToNext)+')'):'';
-  a.push([45,'המחקר הבא: '+nx.r.name+' (לרמה '+nx.to+')','עלות '+fmt(nx.cost)+' (יש כרגע '+fmt(cash)+')'+waitStr+'.','research']);
- }
-
- var gift=g.nextDailyGiftTime||0;if(gift>1e12)gift/=1000;if(gift>0&&gift<now)a.push([20,'אסוף את המתנה היומית','לחץ על אייקון המתנה בצד.']);
- if((sim.unclaimedBoostTokens||0)>0)a.push([34,'אסוף '+sim.unclaimedBoostTokens+' טוקני בוסט בחווה','מוכנים לאיסוף.']);
  a.sort(function(x,y){return x[0]-y[0]});
- if(!a.length)a.push([99,'הכל מסודר כרגע','חזור לבדוק בעוד כמה דקות.']);
- return {CD:CD,availContracts:availContracts,bestPointsRec:bestPointsRec,contractSlotInfo:contractSlotInfo,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,permitTier:permitTier,shipSlots:shipSlots,free:free,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,logi:logi,eggProg:eggProg,cash:cash,art:art,isArtOptimal:isArtOptimal,stoneOpt:stoneOpt,prestigeInfo:prestigeInfo,boostInfo:boostInfo,macro:macro,trophies:trophies,events:events,collegg:collegg,geSpecRec:geSpecRec,keepOneWD:keepOneWD};
+ return {
+  a:a,C:C,E:E,ships:ships,CD:CD,
+  activeRunning:activeRunning,rewardContracts:rewardContracts,pointsContracts:pointsContracts,waitingContracts:waitingContracts,availContracts:availContracts,contractSlotInfo:contractSlotInfo,
+  archiveCount:archList.length,
+  permitTier:permitTier,free:free,virt:virt,cash:cash,logi:logi,art:art,stoneOpt:stoneOpt,macro:macro,trophies:trophies,
+  collegg:collegg,eggProg:eggProg,prestigeInfo:prestigeInfo,fuelInfo:fuelInfo,boostInfo:boostInfo,events:events
+ };
 }
 
-function jumpTo(id){
- var el=$(id);
- if(el){
-  if(el.tagName==='DETAILS')el.open=true;
-  el.scrollIntoView({behavior:'smooth',block:'start'});
- }
+function goSec(sec){
+ if(!sec)return;
+ var btn=document.querySelector('.nav button[data-sec="'+sec+'"]');
+ if(btn)btn.click();
+ var el=$('sec-'+sec);
+ if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'})}
+}
+
+function renderArtList(list,emptyMsg){
+ if(!list||!list.length)return '<small>'+esc(emptyMsg)+'</small>';
+ return list.map(function(x){
+  return '<div class="l"><div><b>'+esc(x.name)+'</b><small>'+esc(x.desc)+'</small></div><small>זמין</small></div>';
+ }).join('');
 }
 
 function copyDiag(){
- if(!last || !RES)return;
- var P=plan(last,RES);
- var sim=P.sim,g=P.g;
- var shipRec={
-  launchpadUnlocked:P.fuelInfo.launchpadUnlocked,
-  hasFuelTank:P.fuelInfo.hasFuelTank,
-  highestUnlockedShip:P.fuelInfo.shipProg.highestUnlockedShip,
-  targetShip:P.fuelInfo.target,
-  duration:P.fuelInfo.shipProg.missionDur,
-  fundCost:P.fuelInfo.fundCost,
-  canAffordFund:P.fuelInfo.canAffordFund,
-  canFuelNow:P.fuelInfo.canFuelNow
- };
- if(!P.fuelInfo.launchpadUnlocked){
-  shipRec.tankStatus='LOCKED_LAUNCHPAD (<10K SE)';
- }else if(!P.fuelInfo.hasFuelTank){
-  shipRec.tankStatus='LOCKED_FUEL_TANK (<100K SE - Direct Farm Fueling)';
- }else{
-  shipRec.tankLevel=P.fuelInfo.tankLevel;
-  shipRec.tankUsed=fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity);
-  shipRec.launchesAvailableInTank=P.fuelInfo.minLaunchesInTank;
-  shipRec.fuelBreakdown=P.fuelInfo.fuelBreakdown.map(function(fb){return {egg:fb.egg,stored:fmt(fb.stored),required:fmt(fb.reqAmt),missing:fmt(fb.missingAmt)};});
- }
- var ptsRec=P.bestPointsRec?{
-  id:P.bestPointsRec.id,
-  name:P.bestPointsRec.name,
-  csPotentialScore:Math.round(P.bestPointsRec.csPotentialScore),
-  prevCS:P.bestPointsRec.prevCS,
-  isCurrentSeason:P.bestPointsRec.isCurrentSeason,
-  gradeUpgraded:P.bestPointsRec.gradeUpgraded,
-  runCap:P.bestPointsRec.playbook?P.bestPointsRec.playbook.runCap:20,
-  whyPick:P.bestPointsRec.playbook?P.bestPointsRec.playbook.whyPick:'',
-  steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
- }:null;
+ if(!last||!RES)return;
+ var P=plan(last,RES),g=last.game||{},sim=homeFarm(last);
+ var events=P.events;
  var diag={
+  version:'44',
   playerState:{
-   ebPercent:Number(P.logi.ebPercent.toExponential(3)),
+   ebPercent:Number(P.logi.ebPercent.toPrecision(4)),
    farmerRole:P.logi.farmerRole,
-   soulEggs:P.prestigeInfo.curSE,
+   soulEggs:Number(g.soulEggsD||g.soulEggs||0),
    prophecyEggs:Number(g.eggsOfProphecy||0),
    truthEggs:P.logi.eotCount,
-   goldenEggs:P.avail,
+   goldenEggs:Number(g.goldenEggs||0),
    proPermit:(P.permitTier===3),
    currentEgg:sim.eggType,
-   cash:Number(P.cash.toExponential(3)),
-   farmValue:Number(P.logi.farmValue.toExponential(3)),
+   backupAgeMins:P.logi.fvDebug.backupAgeMins,
+   cash:Number(P.cash.toPrecision(4)),
+   farmValue:Number(P.logi.farmValue.toPrecision(4)),
    fvDebug:P.logi.fvDebug,
    nextEggDiscoverFV:P.eggProg.reqDiscoverFV,
    nextEggUpgradeFV:P.eggProg.reqFV,
    nextEggPct:Number(P.eggProg.pct.toFixed(1)),
+   nextEggLinearPct:Number(P.eggProg.linearPct.toFixed(3)),
    colleggtiblesUnlocked:P.collegg.unlocked.length,
    diamondTrophiesCompleted:P.trophies.completed+'/18',
-   nextDiamondTrophy:P.trophies.nextTarget?P.trophies.nextTarget.eggId:'ALL_DONE',
+   nextDiamondTrophy:P.trophies.nextTarget?P.trophies.nextTarget.eggId:null,
    farmMetrics:{
     population:Math.round(P.logi.pop),
-    habCapacity:P.logi.maxCap,
-    eggLayingRatePerSec:Number((P.logi.totalLayRate/60).toExponential(3)),
-    shippingCapacityPerSec:Number((P.logi.totalShipCap/60).toExponential(3)),
+    habCapacity:Math.round(P.logi.maxCap),
+    eggLayingRatePerSec:Math.round(P.logi.totalLayRate/60),
+    shippingCapacityPerSec:Math.round(P.logi.totalShipCap/60),
     shipUtilPct:Number(P.logi.rawPct.toFixed(2)),
     ihrOnlinePerMin:Math.round(P.logi.ihrOnlinePerMin),
     ihrOfflinePerMin:Math.round(P.logi.ihrOfflinePerMin),
-    maxSiloMins:P.logi.maxSiloMins,
+    maxSiloMins:Math.round(P.logi.maxSiloMins),
     siloBottleneck:P.logi.siloBottleneck,
-    idleIncomePerMin:Number(P.logi.idleIncomePerMin.toExponential(3)),
-    activeIncomePerMin:Number(P.logi.activeIncomePerMin.toExponential(3)),
+    idleIncomePerMin:Number(P.logi.idleIncomePerMin.toPrecision(4)),
+    activeIncomePerMin:Number(P.logi.activeIncomePerMin.toPrecision(4)),
     lunarBeatsActive:P.logi.lunarBeatsActive,
-    prestigeCashEarned:Number(P.prestigeInfo.prestigeCash.toExponential(3)),
+    prestigeCashEarned:Number(P.prestigeInfo.prestigeCash.toPrecision(4)),
     unclaimedPrestigeSE:P.prestigeInfo.unclaimedSE,
     totalSEAfterPrestige:P.prestigeInfo.totalAfterPrestige
    },
    activeEvents:{
-    syncedFromServer:P.events.fromServer,
-    syncNote:P.events.syncNote,
-    prestigeMultiplier:P.events.prestigeMultiplier,
-    commonResearchDiscount:P.events.commonResearchDiscount,
-    epicResearchDiscount:P.events.epicResearchDiscount,
-    craftingDiscount:P.events.craftingDiscount,
-    droneMultiplier:P.events.droneMultiplier,
-    missionCapacityMultiplier:P.events.missionCapacityMultiplier
+    syncedFromServer:events.fromServer,
+    syncNote:events.syncNote,
+    prestigeMultiplier:events.prestigeMultiplier,
+    commonResearchDiscount:events.commonResearchDiscount,
+    epicResearchDiscount:events.epicResearchDiscount,
+    craftingDiscount:events.craftingDiscount,
+    droneMultiplier:events.droneMultiplier,
+    missionCapacityMultiplier:events.missionCapacityMultiplier
    }
   },
   decisionOutput:{
    macroPhase:P.macro.phase,
-   primaryAction:{
-    title:P.a[0][1],
-    reason:P.a[0][2]
+   primaryAction:P.a.length?{title:P.a[0][1],reason:P.a[0][2]}:null,
+   goldenEggRecommendation:P.E.buy?{
+    action:(events.epicResearchDiscount>0?'BUY_NOW':'WAIT_FOR_35_EPIC_SALE'),
+    target:P.E.buy.row.r.id,
+    reason:(events.epicResearchDiscount>0?'מבצע 35% Epic פעיל עכשיו — מומלץ לרכוש!':'מומלץ להמתין למבצע 35% Epic (ימי ראשון פעם בשבועיים) לחיסכון עצום ב-GE.')
+   }:null,
+   shipRecommendation:{
+    launchpadUnlocked:P.fuelInfo.launchpadUnlocked,
+    hasFuelTank:P.fuelInfo.hasFuelTank,
+    highestUnlockedShip:P.fuelInfo.shipProg.highestUnlockedShip,
+    targetShip:P.fuelInfo.target,
+    duration:P.fuelInfo.shipProg.missionDur,
+    fundCost:P.fuelInfo.fundCost,
+    canAffordFund:P.fuelInfo.canAffordFund,
+    canFuelNow:P.fuelInfo.canFuelNow,
+    tankStatus:P.fuelInfo.hasFuelTank?(fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)):'LOCKED_FUEL_TANK (<100K SE - Direct Farm Fueling)'
    },
-   goldenEggRecommendation:P.geSpecRec,
-   shipRecommendation:shipRec,
    artifactLoadoutStatus:{
-    isOptimal:P.isArtOptimal,
-    equippedActiveSEMult:Number(P.art.equippedActiveSEMult.toFixed(3)),
-    optimalActiveSEMult:Number(P.art.optimalActiveSEMult.toFixed(3)),
-    equippedLunarSEMult:Number(P.art.equippedLunarSEMult.toFixed(3)),
-    optimalLunarSEMult:Number(P.art.optimalLunarSEMult.toFixed(3))
+    isOptimal:P.art.equippedActiveSEMult>=P.art.optimalActiveSEMult*0.98 || P.art.equippedLunarSEMult>=P.art.optimalLunarSEMult*0.98,
+    equippedActiveSEMult:Number(P.art.equippedActiveSEMult.toFixed(2)),
+    optimalActiveSEMult:Number(P.art.optimalActiveSEMult.toFixed(2)),
+    equippedLunarSEMult:Number(P.art.equippedLunarSEMult.toFixed(2)),
+    optimalLunarSEMult:Number(P.art.optimalLunarSEMult.toFixed(2))
    },
-   contractSlotGuard:P.contractSlotInfo,
+   contractSlotGuard:{
+    maxSlots:P.contractSlotInfo.maxSlots,
+    slotsUsed:P.contractSlotInfo.slotsUsed,
+    slotsFree:P.contractSlotInfo.slotsFree,
+    runningCount:P.contractSlotInfo.runningCount,
+    waitingCount:P.contractSlotInfo.waitingCount,
+    pointsRunningCount:P.contractSlotInfo.pointsRunningCount,
+    reserveSlotsNeeded:P.contractSlotInfo.reserveSlotsNeeded,
+    safeReplaySlots:P.contractSlotInfo.safeReplaySlots,
+    dropImminent:P.contractSlotInfo.dropImminent,
+    nextDrop:P.contractSlotInfo.nextDrop,
+    inGoldenWindow:P.contractSlotInfo.inGoldenWindow,
+    hoursSinceLastDrop:P.contractSlotInfo.hoursSinceLastDrop
+   },
    contractsSummary:{
-    activeRunning:P.CD.filter(function(d){return !d.waitingCoop}).map(function(d){return {id:d.id,name:d.name,grade:d.grade,achieved:d.achieved,pointsOnly:d.pointsOnly,nextStep:d.nextStep,cfMetrics:d.cfMetrics};}),
-    waitingCoopCount:P.CD.filter(function(d){return d.waitingCoop}).length,
-    recommendedAvailCount:P.availContracts.filter(function(x){return x.prio<=2 || (P.bestPointsRec && x.id===P.bestPointsRec.id)}).length,
-    deferredAvailCount:P.availContracts.filter(function(x){return !(x.prio<=2 || (P.bestPointsRec && x.id===P.bestPointsRec.id))}).length
+    archiveCount:P.archiveCount,
+    activeRunning:P.activeRunning.map(function(d){return {id:d.id,grade:d.grade,achieved:d.achieved,pointsOnly:d.pointsOnly,cfMetrics:d.cfMetrics,nextStep:d.nextStep}}),
+    waitingCoopCount:P.waitingContracts.length,
+    waitingCoop:P.waitingContracts.map(function(d){return {id:d.id,name:d.name,grade:d.grade,achieved:d.achieved}}),
+    recommendedAvailCount:P.availContracts.filter(function(x){return x.prio<=2 || x.guardState==='SAFE_REPLAY'}).length,
+    deferredAvailCount:P.availContracts.filter(function(x){return x.prio>2 && x.guardState!=='SAFE_REPLAY'}).length
    },
-   pointsReplayRecommendation:ptsRec,
+   pointsReplayRecommendation:P.contractSlotInfo.bestReplayCandidate?{
+    id:P.contractSlotInfo.bestReplayCandidate.id,
+    name:P.contractSlotInfo.bestReplayCandidate.name,
+    isCurrentSeason:P.contractSlotInfo.bestReplayCandidate.isCurrentSeason,
+    gradeUpgraded:P.contractSlotInfo.bestReplayCandidate.gradeUpgraded,
+    prevCS:P.contractSlotInfo.bestReplayCandidate.prevCS,
+    csPotentialScore:Math.round(P.contractSlotInfo.bestReplayCandidate.csPotentialScore),
+    runCap:P.contractSlotInfo.bestReplayCandidate.playbook.runCap
+   }:null,
    stoneOptimization:{
     prestige:P.stoneOpt.prestigeStoneAdvice,
     contract:P.stoneOpt.contractStoneAdvice
@@ -3053,354 +3066,422 @@ function copyDiag(){
   }
  };
  var txt=JSON.stringify(diag,null,2);
- if(navigator.clipboard&&navigator.clipboard.writeText){
-  navigator.clipboard.writeText(txt).then(function(){alert('נתוני החווה והחלטות המנוע (ללא EID) הועתקו!')});
+ var btn=$('btn-copy-diag');
+ if(navigator.clipboard && navigator.clipboard.writeText){
+  navigator.clipboard.writeText(txt).then(function(){
+   if(btn){btn.textContent='✓ הועתק! הדבק כאן בצ\'אט';setTimeout(function(){btn.textContent='📋 העתק נתוני חווה לבדיקה (ללא EID)'},3000)}
+  }).catch(function(){prompt('העתק את הנתונים:',txt)});
  }else{
-  prompt('העתק את הטקסט הבא:',txt);
+  prompt('העתק את הנתונים:',txt);
  }
 }
 
-function renderPlaybookBox(pb,titlePrefix){
- if(!pb)return '';
- var h='<div class="status-banner do" style="margin-top:6px"><b>'+esc(titlePrefix||'אסטרטגיית מקסימום נקודות (Contract Score):')+'</b>';
- h+='<small>'+esc(pb.whyPick)+'</small>';
- h+='<ol class="playbook-list">';
- pb.steps.forEach(function(st){h+='<li>'+esc(st)+'</li>'});
- h+='</ol></div>';
- return h;
-}
-
-function row(l,r){return '<div class="l"><span>'+l+'</span><span>'+r+'</span></div>'}
 function show(b,R){
- var P=plan(b,R),a=P.a,h='';
- var age=Math.round((Date.now()/1000-(b.approxTime||0))/60);
- if(age>3)h+='<div class="warn">גיבוי בן '+age+' דקות. לעדכון מיידי: פתח לרגע חוזה וחזור.</div>';
+ var openIds={};
+ document.querySelectorAll('details[id]').forEach(function(d){if(d.open)openIds[d.id]=true});
 
- var togglePills=[
-  {id:'ev-common',on:P.events.commonResearchDiscount>0,lbl:'-'+(Math.round(P.events.commonResearchDiscount*100)||70)+'% מחקר'},
-  {id:'ev-prestige',on:P.events.prestigeMultiplier>1,lbl:(P.events.prestigeMultiplier>1?P.events.prestigeMultiplier:2)+'x Prestige'},
-  {id:'ev-epic',on:P.events.epicResearchDiscount>0,lbl:'-'+(Math.round(P.events.epicResearchDiscount*100)||35)+'% Epic'},
-  {id:'ev-craft',on:P.events.craftingDiscount>0,lbl:'-'+(Math.round(P.events.craftingDiscount*100)||30)+'% Craft'},
-  {id:'ev-drones',on:P.events.droneMultiplier>1,lbl:(P.events.droneMultiplier>1?P.events.droneMultiplier:4)+'x רחפנים'},
-  {id:'ev-cap',on:P.events.missionCapacityMultiplier>1,lbl:(P.events.missionCapacityMultiplier>1?P.events.missionCapacityMultiplier:2)+'x ספינות'}
- ];
- var pillsHtml=togglePills.map(function(p){
-  return '<span class="event-pill'+(p.on?'':' off')+'" onclick="toggleEvent(\''+p.id+'\')" title="לחץ להפעלה/כיבוי אירוע">'+(p.on?'✓ ':'')+esc(p.lbl)+'</span>';
- }).join('');
- (P.events.extraLabels||[]).forEach(function(lbl){pillsHtml+='<span class="event-pill">✓ '+esc(lbl)+'</span>'});
+ var g=b.game||{},sim=homeFarm(b),P=plan(b,R);
+ var curSE=Number(g.soulEggsD||g.soulEggs||0);
+ var ep=P.eggProg,pr=P.prestigeInfo,fl=P.fuelInfo,bo=P.boostInfo,lg=P.logi,ar=P.art,mc=P.macro,tr=P.trophies,ev=P.events,cg=P.collegg;
 
- h+='<div class="phase-bar"><span><span class="phase-tag">'+esc(P.logi.farmerRole)+'</span> <small>EB: '+fmt(P.logi.ebPercent)+'% • SE: '+fmt(P.prestigeInfo.curSE)+'</small></span>';
- h+='<div class="event-pills">'+pillsHtml+'</div>';
- h+='<div style="width:100%"><small><b>'+esc(P.macro.phaseTitle)+':</b> '+esc(P.macro.phaseTip)+'</small></div></div>';
+ var eventPillsHtml='<div class="event-pills">'
+  +'<span class="event-pill'+(ev.prestigeMultiplier>1?'':' off')+'" onclick="toggleEvent(\'ev-prestige\')">'+(ev.prestigeMultiplier>1?'🔥 '+ev.prestigeMultiplier+'x Prestige':'2x Prestige (כבוי)')+'</span>'
+  +'<span class="event-pill'+(ev.commonResearchDiscount>0?'':' off')+'" onclick="toggleEvent(\'ev-common\')">'+(ev.commonResearchDiscount>0?'🧪 -'+Math.round(ev.commonResearchDiscount*100)+'% מחקר':'-70% מחקר (כבוי)')+'</span>'
+  +'<span class="event-pill'+(ev.epicResearchDiscount>0?'':' off')+'" onclick="toggleEvent(\'ev-epic\')">'+(ev.epicResearchDiscount>0?'💎 -'+Math.round(ev.epicResearchDiscount*100)+'% Epic':'-35% Epic (כבוי)')+'</span>'
+  +'<span class="event-pill'+(ev.missionCapacityMultiplier>1?'':' off')+'" onclick="toggleEvent(\'ev-cap\')">'+(ev.missionCapacityMultiplier>1?'🚀 2x קיבולת ספינות':'2x ספינות (כבוי)')+'</span>'
+  +'<span class="event-pill'+(ev.droneMultiplier>1?'':' off')+'" onclick="toggleEvent(\'ev-drones\')">'+(ev.droneMultiplier>1?'🛸 4x רחפנים (GE)':'4x רחפנים (כבוי)')+'</span>'
+  +'<span class="event-pill'+(ev.craftingDiscount>0?'':' off')+'" onclick="toggleEvent(\'ev-craft\')">'+(ev.craftingDiscount>0?'⚒️ -'+Math.round(ev.craftingDiscount*100)+'% Crafting':'-30% Crafting (כבוי)')+'</span>'
+  +ev.extraLabels.map(function(lbl){return '<span class="event-pill">✨ '+esc(lbl)+'</span>'}).join('')
+  +'</div>';
 
- var contractsBadge=(P.CD.length+P.availContracts.length);
- h+='<div class="nav">';
- h+='<button onclick="jumpTo(\'sec-research\')">מחקר ('+P.C.affordableList.length+')</button>';
- h+='<button onclick="jumpTo(\'sec-farm\')">ביצה, לוגיסטיקה וגביעים</button>';
- h+='<button onclick="jumpTo(\'sec-boosts\')">בוסטים ו-Prestige</button>';
- h+='<button onclick="jumpTo(\'sec-artifacts\')">ארטיפקטים ו-Crafting</button>';
- h+='<button onclick="jumpTo(\'sec-contracts\')">חוזים ('+contractsBadge+')</button>';
- h+='<button onclick="jumpTo(\'sec-epic\')">אפיק ודלק ספינות</button>';
- h+='</div>';
+ var phaseHtml='<div class="phase-bar">'
+  +'<div><span class="phase-tag">'+esc(mc.phaseTitle)+'</span> <small style="margin-inline-start:6px;color:var(--mut)">דרגה: <b>'+esc(lg.farmerRole)+'</b> ('+fmt(lg.ebPercent)+'% EB)</small></div>'
+  +'<small style="width:100%;color:var(--mut)">'+esc(mc.phaseTip)+'</small>'
+  +eventPillsHtml
+  +'</div>';
 
- h+='<div class="hud">';
- h+='<div class="hud-box"><small>ביצה ומזומן</small><b>'+esc(P.fuelInfo.curEggName)+' • '+fmt(P.cash)+'</b></div>';
- h+='<div class="hud-box"><small>תפוסת לולים • Silos</small><b>'+fmt(P.logi.pop)+' / '+fmt(P.logi.maxCap)+' ('+P.logi.habPct.toFixed(0)+'%)</b></div>';
- h+='<div class="hud-box"><small>Prestige צבור</small><b>+'+fmt(P.prestigeInfo.unclaimedSE)+' SE'+(P.prestigeInfo.gainPct>0?' (+'+P.prestigeInfo.gainPct.toFixed(0)+'%)':'')+'</b></div>';
- h+='<div class="hud-box"><small>ספינות • GE'+(P.logi.eotCount>0?' • EoT':'')+'</small><b>'+P.busy+'/'+P.shipSlots+' • '+fmt(P.avail)+' GE'+(P.logi.eotCount>0?' • '+P.logi.eotCount:'')+'</b></div>';
- h+='</div>';
+ var permLabel=(P.permitTier===3)?'Pro Permit':'רגיל';
+ var hud='<div class="hud">'
+  +'<div class="hud-box"><small>ביצה נוכחית ('+esc(permLabel)+')</small><b>'+esc(ep.curName)+(P.virt?' (Virtue)':'')+'</b></div>'
+  +'<div class="hud-box"><small>מזומן / שווי חווה</small><b>'+fmt(P.cash)+' / '+fmt(lg.farmValue)+'</b></div>'
+  +'<div class="hud-box"><small>Soul / Prophecy'+(lg.eotCount>0?' / EoT':'')+'</small><b>'+fmt(curSE)+' / '+fmt(g.eggsOfProphecy||0)+(lg.eotCount>0?' / '+lg.eotCount:'')+'</b></div>'
+  +'<div class="hud-box"><small>ביצי זהב (GE)</small><b>'+fmt(g.goldenEggs||0)+'</b></div>'
+  +'</div>';
 
- var top=a[0];
- h+='<div class="hero"><small>הצעד הבא עכשיו</small><h2>'+esc(top[1])+'</h2><p>'+esc(top[2])+'</p>';
- if(top[3]==='research')h+='<button class="hero-btn" onclick="jumpTo(\'sec-research\')">לרשימת המחקרים ↓</button>';
- if(top[3]==='contracts')h+='<button class="hero-btn" onclick="jumpTo(\'sec-contracts\')">לפירוט חוזים ↓</button>';
- if(top[3]==='artifacts')h+='<button class="hero-btn" onclick="jumpTo(\'sec-artifacts\')">לארטיפקטים ↓</button>';
- if(top[3]==='boosts')h+='<button class="hero-btn" onclick="jumpTo(\'sec-boosts\')">לבוסטים ו-Prestige ↓</button>';
- h+='</div>';
+ var w='';
+ if(g.permitLevel===1&&$('slots').value==='1')w+='<div class="warn">נראה שיש לך Pro Permit בחשבון, אבל בהגדרות בחרת "רגיל".</div>';
+ if(g.permitLevel!==1&&$('slots').value==='3')w+='<div class="warn">נראה שאין לך Pro Permit בחשבון, אבל בהגדרות בחרת "Pro Permit".</div>';
+ if(mc.skipPath && !mc.isVirt && !mc.isEnl && sim.eggType!=='UNIVERSE')w+='<div class="warn"><b>מסלול דילוג מהיר ל-Universe לפי ה-EB שלך:</b> '+esc(mc.skipPath)+'</div>';
 
- if(a.length>1){
-  h+='<ol>';
-  a.slice(1,4).forEach(function(x,idx){
-   h+='<li class="it"><b><span class="step-num">'+(idx+2)+'</span>'+esc(x[1])+'</b><span>'+esc(x[2])+'</span>';
-   if(x[3]==='research')h+='<button class="sm-btn" onclick="jumpTo(\'sec-research\')">לרשימה</button>';
-   if(x[3]==='contracts')h+='<button class="sm-btn" onclick="jumpTo(\'sec-contracts\')">לחוזים</button>';
-   if(x[3]==='artifacts')h+='<button class="sm-btn" onclick="jumpTo(\'sec-artifacts\')">לארטיפקטים</button>';
-   if(x[3]==='boosts')h+='<button class="sm-btn" onclick="jumpTo(\'sec-boosts\')">לבוסטים</button>';
-   h+='</li>';
-  });
-  h+='</ol>';
+ var h='';
+ if(P.a.length){
+  var topBtn=P.a[0][3]?'<button class="hero-btn" onclick="goSec(\''+P.a[0][3]+'\')">הצג פרטים ↓</button>':'';
+  h='<div class="hero"><small>הצעד הבא עכשיו</small><h2>'+esc(P.a[0][1])+'</h2><p>'+esc(P.a[0][2])+'</p>'+topBtn+'</div>';
  }
 
- h+='<div id="sec-research" class="card"><h3>שדרוגי מחקר מומלצים <small>תקציב: '+fmt(P.cash)+'</small></h3>';
- if(P.logi.shipBottleneck){
-  h+='<div class="status-banner alert"><b>צוואר בקבוק במשלוחים (מעל 90%)!</b><small>המשאיות מלאות — הרשימה תועדפה לשדרוגי משלוחים (Shipping).</small></div>';
+ var list='<ol>';
+ for(var i=1;i<Math.min(4,P.a.length);i++){
+  var itBtn=P.a[i][3]?'<button class="sm-btn" onclick="goSec(\''+P.a[i][3]+'\')">פרטים ↓</button>':'';
+  list+='<li class="it"><b><span class="step-num">'+(i+1)+'</span>'+esc(P.a[i][1])+'</b><span>'+esc(P.a[i][2])+'</span>'+itBtn+'</li>';
  }
- if(P.keepOneWD && P.logi.habPct>=80){
-  h+='<div class="status-banner hold"><b>הגנת Running Chicken Bonus (RCB):</b><small>המנוע שומר רמה 24/25 של Wormhole Dampening פתוחה כדי שלא תיחסם מלהריץ תרנגולות.</small></div>';
- }
+ list+='</ol>';
+
+ var nav='<div class="nav">'
+  +'<button class="active" data-sec="all">הכל</button>'
+  +'<button data-sec="research">מחקר ('+P.C.affordableList.length+')</button>'
+  +'<button data-sec="farm">חווה וספינות</button>'
+  +'<button data-sec="boosts">בוסטים</button>'
+  +'<button data-sec="artifacts">ארטיפקטים</button>'
+  +'<button data-sec="contracts">חוזים ('+P.CD.length+(P.availContracts.length?' +'+P.availContracts.length:'')+')</button>'
+  +'<button data-sec="epic">Epic (GE)</button>'
+  +'</div>';
+
+ var researchHtml='<details class="card" id="sec-research" data-cat="research" open><summary class="sum-head"><span>מחקר רגיל (Common Research)</span><small>'+P.C.totalLevelsBought+' רמות זמינות ▼</small></summary>';
  if(P.C.affordableList.length){
-  h+='<p><small>סה"כ '+P.C.totalLevelsBought+' רמות • עלות '+fmt(P.C.totalSpent)+' (יישארו '+fmt(P.C.remCash)+')</small></p>';
-  P.C.affordableList.forEach(function(x){
-   var isMax=(x.to>=x.r.levels);
-   var targetTxt=isMax?('למקסימום ('+x.to+')'):('לרמה '+x.to);
-   h+=row('<span class="tier-pill">T'+x.r.tier+'</span><b>'+esc(x.r.name)+'</b> <small>('+x.from+' ← '+targetTxt+')</small>','<span class="tag-ok">'+fmt(x.cost)+'</span>');
+  researchHtml+='<p><span class="tag-ok">מומלץ לקנות עכשיו ('+fmt(P.C.totalSpent)+' מתוך '+fmt(P.C.startCash)+')</span></p>';
+  P.C.affordableList.slice(0,12).forEach(function(x){
+   researchHtml+='<div class="l"><div><span class="tier-pill">T'+x.r.tier+'</span><b>'+esc(x.r.name)+'</b><small>רמה '+x.from+' ← '+x.to+' ('+x.count+' רמות)</small></div><b>'+fmt(x.cost)+'</b></div>';
   });
+  if(P.C.affordableList.length>12)researchHtml+='<small>...ועוד '+(P.C.affordableList.length-12)+' מחקרים זולים לקנייה.</small>';
  }else{
-  var wallNote=(P.prestigeInfo.nextRes && isFinite(P.prestigeInfo.activeMinsToNext))
-   ?(' • זמן לשדרוג הבא: ~'+fmtWait(P.prestigeInfo.activeMinsToNext)):'';
-  h+='<p><small>אין מספיק מזומן לשדרוג הבא כרגע'+wallNote+'.</small></p>';
+  researchHtml+='<p><span class="tag-wait">אין מחקרים בתקציב הנוכחי ('+fmt(P.cash)+')</span></p>';
  }
  if(P.C.nextList.length){
-  h+='<div style="margin-top:8px"><small><b>הבאים בתור (כשיצטבר מזומן):</b></small></div>';
+  researchHtml+='<div class="sec-sub">היעדים הבאים (כשייכנס מזומן)</div>';
   P.C.nextList.forEach(function(x){
-   var targetTxt=(x.to>=x.r.levels)?('למקסימום ('+x.to+')'):('לרמה '+x.to);
-   h+=row('<span class="tier-pill">T'+x.r.tier+'</span>'+esc(x.r.name)+' <small>('+x.from+' ← '+targetTxt+')</small>','<span class="tag-wait">'+fmt(x.cost)+'</span>');
+   researchHtml+='<div class="l"><div><span class="tier-pill">T'+x.r.tier+'</span><b>'+esc(x.r.name)+'</b><small>רמה '+x.from+' ← '+x.to+'</small></div><small>'+fmt(x.cost)+'</small></div>';
   });
  }
- h+='</div>';
+ researchHtml+='</details>';
 
- h+='<div id="sec-farm" class="card"><h3>ביצה, לוגיסטיקה וגביעים</h3>';
- if(P.eggProg.nextName && !P.macro.isVirt){
-  var eggBarCls=P.eggProg.canUpgradeEgg?'ok':'';
-  h+='<div class="status-banner '+(P.eggProg.canUpgradeEgg?'do':'hold')+'">';
-  h+='<b>ביצה נוכחית: '+esc(P.eggProg.curName)+' ← הבאה: '+esc(P.eggProg.nextName)+' ('+P.eggProg.pct.toFixed(0)+'%)</b>';
-  h+='<div class="prog-bar"><div class="prog-fill '+eggBarCls+'" style="width:'+P.eggProg.pct.toFixed(1)+'%"></div></div>';
-  h+='<small>שווי חווה: '+fmt(P.eggProg.curFV)+' • גילוי: '+fmt(P.eggProg.reqDiscoverFV)+' • מעבר: '+fmt(P.eggProg.reqFV)+'</small></div>';
+ var eggBar='';
+ if(ep.nextName){
+  eggBar='<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:.82rem"><span>התקדמות לביצת <b>'+esc(ep.nextName)+'</b></span><b>'+fmt(ep.curFV)+' / '+fmt(ep.reqFV)+' ('+ep.pct.toFixed(1)+'%)</b></div>'
+   +'<div class="prog-bar"><div class="prog-fill'+(ep.canUpgradeEgg?' ok':'')+'" style="width:'+Math.min(100,ep.pct)+'%"></div></div></div>';
  }
- var shipBarCls=P.logi.shipBottleneck?'bad':(P.logi.shipUtilPct>75?'':'ok');
- h+=row('עומס משלוחים (הטלה מול משאיות)','<b>'+P.logi.rawPct.toFixed(0)+'%</b> ('+fmt(P.logi.totalLayRate/60)+'/שנ\' מתוך '+fmt(P.logi.totalShipCap/60)+'/שנ\')');
- h+='<div class="prog-bar"><div class="prog-fill '+shipBarCls+'" style="width:'+P.logi.shipUtilPct.toFixed(1)+'%"></div></div>';
- h+=row('דגירה פנימית (IHR)','<b>+'+fmt(P.logi.ihrOfflinePerMin)+'/דק\'</b> אופליין (מילוי לולים: '+fmtWait(P.logi.minsToFullHabs)+')');
- h+=row('ממגורות (Silos)','<b>'+P.logi.silosOwned+'/'+P.logi.maxPossibleSilos+'</b> (זמן אופליין מקסימלי: '+fmtWait(P.logi.maxSiloMins)+')');
- if(P.collegg.unlocked.length>0){
-  var cTags=P.collegg.unlocked.map(function(x){return esc(x.name)+' ('+x.tier+')'}).join(', ');
-  h+=row('בונוסי Colleggtibles ('+P.collegg.unlocked.length+')','<small>'+cTags+'</small>');
- }
- if(P.macro.isVirt){
-  h+='<div class="status-banner hold" style="margin-top:8px"><b>Path of Virtue — מצב ביצים ועלות החלפה (Shift):</b>';
-  h+='<small>בוצעו <b>'+P.macro.shifts+'</b> החלפות • עלות Shift הבא: <b>~'+fmt(P.macro.nextShiftSECost)+' SE</b> (3 הבאות: ~'+fmt(P.macro.next3ShiftsSECost)+' SE).<br>';
-  h+='המלצת סף: צבור לפחות <b>+'+P.macro.minRecommendedEoTGain+' EoT</b> לפני מעבר ביצה (ליעד #'+P.macro.nextEoTN+' נדרשות ~'+fmt(P.macro.nextEoTEggs)+' ביצים).<br>';
-  h+=P.macro.virtPerEgg.map(function(v){return '• <b>'+esc(v.name)+':</b> '+v.eot+' EoT ('+esc(v.facility)+')'}).join('<br>');
-  h+='</small></div>';
- }else if(P.macro.isEnl){
-  h+='<div class="status-banner '+(P.macro.enlPossible?'do':'alert')+'" style="margin-top:8px"><b>מחשבון Enlightenment 10B:</b><small>נדרשת רמת Wormhole Dampening <b>'+P.macro.reqWD+'/25</b> עם '+esc(P.macro.bestGusset?P.macro.bestGusset.name:'ללא Gusset')+' ('+Math.round(P.macro.maxClarityEff*100)+'% Clarity).</small></div>';
- }else if(P.trophies.eligible && P.trophies.unlocked){
-  var trTxt=(P.trophies.completed>=18)?'הושלמו כל 18/18 גביעי היהלום!':('הושלמו '+P.trophies.completed+'/18 • הבא בתור: <b>'+esc(P.trophies.nextTarget.eggName)+'</b>');
-  h+=row('גביעי יהלום (Diamond Trophies 10B)',trTxt);
- }
- h+='</div>';
 
- h+='<div id="sec-boosts" class="card"><h3>בוסטים ו-Prestige</h3>';
- var pBannerCls=(P.prestigeInfo.status==='ready'||P.prestigeInfo.status==='upgrade_egg')?'do':'hold';
- h+='<div class="status-banner '+pBannerCls+'"><b>'+esc(P.prestigeInfo.title)+'</b><small>'+esc(P.prestigeInfo.reason)+'</small></div>';
- var bBannerCls=P.boostInfo.shouldUseNow?'do':'hold';
- h+='<div class="status-banner '+bBannerCls+'"><b>'+esc(P.boostInfo.recTitle)+'</b><small>'+esc(P.boostInfo.recReason)+'</small>';
- if(P.boostInfo.recCombo.length){
-  h+='<div style="margin-top:5px"><b>הפעל עכשיו:</b> '+P.boostInfo.recCombo.map(function(x){return '<span class="tag-ok">'+(x.useQty>1?x.useQty+'× ':'')+esc(x.name)+'</span>'}).join(' ')+'</div>';
- }
- h+='</div>';
- if(P.boostInfo.active.length){
-  h+='<div style="margin-top:6px"><small><b>בוסטים פעילים כעת ('+P.boostInfo.active.length+'/'+P.boostInfo.maxBoostSlots+'):</b></small></div>';
-  P.boostInfo.active.forEach(function(ab){h+=row(esc(ab.name),'<span class="tag-ok">נותרו '+Math.ceil(ab.timeRemaining/60)+' דק\'</span>')});
- }
- h+='</div>';
+ var prestigeBannerClass=(pr.status==='ready'||pr.status==='upgrade_egg')?'do':(pr.status==='boost_then_prestige'?'alert':'hold');
+ var prestigeBanner='<div class="status-banner '+prestigeBannerClass+'">'
+  +'<b>'+esc(pr.title)+'</b>'
+  +'<small>'+esc(pr.reason)+'</small>'
+  +'<div style="margin-top:4px;font-size:.78rem;color:var(--mut)">נצבר בריצה: <b>+'+fmt(pr.unclaimedSE)+' SE</b> (סה"כ אחרי איפוס: '+fmt(pr.totalAfterPrestige)+' SE)</div>'
+  +'</div>';
 
- h+='<div id="sec-artifacts" class="card"><h3>ארטיפקטים, אבנים ו-Crafting</h3>';
- if(P.art.virtueArtifactsOnly){
-  h+='<div class="status-banner hold"><b>מלאי ארטיפקטים מבודד (Path of Virtue):</b><small>כאן מוצגים רק ארטיפקטים ואבנים שנאספו בתוך Path of Virtue.</small></div>';
- }
- if(P.art.enlightenmentWarnings.length){
-  h+='<div class="status-banner alert"><b>אזהרת Enlightenment:</b><small>הארטיפקטים '+esc(P.art.enlightenmentWarnings.join(', '))+' מושבתים ללא אבן Clarity!</small></div>';
- }
- h+='<div class="status-banner hold"><b>אופטימיזציית אבנים (Stones):</b><small>• <b>Prestige:</b> '+esc(P.stoneOpt.prestigeStoneAdvice)+'<br>• <b>חוזים:</b> '+esc(P.stoneOpt.contractStoneAdvice)+'</small></div>';
- if(P.art.canSocketNow){
-  h+='<div class="status-banner do"><b>שיבוץ אבנים פנויות:</b><small>יש לך '+P.art.equippedEmptySlots+' סלוטים ריקים בסט הנוכחי ('+esc(P.art.equippedEmptyDetails.join(', '))+') ו-'+P.art.socketableCount+' אבנים זמינות ('+esc(P.art.socketableStones.slice(0,4).map(function(s){return s.name+' ×'+s.qty}).join(', '))+').</small></div>';
- }
- h+='<div style="margin-bottom:6px"><small><b>סטים מומלצים מהמלאי שלך (עד '+P.art.maxArtSlots+' סלוטים):</b></small></div>';
- if(P.art.setDilithium.length)h+=row('0. לפני בוסט (Dilithium +'+Math.round((P.art.potentialDilithiumMult-1)*100)+'% זמן)','<small>'+P.art.setDilithium.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
- if(P.art.setMain.length)h+=row('1. ריצה ו-Prestige פעיל','<small>'+P.art.setMain.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
- if(P.art.setLunar.length && P.art.lunarTotemMult>=20)h+=row('2. סט אופליין / Multi-Lunarstige','<small>'+P.art.setLunar.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
- if(P.art.setIHR.length)h+=row('3. מילוי לולים מהיר (IHR)','<small>'+P.art.setIHR.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
- if(P.art.setContract.length)h+=row('4. קו-אופ / חוזים','<small>'+P.art.setContract.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
- if(P.art.setDrones.length)h+=row('5. ציד רחפנים (GE)','<small>'+P.art.setDrones.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
- if(P.art.demoteList.length){
-  h+='<div style="margin-top:8px"><small><b>פירוק כפילויות (Demote) לקבלת Golden Eggs:</b> '+P.art.demoteList.slice(0,4).map(function(d){return esc(d.name)+' (×'+d.excess+')'}).join(', ')+'</small></div>';
- }
- var pendingCrafts=P.art.craftTargets.filter(function(ct){return !ct.alreadyHasT4});
- if(pendingCrafts.length){
-  h+='<div style="margin-top:8px"><small><b>יעדי Crafting מרכזיים (T4):</b></small></div>';
-  pendingCrafts.slice(0,5).forEach(function(ct){
-   var reqTxt=ct.reqStatus.map(function(r){return esc(r.label)+': '+r.have+'/'+r.need}).join(' • ');
-   var tag=ct.readyToCraft?'<span class="tag-ok">מוכן ל-Craft!</span>':'<span class="tag-wait">'+ct.pct+'%</span>';
-   h+=row('<b>'+esc(ct.name)+'</b> <small>('+reqTxt+')</small>',tag);
+ var farmHtml='<details class="card" id="sec-farm" data-cat="farm" open><summary class="sum-head"><span>חווה, ביצים, מיכל דלק וספינות</span><small>▼</small></summary>'
+  +prestigeBanner
+  +eggBar
+  +'<div class="l"><div><b>תפוסת לולים</b><small>'+fmt(lg.pop)+' / '+fmt(lg.maxCap)+' ('+lg.habPct.toFixed(0)+'%)'+(lg.minsToFullHabs>0?' • יתמלאו בעוד '+fmtWait(lg.minsToFullHabs):' • מלאים')+'</small></div><span class="'+(lg.isFull?'tag-warn':'tag-ok')+'">'+(lg.isFull?'מלא':(lg.emptyHabSlots>0?lg.emptyHabSlots+' פנויים':'תקין'))+'</span></div>'
+  +'<div class="l"><div><b>עומס משלוחים</b><small>הטלה: '+fmt(lg.totalLayRate/60)+'/שנ\' • קיבולת: '+fmt(lg.totalShipCap/60)+'/שנ\'</small></div><span class="'+(lg.shipBottleneck?'tag-warn':'tag-ok')+'">'+lg.rawPct.toFixed(0)+'%</span></div>'
+  +'<div class="l"><div><b>קצב דגירה וממגורות (Silos)</b><small>IHR אופליין: '+fmt(lg.ihrOfflinePerMin)+'/דק\' • '+lg.silosOwned+'/'+lg.maxPossibleSilos+' ממגורות ('+fmtWait(lg.maxSiloMins)+')</small></div><span class="'+(lg.siloBottleneck?'tag-warn':'tag-ok')+'">'+(lg.siloBottleneck?'הוסף ממגורה':'תקין')+'</span></div>'
+  +'<div class="l"><div><b>הכנסה לדקה (אופליין מול פעיל)</b><small>אופליין (Lunar ×'+fmt(lg.lunarMult)+'): '+fmt(lg.idleIncomePerMin)+' • פעיל (RCB ×'+fmt(lg.maxRCB)+'): '+fmt(lg.activeIncomePerMin)+'</small></div><span class="'+(lg.lunarBeatsActive?'tag-ok':'tag-wait')+'">'+(lg.lunarBeatsActive?'Lunar עדיף!':'פעיל עדיף')+'</span></div>'
+  +(cg.unlocked.length?'<div class="l"><div><b>בונוסי Colleggtibles פעילים ('+cg.unlocked.length+')</b><small>'+esc(cg.unlocked.map(function(u){return u.name+' ('+u.tier+')'}).join(', '))+'</small></div><span class="tag-ok">פעיל</span></div>':'')
+  +'<div class="l"><div><b>ספינת יעד: '+esc(shipName(fl.target))+'</b><small>עלות שיגור: '+fmt(fl.fundCost)+' מזומן • דורשת: '+esc(fl.reqNames)+'</small></div><span class="'+(fl.canLaunchNow?'tag-ok':'tag-warn')+'">'+(fl.canLaunchNow?'מוכן לשיגור':(fl.canFuelNow?'חסר מזומן':'חסר דלק'))+'</span></div>'
+  +'<div class="l"><div><b>מצב מיכל דלק ושיגורים</b><small>'+(fl.hasFuelTank?('במיכל: '+fmt(fl.tankTotal)+' / '+fmt(fl.tankCapacity)+' (רמה '+fl.tankLevel+')'):'מיכל דלק נעול עד 100K SE (תדלוק ישיר מ-Rocket Fuel)')+'</small></div><b>'+P.free+'/3 פנויים</b></div>';
+
+ if(fl.hasFuelTank && fl.fuelBreakdown.length){
+  fl.fuelBreakdown.forEach(function(fb){
+   var okFuel=(fb.missingAmt<=0);
+   farmHtml+='<div class="l"><div><b>דלק: '+esc(fb.name)+'</b><small>במיכל: '+fmt(fb.stored)+' / '+fmt(fb.reqAmt)+' לשיגור'+(fb.launches>0?' ('+fb.launches+' שיגורים)':'')+'</small></div><span class="'+(okFuel?'tag-ok':'tag-warn')+'">'+(okFuel?'מלא':'חסר '+fmt(fb.missingAmt))+'</span></div>';
   });
  }
- h+='</div>';
 
- var slotInf=P.contractSlotInfo;
- h+='<div id="sec-contracts" class="card"><h3>חוזים וניהול סלוטים ('+slotInf.slotsUsed+'/'+slotInf.maxSlots+' תפוסים)</h3>';
- h+='<div class="slot-bar"><div><span class="slot-pills">';
- for(var si=0;si<slotInf.maxSlots;si++){
-  var pCls=(si<slotInf.runningCount)?'used':((si<slotInf.slotsUsed)?'wait':(si>=slotInf.maxSlots-slotInf.reserveSlotsNeeded?'warn':''));
-  h+='<span class="slot-pill '+pCls+'"></span>';
- }
- h+='</span> <b>'+slotInf.slotsFree+' פנויים</b> (רזרבה: '+slotInf.reserveSlotsNeeded+')</div>';
- if(slotInf.nextDrop){
-  h+='<small>הבא: <b>'+esc(slotInf.nextDrop.shortLabel)+'</b> בעוד '+hrs(slotInf.nextDrop.secsLeft)+' ('+esc(slotInf.nextDrop.localTimeStr)+')</small>';
- }
- h+='</div>';
- if(slotInf.inGoldenWindow){
-  h+='<div class="status-banner do"><b>חלון הזהב פתוח כעת!</b><small>יצא חוזה חדש לפני פחות מ-6 שעות — הזמן הטוב ביותר למצוא קבוצה חזקה ומהירה.</small></div>';
- }else if(slotInf.dropImminent && slotInf.slotsFree<=slotInf.reserveSlotsNeeded){
-  h+='<div class="status-banner hold"><b>שומר סלוטים פעיל:</b><small>בעוד '+hrs(slotInf.nextDrop.secsLeft)+' יוצא '+esc(slotInf.nextDrop.label)+'. הימנע מ-Points Replay כדי לא לתקוע סלוט.</small></div>';
+ if(P.ships.length){
+  farmHtml+='<div class="sec-sub">ספינות באוויר / מוכנות לאיסוף</div>';
+  P.ships.forEach(function(s){farmHtml+='<div class="l"><span>'+esc(s[0])+'</span><b>'+esc(s[1])+'</b></div>'});
  }
 
- var activeNowList=P.CD.filter(function(d){return !d.waitingCoop});
- var waitingList=P.CD.filter(function(d){return d.waitingCoop});
- var recAvailList=P.availContracts.filter(function(av){
-  return av.prio<=2 || (P.bestPointsRec && av.id===P.bestPointsRec.id);
- });
- var recIds={};
- recAvailList.forEach(function(av){recIds[av.id]=true});
- var otherAvailList=P.availContracts.filter(function(av){return !recIds[av.id]});
-
- if(!activeNowList.length && !recAvailList.length && !waitingList.length && !otherAvailList.length){
-  h+='<p><small>אין חוזים פעילים או זמינים להצטרפות כרגע.</small></p>';
+ if(mc.isEnl){
+  farmHtml+='<div class="sec-sub">מחשבון Enlightenment 10B</div>'
+   +'<div class="l"><div><b>ה-Gusset הטוב ביותר שלך</b><small>'+(mc.bestGusset?esc(mc.bestGusset.name)+' (Clarity: '+Math.round(mc.maxClarityEff*100)+'%)' :'אין Gusset')+'</small></div><span class="'+(mc.enlPossible?'tag-ok':'tag-warn')+'">'+(mc.enlPossible?('נדרש WD '+mc.reqWD+'/25'):'לא אפשרי כרגע')+'</span></div>';
  }
 
- if(activeNowList.length){
-  h+='<div class="sec-sub">פעילים לביצוע עכשיו ('+activeNowList.length+')</div>';
-  activeNowList.forEach(function(d){
-   var cardCls=(d.nextStepLevel==='alert')?'alert':(d.pointsOnly?'pts':(d.needs10B?'col':'p1'));
-   h+='<div class="c-card '+cardCls+'">';
-   h+='<div class="c-head"><span>'+esc(d.name)+' <small>'+(d.grade?'['+esc(d.grade)+']':'')+'</small></span><span class="badge '+d.badgeClass+'">'+esc(d.badgeText)+'</span></div>';
-   h+='<div class="c-chips">';
-   h+='<span class="c-chip">יעדים: <b>'+d.achieved+'/3</b></span>';
-   h+=d.coop?'<span class="c-chip ok">קו-אופ: '+esc(d.coop)+'</span>':'<span class="c-chip bad">ללא קו-אופ</span>';
-   if(d.timeLeft>0)h+='<span class="c-chip">נותרו '+hrs(d.timeLeft)+'</span>';
+ if(mc.isVirt){
+  farmHtml+='<div class="sec-sub">Path of Virtue — מדד עלות Shift וביצי Truth (EoT)</div>'
+   +'<div class="l"><div><b>עלות החלפת ביצה הבאה (Shift #'+(mc.shifts+1)+')</b><small>עלות 3 החלפות הבאות: ~'+fmt(mc.next3ShiftsSECost)+' SE • מומלץ לצבור +'+mc.minRecommendedEoTGain+' EoT לפני Shift</small></div><b>~'+fmt(mc.nextShiftSECost)+' SE</b></div>'
+   +'<div class="l"><div><b>יעד EoT הבא ב-'+esc(shipName(sim.eggType))+' (#'+mc.nextEoTN+')</b><small>מתקן פעיל: '+esc(VIRT_FACILITY[sim.eggType]||'')+'</small></div><b>'+fmt(mc.nextEoTEggs)+' ביצים</b></div>'
+   +mc.virtPerEgg.map(function(vp){
+    return '<div class="l"><div><b>'+esc(vp.name)+'</b><small>'+esc(vp.facility)+'</small></div><span class="'+(vp.eot>0?'tag-ok':'tag-wait')+'">'+vp.eot+' EoT</span></div>';
+   }).join('');
+ }
+
+ if(tr.eligible && tr.unlocked && !mc.isEnl && !mc.isVirt){
+  farmHtml+='<div class="sec-sub">Diamond Trophies (10B תרנגולות • '+tr.completed+'/18)</div>';
+  if(tr.nextTarget){
+   farmHtml+='<div class="l"><div><b>היעד הבא: '+esc(tr.nextTarget.eggName)+'</b><small>השלם בסדר יורד מ-Universe ל-Edible</small></div><span class="tag-ok">מומלץ</span></div>';
+  }else{
+   farmHtml+='<div class="l"><div><b>כל 18 גביעי ה-Diamond הושלמו!</b></div><span class="tag-ok">18/18</span></div>';
+  }
+ }
+ farmHtml+='</details>';
+
+ var boostBannerClass=bo.shouldUseNow?'do':'hold';
+ var boostsHtml='<details class="card" id="sec-boosts" data-cat="boosts" open><summary class="sum-head"><span>ניהול בוסטים (Boosts)</span><small>'+bo.active.length+'/'+bo.maxBoostSlots+' פעילים ▼</small></summary>'
+  +'<div class="status-banner '+boostBannerClass+'">'
+  +'<b>'+esc(bo.recTitle)+'</b>'
+  +'<small>'+esc(bo.recReason)+'</small>'
+  +(bo.recCombo.length?'<div style="margin-top:6px"><b>הרכב מומלץ:</b> '+esc(bo.recCombo.map(function(x){return (x.useQty>1?x.useQty+'× ':'')+x.name+' (במלאי: '+x.count+')'}).join(' + '))+'</div>':'')
+  +'</div>';
+
+ if(bo.active.length){
+  boostsHtml+='<div class="sec-sub">בוסטים פעילים כרגע</div>';
+  bo.active.forEach(function(ab){
+   boostsHtml+='<div class="l"><b>'+esc(ab.name)+'</b><span class="tag-ok">'+hrs(ab.timeRemaining)+'</span></div>';
+  });
+ }
+ if(bo.owned.length){
+  boostsHtml+='<div class="sec-sub">מלאי בוסטים בתיק</div>';
+  bo.owned.slice(0,10).forEach(function(ow){
+   boostsHtml+='<div class="l"><span>'+esc(ow.name)+'</span><b>×'+ow.count+'</b></div>';
+  });
+ }
+ boostsHtml+='</details>';
+
+ var artHtml='<details class="card" id="sec-artifacts" data-cat="artifacts"><summary class="sum-head"><span>ארטיפקטים, אבנים ויעדי Crafting</span><small>'+(ar.virtueArtifactsOnly?'מלאי Virtue':'מלאי ראשי')+' ▼</small></summary>';
+ if(ar.enlightenmentWarnings.length){
+  artHtml+='<div class="status-banner alert"><b>אזהרת Enlightenment!</b><small>הארטיפקטים '+esc(ar.enlightenmentWarnings.join(', '))+' מושבתים ללא אבן Clarity.</small></div>';
+ }
+ artHtml+='<div class="sec-sub">מורכב כרגע ('+ar.equipped.length+'/'+ar.maxArtSlots+')</div>';
+ if(ar.equipped.length){
+  ar.equipped.forEach(function(eq){
+   var stBadges=eq.stones.map(function(st){return '<span class="stone-pill">'+esc(st)+'</span>'}).join('');
+   artHtml+='<div class="l"><div><b>'+esc(eq.baseName)+'</b>'+stBadges+'<small>'+esc(eq.desc)+'</small></div><span class="tag-ok">מורכב</span></div>';
+  });
+ }else{
+  artHtml+='<p><small>אין ארטיפקטים מורכבים כרגע.</small></p>';
+ }
+ artHtml+='<div class="sec-sub">אופטימיזציית אבנים (Stones)</div>'
+  +'<div class="l"><div><b>אבנים ל-Prestige</b><small>'+esc(P.stoneOpt.prestigeStoneAdvice)+'</small></div><span class="tag-ok">'+(P.stoneOpt.useProphecy?'Prophecy':'Soul')+'</span></div>'
+  +'<div class="l"><div><b>אבנים לחוזים (Co-op)</b><small>'+esc(P.stoneOpt.contractStoneAdvice)+'</small></div><span class="tag-ok">איזון</span></div>';
+
+ if(ar.setDilithium.length){
+  artHtml+='<div class="sec-sub">סט 0: טעינת בוסטים (Dilithium • ×'+ar.potentialDilithiumMult.toFixed(2)+' זמן)</div>'+renderArtList(ar.setDilithium,'');
+ }
+ artHtml+='<div class="sec-sub">סט 1: Prestige אקטיבי (תרנגולות רצות)</div>'+renderArtList(ar.setMain,'אין ארטיפקטים מתאימים במלאי');
+ artHtml+='<div class="sec-sub">סט 2: Multi-Lunarstige (הכנסות אופליין)</div>'+renderArtList(ar.setLunar,'אין Lunar Totem במלאי');
+ artHtml+='<div class="sec-sub">סט 3: מילוי לולים (IHR)</div>'+renderArtList(ar.setIHR,'אין ארטיפקטי IHR במלאי');
+ artHtml+='<div class="sec-sub">סט 4: חוזים (Co-op)</div>'+renderArtList(ar.setContract,'אין ארטיפקטי חוזים במלאי');
+ if(ar.looseStones.length){
+  artHtml+='<div class="sec-sub">אבנים פנויות לשיבוץ ('+ar.looseStoneCount+')</div>'
+   +ar.looseStones.map(function(s){
+    return '<div class="l"><div><b>'+esc(s.name)+'</b><small>'+esc(s.desc)+'</small></div><b>×'+s.qty+'</b></div>';
+   }).join('');
+ }
+ if(ar.demoteList.length){
+  artHtml+='<div class="sec-sub">פירוק כפילויות ל-GE (Demote)</div>'
+   +ar.demoteList.slice(0,4).map(function(d){
+    return '<div class="l"><span>'+esc(d.name)+'</span><small>'+d.excess+' כפולים לפירוק</small></div>';
+   }).join('');
+ }
+ var activeCraftTargets=ar.craftTargets.filter(function(ct){return !ct.alreadyHasT4});
+ if(activeCraftTargets.length){
+  artHtml+='<div class="sec-sub">מעקב יעדי Crafting (T4)</div>'
+   +activeCraftTargets.slice(0,5).map(function(ct){
+    var reqStr=ct.reqStatus.map(function(rq){return rq.label+': '+rq.have+'/'+rq.need}).join(' • ');
+    return '<div class="l"><div><b>'+esc(ct.name)+'</b><small>'+esc(reqStr)+'</small></div><span class="'+(ct.readyToCraft?'tag-ok':'tag-wait')+'">'+(ct.readyToCraft?'מוכן!':ct.pct+'%')+'</span></div>';
+   }).join('');
+ }
+ artHtml+='</details>';
+
+ var csi=P.contractSlotInfo;
+ var slotPills='';
+ for(var spIdx=0;spIdx<csi.maxSlots;spIdx++){
+  var pillCls='slot-pill';
+  if(spIdx<csi.runningCount)pillCls+=' used';
+  else if(spIdx<csi.slotsUsed)pillCls+=' wait';
+  else if(spIdx>=csi.maxSlots-csi.reserveSlotsNeeded)pillCls+=' warn';
+  slotPills+='<span class="'+pillCls+'"></span>';
+ }
+ var nextDropTxt=csi.nextDrop
+  ?('השחרור הבא: <b>'+esc(csi.nextDrop.shortLabel)+'</b> ('+esc(csi.nextDrop.localTimeStr)+', בעוד '+hrs(csi.nextDrop.secsLeft)+')')
+  :'';
+ var goldenBanner=csi.inGoldenWindow
+  ?'<div class="status-banner do" style="margin-bottom:8px"><b>🌟 חלון הזהב להצטרפות פעיל עכשיו!</b><small>חוזה חדש יצא לפני '+csi.hoursSinceLastDrop+' שעות. זה הזמן הטוב ביותר למצוא קבוצות חזקות ב-Discord / r/EggsIncCoOp.</small></div>'
+  :'';
+
+ var contractsHtml='<details class="card" id="sec-contracts" data-cat="contracts"'+(P.CD.length||P.availContracts.length?' open':'')+'><summary class="sum-head"><span>חוזים (Contracts)</span><small>'+csi.slotsUsed+'/4 סלוטים'+(P.availContracts.length?' • '+P.availContracts.length+' זמינים':'')+' ▼</small></summary>'
+  +'<div class="slot-bar">'
+  +'<div><span class="slot-pills">'+slotPills+'</span> <b style="margin-inline-start:6px">סלוטים: '+csi.slotsUsed+'/4</b> <small>('+csi.runningCount+' פעילים, '+csi.waitingCount+' בהמתנה, '+csi.slotsFree+' פנויים)</small></div>'
+  +(nextDropTxt?'<div style="width:100%;color:var(--mut);font-size:.76rem">'+nextDropTxt+' • שומר רזרבה של '+csi.reserveSlotsNeeded+' סלוט'+(csi.reserveSlotsNeeded>1?'ים':'')+'</div>':'')
+  +'</div>'
+  +goldenBanner;
+
+ if(P.activeRunning.length){
+  contractsHtml+='<div class="sec-sub">פעילים לביצוע עכשיו ('+P.activeRunning.length+')</div>';
+  P.activeRunning.forEach(function(d){
+   var cardCls='c-card'+(d.nextStepLevel==='alert'?' alert':(d.hasPE?' p1':(d.needs10B?' col':(d.pointsOnly?' pts':''))));
+   var chips='<div class="c-chips">'
+    +'<span class="c-chip'+(d.achieved>=3?' ok':'')+'">יעדים '+d.achieved+'/3</span>'
+    +(d.coop?'<span class="c-chip">קו-אופ: '+esc(d.coop)+'</span>':'<span class="c-chip bad">ללא קו-אופ</span>')
+    +(d.timeLeft>0?'<span class="c-chip">נותרו '+hrs(d.timeLeft)+'</span>':'');
    if(d.cfMetrics){
-    h+='<span class="c-chip">אוכלוסייה: '+fmt(d.cfMetrics.pop)+'/'+fmt(d.cfMetrics.maxCap)+'</span>';
-    h+='<span class="c-chip'+(d.cfMetrics.shipBottleneck?' bad':'')+'">משלוחים: '+d.cfMetrics.shipUtilPct.toFixed(0)+'%</span>';
-    h+='<span class="c-chip">מזומן: '+fmt(d.cfMetrics.cash)+'</span>';
+    chips+='<span class="c-chip">אוכלוסייה '+fmt(d.cfMetrics.pop)+'/'+fmt(d.cfMetrics.maxCap)+' ('+d.cfMetrics.habPct.toFixed(0)+'%)</span>'
+     +'<span class="c-chip'+(d.cfMetrics.shipBottleneck?' bad':'')+'">משלוחים '+d.cfMetrics.shipUtilPct.toFixed(0)+'%</span>'
+     +'<span class="c-chip">מזומן '+fmt(d.cfMetrics.cash)+'</span>';
    }
-   h+='</div>';
-   if(d.rewardsText)h+='<div class="c-meta-line"><b>פרסים:</b> '+esc(d.rewardsText)+'</div>';
-   h+='<div class="c-next '+d.nextStepLevel+'"><b>הצעד הבא:</b> '+esc(d.nextStep)+'</div>';
-   if(d.stoneAdvice)h+='<div class="c-meta-line"><b>אבנים:</b> '+esc(d.stoneAdvice)+'</div>';
-   if(d.researchHint && d.nextStep.indexOf('שדרג מחקר')!==0)h+='<div class="c-meta-line"><b>מחקר:</b> '+esc(d.researchHint)+'</div>';
-   if(d.pointsPlaybook){
-    h+='<details class="c-fold"><summary class="c-fold-sum"><span>מדריך 5 שלבים למקסימום CS בחוזה זה</span><span>▼</span></summary>';
-    h+=renderPlaybookBox(d.pointsPlaybook,'תוכנית פעולה למקסימום נקודות:');
-    h+='</details>';
-   }
-   h+='</div>';
+   chips+='</div>';
+   var nextCls='c-next'+(d.nextStepLevel==='alert'?' alert':(d.nextStepLevel==='do'?' do':''));
+   contractsHtml+='<div class="'+cardCls+'">'
+    +'<div class="c-head"><span>'+esc(d.name)+(d.grade?' <small>['+esc(d.grade)+']</small>':'')+'</span><span class="badge '+d.badgeClass+'">'+esc(d.badgeText)+'</span></div>'
+    +chips
+    +'<div class="'+nextCls+'"><b>הצעד הבא:</b> '+esc(d.nextStep)+'</div>'
+    +(d.rewardsText?'<div class="c-meta-line">פרסים: '+esc(d.rewardsText)+'</div>':'')
+    +(d.stoneAdvice?'<div class="c-meta-line">'+esc(d.stoneAdvice)+'</div>':'')
+    +(d.researchHint?'<div class="c-meta-line">מחקר בחוזה: '+esc(d.researchHint)+'</div>':'')
+    +'</div>';
   });
  }
+
+ var recAvailList=P.availContracts.filter(function(av){
+  return av.prio<=2 || (av.isReplay && csi.bestReplayCandidate && av.id===csi.bestReplayCandidate.id);
+ });
+ var otherAvailList=P.availContracts.filter(function(av){
+  return recAvailList.indexOf(av)<0;
+ });
 
  if(recAvailList.length){
-  h+='<div class="sec-sub">מומלץ להצטרף עכשיו ('+recAvailList.length+')</div>';
+  contractsHtml+='<div class="sec-sub">מומלץ להצטרף עכשיו ('+recAvailList.length+')</div>';
   recAvailList.forEach(function(av){
-   var cardCls=av.needs10B?'col':(av.prio===1?'p1':(av.prio===2?'p2':'pts'));
-   h+='<div class="c-card '+cardCls+'">';
-   h+='<div class="c-head"><span>'+esc(av.name)+'</span><div>';
-   if(av.isCurrentSeason)h+='<span class="badge b-seas" style="margin-inline-end:4px">עונתי</span>';
-   h+='<span class="badge '+av.badgeClass+'">'+esc(av.badgeText)+'</span></div></div>';
-   h+='<div class="c-chips">';
-   if(av.eggName)h+='<span class="c-chip">'+esc(av.eggName)+'</span>';
-   if(av.maxCoop)h+='<span class="c-chip">עד '+av.maxCoop+' שחקנים</span>';
-   if(av.joinLeft>0)h+='<span class="c-chip">נסגר בעוד '+hrs(av.joinLeft)+'</span>';
-   h+='</div>';
-   if(av.rewardsText)h+='<div class="c-meta-line"><b>פרסים:</b> '+esc(av.rewardsText)+'</div>';
-   h+='<div class="c-next '+(av.guardState==='SLOTS_FULL_P1'?'alert':'do')+'">'+esc(av.guardReason?av.guardReason+' ':'')+esc(av.shortWhy)+'</div>';
-   if(av.isReplay && av.playbook){
-    h+='<details class="c-fold"><summary class="c-fold-sum"><span>תוכנית פעולה למקסימום CS (5 שלבים)</span><span>▼</span></summary>';
-    h+=renderPlaybookBox(av.playbook,'תוכנית פעולה למקסימום נקודות בחוזה '+av.name+':');
-    h+='</details>';
+   var cardCls='c-card'+(av.prio===1?(av.needs10B?' col':' p1'):(av.isReplay?' pts':''));
+   var chips='<div class="c-chips">'
+    +(av.eggName?'<span class="c-chip">'+esc(av.eggName)+'</span>':'')
+    +(av.maxCoop?'<span class="c-chip">עד '+av.maxCoop+' שחקנים</span>':'')
+    +(av.dur>0?'<span class="c-chip">משך '+hrs(av.dur)+'</span>':'')
+    +(av.joinLeft>0?'<span class="c-chip">נשאר להצטרף '+hrs(av.joinLeft)+'</span>':'')
+    +'</div>';
+   var pbHtml='';
+   if(av.playbook){
+    pbHtml='<details class="c-fold"><summary class="c-fold-sum"><span>מדריך 5 שלבים למקסום CS בחוזה זה</span><span>▼</span></summary>'
+     +'<ol class="playbook-list">'+av.playbook.steps.map(function(st){return '<li>'+esc(st)+'</li>'}).join('')+'</ol></details>';
    }
-   h+='</div>';
+   contractsHtml+='<div class="'+cardCls+'">'
+    +'<div class="c-head"><span>'+esc(av.name)+'</span><span class="badge '+av.badgeClass+'">'+esc(av.badgeText)+'</span></div>'
+    +chips
+    +'<div class="c-next'+(av.prio===1?' do':'')+'">'+esc(av.shortWhy)+(av.guardReason && av.prio===1 && av.guardState!=='OPEN'?' — '+esc(av.guardReason):'')+'</div>'
+    +(av.rewardsText?'<div class="c-meta-line">פרסים: '+esc(av.rewardsText)+'</div>':'')
+    +pbHtml
+    +'</div>';
   });
  }
 
- var totalDeferred=waitingList.length + otherAvailList.length;
- if(totalDeferred>0){
-  h+='<details class="c-fold" style="margin-top:10px"><summary class="c-fold-sum"><span>ממתינים לסגירה וחוזים נוספים ('+totalDeferred+')</span><span>▼</span></summary>';
-  h+='<div style="margin-top:6px">';
-  waitingList.forEach(function(d){
-   h+='<div class="c-mini-row"><div class="c-head"><span>'+esc(d.name)+'</span><span class="badge b-wait">ממתין לסגירת קבוצה</span></div>';
-   h+='<small>כל 3 היעדים נאספו'+(d.coop?' • קבוצה: '+esc(d.coop):'')+'. אין פעולה נדרשת.</small></div>';
+ var deferredCount=P.waitingContracts.length + otherAvailList.length;
+ if(deferredCount>0){
+  contractsHtml+='<details class="c-fold" style="margin-top:8px"><summary class="c-fold-sum"><span>ממתינים לסגירה וחוזים נוספים ('+deferredCount+')</span><span>▼</span></summary>';
+  P.waitingContracts.forEach(function(d){
+   contractsHtml+='<div class="c-mini-row"><div class="c-head"><span>'+esc(d.name)+(d.grade?' <small>['+esc(d.grade)+']</small>':'')+'</span><span class="badge b-wait">ממתין לסגירה</span></div>'
+    +'<small>'+esc(d.actionText)+'</small></div>';
   });
   otherAvailList.forEach(function(av){
-   h+='<div class="c-mini-row"><div class="c-head"><span>'+esc(av.name)+'</span><div>';
-   if(av.isCurrentSeason)h+='<span class="badge b-seas" style="margin-inline-end:4px">עונתי</span>';
-   h+='<span class="badge '+av.badgeClass+'">'+esc(av.badgeText)+'</span></div></div>';
-   h+='<small>'+(av.guardReason?esc(av.guardReason):esc(av.shortWhy))+(av.joinLeft>0?' • נסגר בעוד '+hrs(av.joinLeft):'')+'</small></div>';
+   contractsHtml+='<div class="c-mini-row"><div class="c-head"><span>'+esc(av.name)+'</span><span class="badge '+av.badgeClass+'">'+esc(av.badgeText)+'</span></div>'
+    +'<small>'+(av.eggName?esc(av.eggName)+' • ':'')+(av.maxCoop?'עד '+av.maxCoop+' שחקנים • ':'')+(av.joinLeft>0?'פתוח עוד '+hrs(av.joinLeft):'')+'</small>'
+    +'<div style="font-size:.79rem;color:var(--mut);margin-top:2px">'+esc(av.guardReason||av.shortWhy)+'</div></div>';
   });
-  h+='</div></details>';
+  contractsHtml+='</details>';
  }
- h+='</div>';
 
- h+='<div id="sec-epic" class="card"><h3>מחקר אפיק ודלק ספינות</h3>';
- h+=row('ספינות פעילות / פנויות','<b>'+P.busy+'/'+P.shipSlots+'</b> ('+P.free+' פנויות)');
- var targetUnlockedLbl=P.fuelInfo.shipProg.isTargetUnlocked?'':' (נעולה)';
- h+=row('ספינת יעד נוכחית','<b>'+esc(shipName(P.fuelInfo.target))+targetUnlockedLbl+'</b> ('+esc(P.fuelInfo.shipProg.missionDur)+' • '+fmt(P.fuelInfo.fundCost)+')');
- if(!P.fuelInfo.launchpadUnlocked){
-  h+='<div class="status-banner hold"><b>כן השיגור נעול:</b><small>נפתח ב-10,000 Soul Eggs (חסרים '+fmt(Math.max(0,10000-P.fuelInfo.curSE))+' SE) + 100K ביצים/דקה ב-Rocket Fuel.</small></div>';
- }else if(!P.fuelInfo.hasFuelTank){
-  h+='<div class="status-banner hold"><b>תדלוק ישיר (ללא מיכל דלק):</b><small>מיכל הדלק נפתח ב-100,000 SE (חסרים '+fmt(Math.max(0,100000-P.fuelInfo.curSE))+' SE). בינתיים מתדלקים ישירות מביצת Rocket Fuel.</small></div>';
- }else{
-  var tankPct=P.fuelInfo.tankCapacity>0?Math.min(100,(P.fuelInfo.tankTotal/P.fuelInfo.tankCapacity)*100):0;
-  h+=row('מיכל דלק (רמה '+P.fuelInfo.tankLevel+')','<b>'+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+'</b> ('+tankPct.toFixed(0)+'%)');
-  P.fuelInfo.fuelBreakdown.forEach(function(fb){
-   h+=row('• '+esc(fb.name)+' (נדרש '+fmt(fb.reqAmt)+')',fb.missingAmt===0?'<span class="tag-ok">'+fmt(fb.stored)+' ('+fb.launches+' שיגורים)</span>':'<span class="tag-wait">'+fmt(fb.stored)+' (חסר '+fmt(fb.missingAmt)+')</span>');
-  });
+ if(!P.activeRunning.length && !recAvailList.length && deferredCount===0){
+  contractsHtml+='<p><small>אין חוזים פעילים או זמינים כרגע.</small></p>';
  }
- P.ships.forEach(function(s){h+=row(esc(s[0]),'<small>'+esc(s[1])+'</small>')});
- h+='<div style="margin-top:8px"><small><b>תוכנית רכישת Epic ('+fmt(P.avail)+' GE פנויות):</b></small></div>';
- if(P.E.buy && P.E.buy.list && P.E.buy.list.length){
-  P.E.buy.list.forEach(function(x){
-   h+=row('<b>'+esc(x.r.name)+'</b> <small>('+x.from+' ← '+x.to+' / '+x.r.levels+')</small>','<span class="tag-ok">'+fmt(x.sum)+' GE</span>');
-  });
- }else if(P.E.rows.length){
-  P.E.rows.slice(0,4).forEach(function(x){
-   h+=row(esc(x.r.name)+' <small>('+x.L+'/'+x.r.levels+')</small>','<span class="tag-wait">'+fmt(x.price)+' GE</span>');
+ contractsHtml+='</details>';
+
+ var isEpicSale=(ev.epicResearchDiscount>0);
+ var epicHtml='<details class="card" id="sec-epic" data-cat="epic"><summary class="sum-head"><span>מחקרי Epic (Golden Eggs)</span><small>'+fmt(g.goldenEggs||0)+' GE ▼</small></summary>'
+  +'<div class="status-banner '+(isEpicSale?'do':'hold')+'">'
+  +'<b>'+(isEpicSale?'מבצע 35% הנחת Epic פעיל עכשיו!':'כלל ברזל: שדרג Epic רק במבצע 35% (ימי ראשון)')+'</b>'
+  +'<small>'+(isEpicSale?'כל המחירים למטה כוללים את הנחת ה-35%.':'המתנה למבצע חוסכת 35% מכל ה-GE שתוציא.')+'</small>'
+  +'</div>';
+ if(P.E.rows.length){
+  P.E.rows.slice(0,8).forEach(function(x){
+   var canBuy=(g.goldenEggs||0)>=x.price;
+   epicHtml+='<div class="l"><div><b>'+esc(x.r.name)+'</b><small>רמה '+x.L+'/'+x.r.levels+' • סה"כ לסיום: '+fmt(x.left)+' GE</small></div><b style="color:'+(canBuy?'var(--ok)':'inherit')+'">'+fmt(x.price)+' GE</b></div>';
   });
  }else{
-  h+='<p><small>כל מחקרי ה-Epic הושלמו!</small></p>';
+  epicHtml+='<p><span class="tag-ok">כל מחקרי ה-Epic הושלמו!</span></p>';
  }
- h+='</div>';
+ epicHtml+='</details>';
 
- h+='<button class="copy-btn" onclick="copyDiag()">העתק נתוני חווה (ללא EID)</button>';
- $('out').innerHTML=h;
+ var diagBtn='<button class="copy-btn" id="btn-copy-diag" onclick="copyDiag()">📋 העתק נתוני חווה לבדיקה (ללא EID)</button>';
+
+ $('out').innerHTML=phaseHtml+hud+w+h+list+nav+researchHtml+farmHtml+boostsHtml+artHtml+contractsHtml+epicHtml+diagBtn;
+
+ Object.keys(openIds).forEach(function(id){var el=$(id);if(el)el.open=true});
+
+ var navBtns=document.querySelectorAll('.nav button');
+ navBtns.forEach(function(btn){
+  btn.onclick=function(){
+   navBtns.forEach(function(b){b.classList.remove('active')});
+   btn.classList.add('active');
+   var sec=btn.getAttribute('data-sec');
+   document.querySelectorAll('details.card[data-cat]').forEach(function(c){
+    if(sec==='all'||c.getAttribute('data-cat')===sec){
+     c.style.display='';
+     if(sec!=='all')c.open=true;
+    }else{
+     c.style.display='none';
+    }
+   });
+  };
+ });
 }
 
-async function run(eid,isAuto){
+async function run(eid){
  if(busy)return;
- eid=(eid||'').trim();if(!eid)return;
  busy=true;
- if(!isAuto){$('out').innerHTML='<p class="note">טוען נתונים מהשרת...</p>';$('sync').textContent=''}
  try{
-  if(!isAuto)sset('eid',eid);
-  $('eid').value=eid;
-  $('eid-bar').style.display='none';
-  var res=await Promise.all([load(eid),getRes(),fetchPeriodicals(eid,last)]);
-  last=res[0];RES=res[1];
-  show(last,RES);
-  var t=new Date((last.approxTime||Date.now()/1000)*1000);
-  $('sync').textContent='עודכן: '+t.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+(liveServerEvents?' • אירועים מסונכרנים מהשרת':'');
+  if(!last)$('out').innerHTML='<p class="note">טוען נתונים מהשרת...</p>';
+  var res=await Promise.all([load(eid),getRes()]);
+  last=res[0];
+  await fetchPeriodicals(eid,last);
+  show(last,res[1]);
+  $('sync').textContent='עודכן לאחרונה: '+new Date().toLocaleTimeString('he-IL')+' • מקור אירועים: '+(liveServerEvents?'סנכרון שרת':'לוח זמנים אוטומטי PT');
  }catch(e){
-  if(!isAuto)$('out').innerHTML='<p class="err">'+esc(e.message)+'</p>';
- }finally{busy=false}
+  $('out').innerHTML='<p class="err">'+esc(e.message)+'</p>';
+ }finally{
+  busy=false;
+ }
 }
 
-$('go').onclick=function(){run($('eid').value,false)};
-$('btn-ref').onclick=function(){run($('eid').value,false)};
-$('btn-eid').onclick=function(){var b=$('eid-bar');b.style.display=(b.style.display==='none')?'flex':'none';$('eid').focus()};
-$('eid').onkeydown=function(e){if(e.key==='Enter')run($('eid').value,false)};
-['slots','run','shipTarget'].forEach(function(id){$(id).onchange=function(){sset(id,$(id).value);if(last&&RES)show(last,RES)}});
-['ev-prestige','ev-epic','ev-common','ev-cap','ev-drones','ev-craft'].forEach(function(id){$(id).onchange=function(){manualEventOverrides[id]=true;if(last&&RES)show(last,RES)}});
+$('go').onclick=function(){
+ var v=$('eid').value.trim();
+ if(!v)return;
+ periodicalsProxyUnsupported=false;
+ sset('eid',v);
+ $('eid-bar').style.display='none';
+ run(v);
+};
+$('btn-ref').onclick=function(){var v=sget('eid');if(v)run(v)};
+$('btn-eid').onclick=function(){
+ var bar=$('eid-bar');
+ bar.style.display=(bar.style.display==='none')?'flex':'none';
+ $('eid').focus();
+};
 
-['slots','run','shipTarget'].forEach(function(id){var v=sget(id);if(v)$(id).value=v});
+['slots','run','shipTarget'].forEach(function(id){
+ var el=$(id);
+ if(!el)return;
+ var sv=sget('cfg_'+id);
+ if(sv)el.value=sv;
+ el.onchange=function(){
+  sset('cfg_'+id,el.value);
+  if(last&&RES)show(last,RES);
+ };
+});
+
+['ev-prestige','ev-epic','ev-common','ev-cap','ev-drones','ev-craft'].forEach(function(id){
+ var el=$(id);
+ if(!el)return;
+ el.onchange=function(){
+  manualEventOverrides[id]=true;
+  if(last&&RES)show(last,RES);
+ };
+});
+
 applyDefaultEventsIfUnset();
-var saved=sget('eid');if(saved){$('eid').value=saved;run(saved,false)}
-setInterval(function(){var e=sget('eid');if(e&&!document.hidden)run(e,true)},20000);
+
+var s=sget('eid');
+if(s){
+ $('eid').value=s;
+ $('eid-bar').style.display='none';
+ run(s);
+}
+setInterval(function(){var v=sget('eid');if(v)run(v)},20000);
 </script></body></html>
