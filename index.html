@@ -105,7 +105,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 34</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 35</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -186,10 +186,53 @@ var VIRT_FACILITY={
 };
 
 var EGG_ORDER=['EDIBLE','SUPERFOOD','MEDICAL','ROCKET_FUEL','SUPER_MATERIAL','FUSION','QUANTUM','IMMORTALITY','TACHYON','GRAVITON','DILITHIUM','PRODIGY','TERRAFORM','ANTIMATTER','DARK_MATTER','AI','NEBULA','UNIVERSE','ENLIGHTENMENT'];
-var EGG_HE={EDIBLE:'Edible',SUPERFOOD:'Superfood',MEDICAL:'Medical',ROCKET_FUEL:'Rocket Fuel',SUPER_MATERIAL:'Super Material',FUSION:'Fusion',QUANTUM:'Quantum',IMMORTALITY:'Immortality',TACHYON:'Tachyon',GRAVITON:'Graviton',DILITHIUM:'Dilithium',PRODIGY:'Prodigy',TERRAFORM:'Terraform',ANTIMATTER:'Antimatter',DARK_MATTER:'Dark Matter',AI:'AI',NEBULA:'Nebula',UNIVERSE:'Universe',ENLIGHTENMENT:'Enlightenment'};
-var EGG_BASE_VAL={EDIBLE:0.25,SUPERFOOD:1.25,MEDICAL:6.25,ROCKET_FUEL:30,SUPER_MATERIAL:150,FUSION:700,QUANTUM:3000,IMMORTALITY:12500,TACHYON:50000,GRAVITON:175000,DILITHIUM:525000,PRODIGY:1500000,TERRAFORM:10000000,ANTIMATTER:1000000000,DARK_MATTER:100000000000,AI:1000000000000,NEBULA:15000000000000,UNIVERSE:100000000000000,ENLIGHTENMENT:1e-9};
-var EGG_DISCOVER_FV=[0,2.2e4,4.2e6,3.4e8,3.6e10,5.2e12,7.6e14,1.2e17,1.9e19,3.2e21,4.8e23,7.6e25,1.2e28,2.0e30,3.2e32,5.6e34,9.2e36,1.5e39,2.8e41];
-var EGG_UPGRADE_FV=[0,1.0e5,2.0e7,1.5e9,1.6e11,2.4e13,3.5e15,5.4e17,8.8e19,1.5e22,2.2e24,3.5e26,5.6e28,9.2e30,1.5e33,2.5e35,4.2e37,6.8e39,1.3e42];
+var EGG_HE={EDIBLE:'Edible',SUPERFOOD:'Superfood',MEDICAL:'Medical',ROCKET_FUEL:'Rocket Fuel',SUPER_MATERIAL:'Super Material',FUSION:'Fusion',QUANTUM:'Quantum',IMMORTALITY:'CRISPR (Immortality)',TACHYON:'Tachyon',GRAVITON:'Graviton',DILITHIUM:'Dilithium',PRODIGY:'Prodigy',TERRAFORM:'Terraform',ANTIMATTER:'Antimatter',DARK_MATTER:'Dark Matter',AI:'AI',NEBULA:'Nebula',UNIVERSE:'Universe',ENLIGHTENMENT:'Enlightenment'};
+var EGG_BASE_VAL={EDIBLE:0.25,SUPERFOOD:1.25,MEDICAL:6.25,ROCKET_FUEL:30,SUPER_MATERIAL:150,FUSION:700,QUANTUM:3000,IMMORTALITY:12500,TACHYON:50000,GRAVITON:175000,DILITHIUM:525000,PRODIGY:1500000,TERRAFORM:10000000,ANTIMATTER:1000000000,DARK_MATTER:100000000000,AI:1000000000000,NEBULA:15000000000000,UNIVERSE:100000000000000,ENLIGHTENMENT:1e-7};
+var EGG_FV_COEFF={EDIBLE:2,SUPERFOOD:3,MEDICAL:4,ROCKET_FUEL:5,SUPER_MATERIAL:6,FUSION:7,QUANTUM:8,IMMORTALITY:9,TACHYON:10,GRAVITON:11,DILITHIUM:12,PRODIGY:13,TERRAFORM:14,ANTIMATTER:15,DARK_MATTER:16,AI:17,NEBULA:18,UNIVERSE:19,ENLIGHTENMENT:6};
+
+// ערכי גילוי (First Appearance) וקניית מעבר (Buy Price) מדויקים מתוך Egg, Inc. Wiki
+var EGG_DISCOVER_FV=[
+ 0,        // 0: EDIBLE
+ 1e7,      // 1: SUPERFOOD (10M)
+ 8.4e8,    // 2: MEDICAL (840M)
+ 3.8e10,   // 3: ROCKET_FUEL (38B)
+ 2.7e13,   // 4: SUPER_MATERIAL (27T)
+ 8e15,     // 5: FUSION (8q)
+ 3.6e18,   // 6: QUANTUM (3.6Q)
+ 1.5e22,   // 7: IMMORTALITY / CRISPR (15s)
+ 2.7e25,   // 8: TACHYON (27S)
+ 1.5e29,   // 9: GRAVITON (150o)
+ 7.6e32,   // 10: DILITHIUM (760N)
+ 2.5e36,   // 11: PRODIGY (2.5U)
+ 3.2e39,   // 12: TERRAFORM (3.2D)
+ 2e43,     // 13: ANTIMATTER (20Td)
+ 1.9e47,   // 14: DARK_MATTER (190qd)
+ 5.1e51,   // 15: AI (5.1sd)
+ 3.2e55,   // 16: NEBULA (32Sd)
+ 6.4e58,   // 17: UNIVERSE (640Od)
+ 5.7e64    // 18: ENLIGHTENMENT (57V)
+];
+var EGG_UPGRADE_FV=[
+ 0,        // 0: EDIBLE
+ 6.8e7,    // 1: SUPERFOOD (68M)
+ 5.3e9,    // 2: MEDICAL (5.3B)
+ 2.4e11,   // 3: ROCKET_FUEL (240B)
+ 1.7e14,   // 4: SUPER_MATERIAL (170T)
+ 5e16,     // 5: FUSION (50q)
+ 2.3e19,   // 6: QUANTUM (23Q)
+ 9.4e22,   // 7: IMMORTALITY / CRISPR (94s)
+ 1.7e26,   // 8: TACHYON (170S)
+ 9.8e29,   // 9: GRAVITON (980o)
+ 4.8e33,   // 10: DILITHIUM (4.8d)
+ 1.6e37,   // 11: PRODIGY (16U)
+ 2e40,     // 12: TERRAFORM (20D)
+ 1.3e44,   // 13: ANTIMATTER (130Td)
+ 1.2e48,   // 14: DARK_MATTER (1.2Qd)
+ 3.2e52,   // 15: AI (32sd)
+ 2e56,     // 16: NEBULA (200Sd)
+ 4e60,     // 17: UNIVERSE (4Nd)
+ 3.6e65    // 18: ENLIGHTENMENT (360V)
+];
 
 var SHIP_ORDER=['CHICKEN_ONE','CHICKEN_NINE','CHICKEN_HEAVY','BCR','QUINTILLION_CHICKEN','CORVETTE','GALENGG','DEFIHENT','VOYEGGER','HENERPRISE','ATREGGIES'];
 var SHIP_META={
@@ -924,7 +967,8 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg){
  }
  if(baseCap===0)baseCap=1000;
 
- var habMult=cm.habCap, layMult=cm.layRate, shipMult=cm.shipCap, valMult=cm.eggVal, extraFleet=0, ihrAddPerHab=0;
+ // נפריד בין מכפילי מחקר בלבד (לנוסחת Farm Value המדויקת של המשחק) לבין מכפילים כוללים (ארטיפקטים + Colleggtibles)
+ var resHabMult=1, resLayMult=1, resShipMult=1, resValMult=1, extraFleet=0, ihrAddPerHab=0;
  if(R && R.length){
   for(var k=0;k<R.length;k++){
    var r=R[k];
@@ -932,21 +976,20 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg){
    if(L<=0)continue;
    var cats=String(r.categories||'').split(',');
    var mult=(r.levels_compound==='multiplicative')?Math.pow(1+r.per_level,L):(1+r.per_level*L);
-   if(cats.indexOf('hab_capacity')>=0)habMult*=mult;
-   if(cats.indexOf('egg_laying_rate')>=0)layMult*=mult;
-   if(cats.indexOf('shipping_capacity')>=0)shipMult*=mult;
-   if(cats.indexOf('egg_value')>=0)valMult*=mult;
+   if(cats.indexOf('hab_capacity')>=0)resHabMult*=mult;
+   if(cats.indexOf('egg_laying_rate')>=0)resLayMult*=mult;
+   if(cats.indexOf('shipping_capacity')>=0)resShipMult*=mult;
+   if(cats.indexOf('egg_value')>=0)resValMult*=mult;
    if(r.type==='common' && cats.indexOf('internal_hatchery_rate')>=0)ihrAddPerHab+=r.per_level*L;
    if(cats.indexOf('fleet_size')>=0)extraFleet+=Math.round(r.per_level*L);
   }
  }
 
- if(artInfo && artInfo.gussetMult>1)habMult*=artInfo.gussetMult;
+ var habMult=resHabMult * cm.habCap * ((artInfo && artInfo.gussetMult>1)?artInfo.gussetMult:1);
  var maxCap=Math.floor(baseCap*habMult);
  var habPct=maxCap>0?Math.min(100,(pop/maxCap)*100):0;
 
- if(artInfo && artInfo.metronomeMult>1)layMult*=artInfo.metronomeMult;
- if(artInfo && artInfo.tachyonStoneMult>1)layMult*=artInfo.tachyonStoneMult;
+ var layMult=resLayMult * cm.layRate * ((artInfo && artInfo.metronomeMult>1)?artInfo.metronomeMult:1) * ((artInfo && artInfo.tachyonStoneMult>1)?artInfo.tachyonStoneMult:1);
  var layRatePerChicken=2*layMult;
  var totalLayRate=pop*layRatePerChicken;
 
@@ -967,8 +1010,7 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg){
  var maxVehSlots=Math.min(17, 4 + extraFleet);
  var unusedVehSlots=Math.max(0,maxVehSlots - vehs.filter(function(x){return x>=0}).length);
 
- if(artInfo && artInfo.compassMult>1)shipMult*=artInfo.compassMult;
- if(artInfo && artInfo.quantumStoneMult>1)shipMult*=artInfo.quantumStoneMult;
+ var shipMult=resShipMult * cm.shipCap * ((artInfo && artInfo.compassMult>1)?artInfo.compassMult:1) * ((artInfo && artInfo.quantumStoneMult>1)?artInfo.quantumStoneMult:1);
  var totalShipCap=baseShip*shipMult;
 
  var rawPct=totalShipCap>0?(totalLayRate/totalShipCap)*100:0;
@@ -983,19 +1025,45 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg){
  var ebPercent=curSE * bonusPerSE * Math.pow(bonusPerPE,peCount) * eotMult * artEarnMult;
  var ebIncomeMult=1 + ebPercent/100;
 
+ // EB עבור Farm Value (כולל SE, PE, Truth Eggs, Book of Basan, Soul/Prophecy Stones — ללא Necklace/Ankh/Shell Stones)
+ var fvEbPercent=curSE * bonusPerSE * Math.pow(bonusPerPE,peCount) * eotMult;
+ var fvEbMult=1 + fvEbPercent/100;
+
  var baseEggVal=EGG_BASE_VAL[sim.eggType]||0.25;
+ var valMult=resValMult * cm.eggVal;
  var effectiveShippedPerMin=Math.min(totalLayRate,totalShipCap);
 
- var layPerChickenPerSec=layRatePerChicken/60;
- var maxSupportedPop=(layPerChickenPerSec>0 && totalShipCap>0)?((totalShipCap/60)/layPerChickenPerSec):maxCap;
- var curSupportedPop=Math.min(pop,maxSupportedPop);
- var unfilledSupportedPop=Math.max(0,Math.min(maxCap,maxSupportedPop)-pop);
- var effPop=curSupportedPop + 0.2*unfilledSupportedPop;
- var effIncPerSec=effPop * layPerChickenPerSec * baseEggVal * valMult * ebIncomeMult;
+ var activeHabs=Math.max(1,4-emptyHabSlots);
+ var resIhrOnlinePerMin=ihrAddPerHab * activeHabs * (1 + 0.05*(elv['epic_internal_incubators']||0));
+ var resIhrOfflinePerMin=resIhrOnlinePerMin * (1 + 0.10*(elv['int_hatch_calm']||0));
+
+ var ihrOnlinePerMin=resIhrOnlinePerMin * cm.ihr * (artInfo?artInfo.chaliceMult:1) * (artInfo?artInfo.lifeStoneMult:1) * eotMult;
+ var ihrOfflinePerMin=ihrOnlinePerMin * (1 + 0.10*(elv['int_hatch_calm']||0));
+ var remPop=Math.max(0,maxCap-pop);
+ var minsToFullHabs=(remPop>0 && ihrOfflinePerMin>0)?(remPop/ihrOfflinePerMin):0;
+
+ var silosOwned=Math.max(1,Number(sim.silosOwned)||1);
+ var siloCapLv=elv['silo_capacity']||0;
+ var maxSiloMins=silosOwned * (60 + 6*siloCapLv);
+ var siloBottleneck=(minsToFullHabs > maxSiloMins && habPct < 97 && pop > 1000);
+
+ // נוסחת Farm Value הרשמית של המשחק (Egg, Inc. Wiki: Farm Value):
+ // Farm Value = 500 * L * V_res * E_res * EB * A * P_eff
+ var resLayPerChicken=2*resLayMult;
+ var resMaxCap=Math.floor(baseCap*resHabMult);
+ var resTotalShipCap=baseShip*resShipMult;
+ var maxShippablePop=(resLayPerChicken>0 && resTotalShipCap>0)?(resTotalShipCap/resLayPerChicken):resMaxCap;
+ var pCur=Math.min(pop,maxShippablePop);
+ var sSpace=Math.max(0,Math.min(resMaxCap,maxShippablePop)-pop);
+ var hAway=Math.min(sSpace,resIhrOfflinePerMin*maxSiloMins);
+ var pEff=pCur + 0.2*sSpace + 0.8*hAway;
+ var fvCoeff=isVirt?6:(EGG_FV_COEFF[sim.eggType]||2);
  var accTricksMult=1 + 0.05*(elv['accounting_tricks']||0);
  var lensMult=(artInfo && artInfo.mercurysLensMult)?artInfo.mercurysLensMult:1;
- var estFarmValue=(effIncPerSec>0)?(60000 * Math.pow(effIncPerSec,0.75) * accTricksMult * lensMult):0;
- var farmValue=Math.max(Number(sim.farmValue||0),estFarmValue);
+ var estFarmValue=500 * fvCoeff * baseEggVal * resValMult * resLayPerChicken * fvEbMult * accTricksMult * lensMult * pEff;
+
+ var storedFV=Number(sim.farmValue||0);
+ var farmValue=(storedFV>0)?storedFV:estFarmValue;
 
  var baseMaxRCB=calcBaseMaxRCB(clv,elv,R);
  var maxRCB=Math.max(3,baseMaxRCB + (artInfo?artInfo.vialAdd:0) + (artInfo?artInfo.terraAdd:0));
@@ -1005,17 +1073,6 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg){
  var idleIncomePerMin=baseIncomePerMin * lunarMult;
  var activeIncomePerMin=baseIncomePerMin * maxRCB;
  var lunarBeatsActive=(lunarMult > maxRCB && !isEnl);
-
- var activeHabs=Math.max(1,4-emptyHabSlots);
- var ihrOnlinePerMin=ihrAddPerHab * activeHabs * cm.ihr * (1 + 0.05*(elv['epic_internal_incubators']||0)) * (artInfo?artInfo.chaliceMult:1) * (artInfo?artInfo.lifeStoneMult:1) * eotMult;
- var ihrOfflinePerMin=ihrOnlinePerMin * (1 + 0.10*(elv['int_hatch_calm']||0));
- var remPop=Math.max(0,maxCap-pop);
- var minsToFullHabs=(remPop>0 && ihrOfflinePerMin>0)?(remPop/ihrOfflinePerMin):0;
-
- var silosOwned=Math.max(1,Number(sim.silosOwned)||1);
- var siloCapLv=elv['silo_capacity']||0;
- var maxSiloMins=silosOwned * (60 + 6*siloCapLv);
- var siloBottleneck=(minsToFullHabs > maxSiloMins && habPct < 97 && pop > 1000);
 
  return {
   pop:pop,maxCap:maxCap,habPct:habPct,nearFull:habPct>=85,isFull:habPct>=97,
@@ -2332,10 +2389,10 @@ function plan(b,R){
 
  if(!eggProg.canUpgradeEgg && eggProg.nextName && !macro.isVirt && !macro.isEnl){
   var nextEggPrio=(eggProg.pct>=40)?27:49;
-  var multiEggNote=fuelInfo.shipProg.cappedReason
-   ?(' ('+fuelInfo.shipProg.cappedReason+', אך מעבר ל-'+eggProg.nextName+' יכפיל פי 5 את ההכנסות ויאיץ צבירת SE).')
-   :'';
-  a.push([nextEggPrio,'התקדמות לביצת '+eggProg.nextName+' ('+eggProg.pct.toFixed(0)+'% משווי החווה)','שווי חווה: '+fmt(eggProg.curFV)+' / '+fmt(eggProg.reqFV)+' הנדרשים למעבר.'+multiEggNote]);
+  var stageNote=eggProg.alreadyDiscovered
+   ?('הביצה כבר התגלתה — נותר להגיע לסף קניית המעבר ('+fmt(eggProg.reqFV)+').')
+   :('סף גילוי הביצה: '+fmt(eggProg.reqDiscoverFV)+' • סף מעבר: '+fmt(eggProg.reqFV)+'.');
+  a.push([nextEggPrio,'התקדמות לביצת '+eggProg.nextName+' ('+eggProg.pct.toFixed(0)+'% משווי החווה)','שווי חווה: '+fmt(eggProg.curFV)+' / '+fmt(eggProg.reqFV)+' • '+stageNote]);
  }
 
  if(trophies.eligible && trophies.unlocked && trophies.nextTarget && !macro.isEnl && !macro.isVirt){
@@ -2501,6 +2558,8 @@ function copyDiag(){
    currentEgg:sim.eggType,
    cash:Number(P.cash.toExponential(3)),
    farmValue:Number(P.logi.farmValue.toExponential(3)),
+   nextEggDiscoverFV:P.eggProg.reqDiscoverFV,
+   nextEggUpgradeFV:P.eggProg.reqFV,
    colleggtiblesUnlocked:P.collegg.unlocked.length,
    diamondTrophiesCompleted:P.trophies.completed+'/18',
    nextDiamondTrophy:P.trophies.nextTarget?P.trophies.nextTarget.eggId:'ALL_DONE',
@@ -2669,7 +2728,7 @@ function show(b,R){
  if(P.eggProg.nextName && !P.macro.isVirt){
   h+='<div class="c-box"><div class="c-head"><span>התקדמות לביצת '+esc(P.eggProg.nextName)+'</span><small>'+P.eggProg.pct.toFixed(0)+'%</small></div>';
   h+='<div class="prog-bar"><div class="prog-fill '+(P.eggProg.canUpgradeEgg?'ok':'')+'" style="width:'+P.eggProg.pct.toFixed(0)+'%"></div></div>';
-  h+='<small>שווי חווה: '+fmt(P.eggProg.curFV)+' / יעד מעבר: '+fmt(P.eggProg.reqFV)+(P.eggProg.canUpgradeEgg?' • <b>מוכן לשדרוג!</b>':'')+'</small></div>';
+  h+='<small>שווי חווה: '+fmt(P.eggProg.curFV)+' • גילוי: '+fmt(P.eggProg.reqDiscoverFV)+' • קניית מעבר: '+fmt(P.eggProg.reqFV)+(P.eggProg.canUpgradeEgg?' • <b>מוכן לשדרוג!</b>':'')+'</small></div>';
  }
  h+='<div class="c-box"><div class="c-head"><span>עומס משלוחים (רכבים)</span><span class="badge '+(P.logi.shipBottleneck?'b-rew':'b-pts')+'">'+(P.logi.shipBottleneck?'צוואר בקבוק (>90%)!':P.logi.shipUtilPct.toFixed(0)+'% עומס')+'</span></div>';
  h+='<div class="prog-bar"><div class="prog-fill '+(P.logi.shipBottleneck?'bad':'')+'" style="width:'+P.logi.shipUtilPct.toFixed(0)+'%"></div></div>';
@@ -2866,69 +2925,60 @@ function show(b,R){
    h+='<p><small><b>מיכל דלק (רמה '+P.fuelInfo.tankLevel+'):</b> '+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+' ('+P.fuelInfo.minLaunchesInTank+' שיגורי '+esc(sp.missionDur)+' זמינים במיכל)</small></p>';
   }
   if(P.ships.length){
-   P.ships.forEach(function(s){h+=row('🚀 '+esc(s[0]),'<b>'+esc(s[1])+'</b>')});
-  }else if(P.fuelInfo.canLaunchNow){
-   h+='<small>מוכן לשיגור עכשיו: <b>'+esc(shipName(P.fuelInfo.target))+' ('+sp.missionDur+')</b> • עלות: '+fmt(P.fuelInfo.fundCost)+' מזומן • דלק: '+esc(P.fuelInfo.reqNames)+'</small>';
-  }else if(P.fuelInfo.canFuelNow && !P.fuelInfo.canAffordFund){
-   h+='<small>הדלק זמין ל-<b>'+esc(shipName(P.fuelInfo.target))+'</b>, אך חסר מזומן לשיגור: <b>'+fmt(P.cash)+' / '+fmt(P.fuelInfo.fundCost)+'</b>.</small>';
+   P.ships.forEach(function(s){h+=row('🚀 '+esc(s[0]),'<small>'+esc(s[1])+'</small>')});
   }else{
-   h+='<small>אין ספינות באוויר. '+esc(P.fuelInfo.missingDetails[0]||'')+'</small>';
+   h+='<p><small>אין ספינות באוויר כרגע ('+P.free+'/'+P.shipSlots+' פנויים לשיגור).</small></p>';
   }
  }
  h+='</div></div>';
 
- h+='<details class="card"><summary class="sum-head"><span>אבחון ונתוני חשבון (סכמת JSON)</span><small>▼</small></summary><div style="margin-top:8px">';
- h+=row('Earnings Bonus (EB)',fmt(P.logi.ebPercent)+'% ('+esc(P.logi.farmerRole)+')')+row('Soul Eggs',fmt(P.prestigeInfo.curSE)+' (+'+fmt(P.prestigeInfo.unclaimedSE)+' ממתינים)')+row('Prophecy Eggs',fmt(P.g.eggsOfProphecy))+row('Eggs of Truth (EoT)',fmt(P.logi.eotCount))+row('Diamond Trophies',P.trophies.completed+'/18')+row('תפוסת לולים',fmt(P.logi.pop)+' / '+fmt(P.logi.maxCap))+row('שווי חווה',fmt(P.eggProg.curFV));
- h+='<button class="copy-btn" onclick="copyDiag()">העתק נתוני חווה והחלטות (ללא EID)</button>';
- h+='</div></details>';
+ h+='<button class="copy-btn" onclick="copyDiag()">העתק נתוני חווה (ללא EID)</button>';
  $('out').innerHTML=h;
 }
 
-async function run(silent){
- if(busy)return;var eid=$('eid').value.trim();if(!eid){$('out').innerHTML='<p class="err">הכנס EID</p>';return}
- sset('eid',eid);$('eid-bar').style.display='none';
- busy=true;if(!silent||!last)$('out').innerHTML='<p>טוען...</p>';
+async function run(q){
+ if(busy)return;
+ var eid=$('eid').value.trim();if(!eid){$('eid-bar').style.display='flex';return}
+ sset('eid',eid);
+ $('eid-bar').style.display='none';
+ busy=true;
+ if(!q)$('out').innerHTML='<p class="note">טוען נתונים מהשרת...</p>';
  try{
-  var R=await getRes();
-  last=await load(eid);
+  var x=await Promise.all([load(eid),getRes()]);
+  last=x[0];
   await fetchPeriodicals(eid,last);
-  show(last,R);
-  $('sync').textContent='עודכן: '+new Date().toLocaleTimeString('he-IL')+' • גיבוי לפני '+Math.round((Date.now()/1000-(last.approxTime||0))/60)+' דק\''+(liveServerEvents?' • אירועים מסונכרנים מהשרת':'');
+  show(last,RES);
+  $('sync').textContent='עודכן: '+new Date().toLocaleTimeString('he-IL');
+ }catch(e){
+  $('eid-bar').style.display='flex';
+  if(!last)$('out').innerHTML='<p class="err">'+esc(e.message)+'</p>';
+ }finally{
+  busy=false;
  }
- catch(e){$('eid-bar').style.display='flex';if(!last||!silent){$('out').innerHTML='<p class="err">'+esc(e.message||e)+'</p>'}else{$('sync').textContent='הרענון נכשל: '+(e.message||e)}}
- busy=false;
 }
 
-(function initEvents(){
- var today=new Date().toDateString();
- var savedDate=sget('ev_date');
- var sameDay=(savedDate===today);
- if(!sameDay)sset('ev_date',today);
- var def=getActiveEvents().autoDefaults;
- var map={'ev-prestige':def.prestige,'ev-epic':def.epic,'ev-common':def.common,'ev-cap':false,'ev-drones':false,'ev-craft':false};
- Object.keys(map).forEach(function(id){
-  var el=$(id);
-  if(!el)return;
-  var sv=sameDay?sget(id):null;
-  el.checked=(sv!==null)?(sv==='1'):map[id];
-  el.onchange=function(){
-   sset('ev_date',new Date().toDateString());
-   sset(id,el.checked?'1':'0');
-   if(last&&RES)show(last,RES);
-  };
- });
-})();
+var defEv=getActiveEvents().autoDefaults;
+if($('ev-prestige'))$('ev-prestige').checked=defEv.prestige;
+if($('ev-epic'))$('ev-epic').checked=defEv.epic;
+if($('ev-common'))$('ev-common').checked=defEv.common;
 
 $('go').onclick=function(){run(false)};
 $('btn-ref').onclick=function(){run(false)};
-$('btn-eid').onclick=function(){var b=$('eid-bar');b.style.display=(b.style.display==='none')?'flex':'none';$('eid').focus()};
-$('slots').onchange=function(){sset('slots',$('slots').value);if(last&&RES)show(last,RES)};
-$('run').onchange=function(){sset('run',$('run').value);if(last&&RES)show(last,RES)};
-$('shipTarget').onchange=function(){sset('shipTarget',$('shipTarget').value);if(last&&RES)show(last,RES)};
-var savedSlots=sget('slots');if(savedSlots)$('slots').value=savedSlots;
-var savedRun=sget('run');if(savedRun)$('run').value=savedRun;
-var savedShip=sget('shipTarget');if(savedShip)$('shipTarget').value=savedShip;
-var saved=sget('eid');if(saved){$('eid').value=saved;run(false)}
-setInterval(function(){if($('eid').value.trim())run(true)},20000);
-</script></body></html>
+$('btn-eid').onclick=function(){var b=$('eid-bar');b.style.display=(b.style.display==='none')?'flex':'none'};
+$('eid').onkeydown=function(e){if(e.key==='Enter')run(false)};
+['slots','run','shipTarget','ev-prestige','ev-epic','ev-common','ev-cap','ev-drones','ev-craft'].forEach(function(id){
+ var el=$(id);
+ if(el)el.onchange=function(){if(last&&RES)show(last,RES)};
+});
+
+var s=sget('eid');
+if(s){
+ $('eid').value=s;
+ $('eid-bar').style.display='none';
+ run(false);
+}
+setInterval(function(){if($('eid').value&&!document.hidden)run(true)},20000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&$('eid').value)run(true)});
+</script>
+</body></html>
 
