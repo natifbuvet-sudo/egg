@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 47</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 46</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -1144,8 +1144,6 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier){
 
  var fvAtPop=calcFVForPop(pop);
  var estFarmValue=fvAtPop.fv;
- var pop90=Math.max(pop, Math.floor(maxCap * 0.90));
- var fvAt90Pct=(pop90>0)?calcFVForPop(pop90).fv:estFarmValue;
  var storedFV=Number(sim.farmValue||0);
 
  var nowSec=Date.now()/1000;
@@ -1159,7 +1157,6 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier){
   storedFV:storedFV,
   estFarmValue:estFarmValue,
   estFarmValueNow:estFarmValueNow,
-  fvAt90Pct:fvAt90Pct,
   backupAgeMins:Number((backupAgeSec/60).toFixed(2)),
   estPopNow:estPopNow,
   fvCoeff:fvCoeff,
@@ -1200,7 +1197,7 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier){
   pop:pop,maxCap:maxCap,habPct:habPct,nearFull:habPct>=85,isFull:habPct>=97,
   emptyHabSlots:emptyHabSlots,unusedVehSlots:unusedVehSlots,
   totalLayRate:totalLayRate,totalShipCap:totalShipCap,shipUtilPct:shipUtilPct,rawPct:rawPct,shipBottleneck:shipBottleneck,
-  ebPercent:ebPercent,farmerRole:getFarmerRole(ebPercent),eotCount:eotCount,farmValue:farmValue,fvAt90Pct:fvAt90Pct,fvDebug:fvDebug,
+  ebPercent:ebPercent,farmerRole:getFarmerRole(ebPercent),eotCount:eotCount,farmValue:farmValue,fvDebug:fvDebug,
   bonusPerSE:bonusPerSE,bonusPerPE:bonusPerPE,peCount:peCount,
   idleIncomePerMin:idleIncomePerMin,activeIncomePerMin:activeIncomePerMin,baseMaxRCB:baseMaxRCB,maxRCB:maxRCB,lunarMult:lunarMult,lunarBeatsActive:lunarBeatsActive,
   ihrOnlinePerMin:ihrOnlinePerMin,ihrOfflinePerMin:ihrOfflinePerMin,minsToFullHabs:minsToFullHabs,
@@ -1321,18 +1318,10 @@ function calcEggProgress(b,sim,logi,fuelInfo){
  var reqDiscoverFV=(idx>=0 && idx+1<EGG_DISCOVER_FV.length)?EGG_DISCOVER_FV[idx+1]:0;
  var reqUpgradeFV=(idx>=0 && idx+1<EGG_UPGRADE_FV.length)?EGG_UPGRADE_FV[idx+1]:0;
  var curFV=logi.farmValue;
- var fvAt90Pct=logi.fvAt90Pct||curFV;
  var pct=reqUpgradeFV>0?Math.min(100,(curFV/reqUpgradeFV)*100):100;
  var canUpgradeEgg=(nextEgg && curFV>=reqUpgradeFV && reqUpgradeFV>0);
  var maxReachedIdx=EGG_ORDER.indexOf(g.maxEggReached||'');
  var alreadyDiscovered=(maxReachedIdx>idx) || (reqDiscoverFV>0 && curFV>=reqDiscoverFV);
-
- var peakPrestigeIdx=(idx>=0)?Math.min(17,Math.max(idx,maxReachedIdx)):-1;
- var peakPrestigeEgg=(peakPrestigeIdx>=0)?EGG_ORDER[peakPrestigeIdx]:curEgg;
- var peakPrestigeName=EGG_HE[peakPrestigeEgg]||peakPrestigeEgg;
- var belowPeakEgg=(idx>=0 && peakPrestigeIdx>idx);
- var nextEggIsPrestigeUpgrade=!!(nextEgg && nextEgg!=='ENLIGHTENMENT' && reqUpgradeFV>0);
- var willCrossNextEggAt90=!!(nextEggIsPrestigeUpgrade && fvAt90Pct>=reqUpgradeFV);
 
  var isFuelEggForShip=(fuelInfo.reqFuels.indexOf(curEgg)>=0);
  var shouldFillTankFirst=(fuelInfo.hasFuelTank && isFuelEggForShip && !fuelInfo.hasFuelInTank && fuelInfo.tankFreeSpace>=1e8);
@@ -1340,10 +1329,8 @@ function calcEggProgress(b,sim,logi,fuelInfo){
  return {
   curEgg:curEgg,curName:EGG_HE[curEgg]||curEgg,
   nextEgg:nextEgg,nextName:nextEgg?(EGG_HE[nextEgg]||nextEgg):null,
-  curFV:curFV,fvAt90Pct:fvAt90Pct,reqFV:reqUpgradeFV,reqDiscoverFV:reqDiscoverFV,pct:pct,
+  curFV:curFV,reqFV:reqUpgradeFV,reqDiscoverFV:reqDiscoverFV,pct:pct,
   canUpgradeEgg:canUpgradeEgg,alreadyDiscovered:alreadyDiscovered,
-  peakPrestigeEgg:peakPrestigeEgg,peakPrestigeName:peakPrestigeName,
-  belowPeakEgg:belowPeakEgg,willCrossNextEggAt90:willCrossNextEggAt90,
   shouldFillTankFirst:shouldFillTankFirst
  };
 }
@@ -1380,7 +1367,6 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg,macro,events,hasActiveBoost,e
  var autoReadyGainPct=isLate?14:((curSE<1000)?100:((curSE<1e6)?35:22));
 
  var isWeekend=(events.prestigeMultiplier>1);
- var holdBoostsForNextEgg=!!(eggProg && (eggProg.willCrossNextEggAt90 || eggProg.belowPeakEgg));
  var hasAffordableResearch=(C.affordableList.length>0);
  var hasPrestigeBoosts=(g.boosts||[]).some(function(bo){
   var info=getBoostInfo(bo.boostId||bo.id||'');
@@ -1425,7 +1411,7 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg,macro,events,hasActiveBoost,e
    ?'האוכלוסייה עברה 4.2B על הבוסט הפעיל! בצע Prestige מיד, קפוץ ל-Universe וסגור את המשחק ל-65+ שניות לסבב הבא.'
    :'האוכלוסייה עברה 4.2B על הבוסט הפעיל! בצע Prestige מיד וקפוץ חזרה ל-Universe כדי למקסם רגליים על הבוסט הפעיל.';
  }else if(hab.isFull && !hasAffordableResearch){
-  if(isWeekend && !holdBoostsForNextEgg && gainPct<autoReadyGainPct && hasPrestigeBoosts){
+  if(isWeekend && gainPct<autoReadyGainPct && hasPrestigeBoosts){
    status='boost_then_prestige';
    title='אירוע '+events.prestigeMultiplier+'x Prestige: הפעל בוסט לפני Prestige';
    reason=hab.lunarBeatsActive
@@ -1440,7 +1426,7 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg,macro,events,hasActiveBoost,e
   status='ready';
   title='הגעת לקיר — בצע Prestige עכשיו (+'+fmt(unclaimedSE)+' SE)';
   reason='השדרוג הבא ('+nextRes.r.name+') דורש ~'+fmtWait(activeMinsToNext)+' אקטיבי'+(isFinite(idleMinsToNext)?' (~'+fmtWait(idleMinsToNext)+' אופליין)':'')+', וכבר צברת +'+gainPct.toFixed(0)+'% SE.'+(isWeekend?' (אירוע '+events.prestigeMultiplier+'x Prestige פעיל!)':'');
- }else if(hitTimeWall && isWeekend && !holdBoostsForNextEgg && gainPct>=5 && hasPrestigeBoosts){
+ }else if(hitTimeWall && isWeekend && gainPct>=5 && hasPrestigeBoosts){
   status='boost_then_prestige';
   title='אירוע '+events.prestigeMultiplier+'x Prestige: דחיפה קצרה ואז Prestige';
   reason='הגעת לקיר (~'+fmtWait(activeMinsToNext)+' אקטיבי) עם +'+gainPct.toFixed(1)+'% SE. בגלל אירוע ה-Prestige משתלם להריץ סבב בוסטים קצר ולבצע Prestige.';
@@ -1956,11 +1942,6 @@ function analyzeBoosts(b,sim,permitTier,hab,prestigeInfo,hasAffordableResearch,a
   ?' (בחוזי Prophecy Egg/Colleggtible פעילים משתלם להריץ 1000x Tachyon + 10x Boost Beacon).'
   :'';
 
- var holdForNextEgg=!!(eggProg && (eggProg.willCrossNextEggAt90 || eggProg.belowPeakEgg));
- var holdReason='';
- if(eggProg && eggProg.willCrossNextEggAt90)holdReason='willCrossNextEggAt90';
- else if(eggProg && eggProg.belowPeakEgg)holdReason='belowPeakEgg';
-
  var recCombo=[];
  var shouldUseNow=false;
  var recTitle='שמור בוסטים (ריצת חול רגילה — 0 בוסטים)';
@@ -1975,22 +1956,13 @@ function analyzeBoosts(b,sim,permitTier,hab,prestigeInfo,hasAffordableResearch,a
   recReason=hab.lunarBeatsActive
    ?'סט Lunar פעיל: סגור/מזער את המשחק ל-65+ שניות כדי להפעיל מכפיל אופליין מקסימלי ובצע Prestige ב-4.2B!'
    :'החזק את כפתור התרנגולות הרצות (רמת WD 24/25 פתוחה) ובצע Prestige ב-4.2B תרנגולות!';
- }else if(eggProg && eggProg.nextEgg && eggProg.nextEgg!=='ENLIGHTENMENT' && !eggProg.canUpgradeEgg && !eggProg.willCrossNextEggAt90 && eggProg.pct>=75 && !hasAffordableResearch && bestFeed && (bestFeed.count>1 || bestFeed.power>=10)){
+ }else if(eggProg && eggProg.nextEgg && !eggProg.canUpgradeEgg && eggProg.pct>=75 && !hasAffordableResearch && bestFeed && (bestFeed.count>1 || bestFeed.power>=10)){
   shouldUseNow=true;
   recCombo.push({name:bestFeed.name,count:bestFeed.count,useQty:1});
   recTitle='הפעל בוסט הכנסות לפריצה לביצת '+eggProg.nextName;
   recReason='אתה ב-'+eggProg.pct.toFixed(0)+'% בדרך לביצה הבאה! הפעלת '+bestFeed.name+' תעביר אותך ביצה ותשבור את הקיר.'+dilNote;
  }else if(isWeekend && !hasAffordableResearch && hab.pop>=10000){
-  if(holdForNextEgg){
-   shouldUseNow=false;
-   if(eggProg.willCrossNextEggAt90){
-    recTitle='המתן עם בוסטים — מעבר לביצת '+eggProg.nextName+' בהישג יד';
-    recReason='אירוע '+events.prestigeMultiplier+'x Prestige פעיל, אך הגעה ל-90% תפוסת לולים תעלה את שווי החווה ל-'+fmt(eggProg.fvAt90Pct)+' ותפתח את ביצת '+eggProg.nextName+' (סף '+fmt(eggProg.reqFV)+'). שדרג ביצה קודם כדי לא לבזבז בוסטים!';
-   }else{
-    recTitle='המתן עם בוסטים — טפס קודם לביצת השיא ('+eggProg.peakPrestigeName+')';
-    recReason='אירוע '+events.prestigeMultiplier+'x Prestige פעיל, אך אתה עדיין בביצת '+eggProg.curName+' (מתחת לביצת השיא שלך: '+eggProg.peakPrestigeName+'). התקדם קודם ל-'+eggProg.peakPrestigeName+' לפני הפעלת בוסטים של Prestige.';
-   }
-  }else if(macro.phase!=='LATE_GAME_MULTISTIGE' && hab.habPct<45 && bestTachyon && (bestTachyon.power>=100 || bestTachyon.count>=4)){
+  if(macro.phase!=='LATE_GAME_MULTISTIGE' && hab.habPct<45 && bestTachyon && (bestTachyon.power>=100 || bestTachyon.count>=4)){
    shouldUseNow=true;
    recCombo.push({name:bestTachyon.name,count:bestTachyon.count,useQty:1});
    recTitle='דחיפת Prestige (שלב 1): מלא לולים עם Tachyon';
@@ -2025,7 +1997,7 @@ function analyzeBoosts(b,sim,permitTier,hab,prestigeInfo,hasAffordableResearch,a
   }
  }
 
- return {maxBoostSlots:maxBoostSlots,active:active,owned:owned,shouldUseNow:shouldUseNow,holdForNextEgg:holdForNextEgg,holdReason:holdReason,recCombo:recCombo,recTitle:recTitle,recReason:recReason};
+ return {maxBoostSlots:maxBoostSlots,active:active,owned:owned,shouldUseNow:shouldUseNow,recCombo:recCombo,recTitle:recTitle,recReason:recReason};
 }
 
 function shipName(s){
@@ -3280,11 +3252,7 @@ function copyDiag(){
    currentEgg:sim.eggType,
    cash:Number(P.cash.toExponential(3)),
    farmValue:Number(P.logi.farmValue.toExponential(3)),
-   fvAt90Pct:Number(P.logi.fvAt90Pct.toExponential(3)),
    fvDebug:P.logi.fvDebug,
-   peakPrestigeEgg:P.eggProg.peakPrestigeEgg,
-   belowPeakEgg:P.eggProg.belowPeakEgg,
-   willCrossNextEggAt90:P.eggProg.willCrossNextEggAt90,
    nextEggDiscoverFV:P.eggProg.reqDiscoverFV,
    nextEggUpgradeFV:P.eggProg.reqFV,
    nextEggPct:Number(P.eggProg.pct.toFixed(1)),
@@ -3333,12 +3301,7 @@ function copyDiag(){
     activeMinsToNext:isFinite(P.prestigeInfo.activeMinsToNext)?Number(P.prestigeInfo.activeMinsToNext.toFixed(2)):null,
     idleMinsToNext:isFinite(P.prestigeInfo.idleMinsToNext)?Number(P.prestigeInfo.idleMinsToNext.toFixed(2)):null,
     gainPct:Number(P.prestigeInfo.gainPct.toFixed(2)),
-    boostShouldUseNow:P.boostInfo.shouldUseNow,
-    boostHoldForNextEgg:P.boostInfo.holdForNextEgg,
-    boostHoldReason:P.boostInfo.holdReason||null,
-    fvAt90Pct:Number(P.logi.fvAt90Pct.toExponential(3)),
-    belowPeakEgg:P.eggProg.belowPeakEgg,
-    willCrossNextEggAt90:P.eggProg.willCrossNextEggAt90
+    boostShouldUseNow:P.boostInfo.shouldUseNow
    },
    goldenEggRecommendation:P.geSpecRec,
    shipRecommendation:shipRec,
