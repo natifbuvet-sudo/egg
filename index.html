@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 44</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 45</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -150,6 +150,9 @@ details summary::-webkit-details-marker{display:none}
 <div class="row" style="margin-top:8px">
 <label style="flex:1;font-size:.82rem">רישיון (בוסטים / ממגורות / מיכל)<select id="slots"><option value="auto">אוטומטי (לפי חשבון)</option><option value="1">רגיל (2 בוסטים / 2 ממגורות / מיכל 2B)</option><option value="3">Pro Permit (5 בוסטים / 10 ממגורות / שדרוג מיכל)</option></select></label>
 <label style="flex:1;font-size:.82rem">מצב ריצה<select id="run"><option value="auto">אוטומטי (חכם)</option><option value="mid">באמצע ריצה</option><option value="start">תחילת ריצה</option><option value="ready">מוכן ל-Prestige</option></select></label>
+</div>
+<div class="row">
+<label style="flex:1;font-size:.82rem">הקשר ארטיפקטים (מה אתה עובד עליו כרגע)<select id="artFocus"><option value="auto">אוטומטי (לפי החוזה/חווה הפעילה)</option><option value="contract">עבודה על חוזה (Contract)</option><option value="home_passive">חווה ראשית — פאסיבי (ללא ריצת תרנגולות)</option><option value="home_active">חווה ראשית — ריצת תרנגולות פעילה</option></select></label>
 </div>
 <div class="row">
 <label style="flex:1;font-size:.82rem">ספינת יעד<select id="shipTarget">
@@ -1479,7 +1482,9 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   });
  }
 
- function evalItemPrestigeSE(sp,stones,lunarMode){
+ function evalItemPrestigeSE(sp,stones,mode){
+  var isLunar=(mode==='lunar' || mode===true);
+  var isActiveRun=(mode==='active' || mode===false);
   var lvl=normLevel(sp.level);
   var rar=normRarity(sp.rarity);
   var stList=(stones||[]).filter(function(st){return st&&st.name});
@@ -1505,8 +1510,8 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
 
   var seStatMult=(baseSE + soulPts)/baseSE;
   var peStatMult=Math.pow((basePE + (bookAdd + prophPts)/100)/basePE, peCount||0);
-  var rcbMult=lunarMode?1:((baseMaxRCB + vialAdd + terraAdd)/Math.max(3,baseMaxRCB));
-  var awayMult=lunarMode?lunarMult:1;
+  var rcbMult=isActiveRun?((baseMaxRCB + vialAdd + terraAdd)/Math.max(3,baseMaxRCB)):1;
+  var awayMult=isLunar?lunarMult:1;
   var totalEarnMult=earnMult * seStatMult * peStatMult * rcbMult * awayMult;
   return {
    seGainMult:featherMult * Math.pow(Math.max(1,totalEarnMult),0.21),
@@ -1522,7 +1527,7 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
  var artifactEarningsMult=1, puzzleCubeMult=1, mercurysLensMult=1;
  var bookBonus=0, soulStonePts=0, prophStonePts=0, vialAdd=0, terraAdd=0;
  var enlightenmentWarnings=[];
- var equippedActiveSEMult=1, equippedLunarSEMult=1;
+ var equippedActiveSEMult=1, equippedPassiveSEMult=1, equippedLunarSEMult=1;
  var equippedEmptySlots=0, equippedEmptyDetails=[];
 
  for(var i=0;i<maxArtSlots;i++){
@@ -1579,8 +1584,9 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
     if(sp.name==='MERCURYS_LENS')mercurysLensMult=Math.max(mercurysLensMult,1+(getMercurysLensMult(lvl,rar)-1)*effMult);
    }
 
-   equippedActiveSEMult*=evalItemPrestigeSE(sp,stones,false).seGainMult;
-   equippedLunarSEMult*=evalItemPrestigeSE(sp,stones,true).seGainMult;
+   equippedActiveSEMult*=evalItemPrestigeSE(sp,stones,'active').seGainMult;
+   equippedPassiveSEMult*=evalItemPrestigeSE(sp,stones,'passive').seGainMult;
+   equippedLunarSEMult*=evalItemPrestigeSE(sp,stones,'lunar').seGainMult;
 
    var eqSlotCap=getSlotCapacity(sp);
    var eqFilled=stones.filter(function(st){return st && st.name}).length;
@@ -1589,8 +1595,9 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
     equippedEmptySlots+=eqEmpty;
     equippedEmptyDetails.push(formatArtLabel(sp)+' ('+eqEmpty+' ריקים)');
    }
+   var eqScore=(TIER_RANK[lvl]||0)*10 + (RARITY_RANK[rar]||0);
    equipped.push({
-    itemId:it.itemId,rawName:sp.name,
+    itemId:it.itemId,rawName:sp.name,score:eqScore,
     name:formatArtLabel(sp)+(stoneLabels.length?' ['+stoneLabels.join(', ')+']':''),
     baseName:formatArtLabel(sp),
     stones:stoneLabels,
@@ -1603,6 +1610,7 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
 
  var bestOwned={};
  var bestActiveByType={};
+ var bestPassiveByType={};
  var bestLunarByType={};
  var dilithiumHolders=[];
  var looseStones=[];
@@ -1686,13 +1694,18 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   var displayLabel=formatArtLabel(sp)+(stoneLabels.length?' ['+stoneLabels.join(', ')+']':'');
 
   if(ART_INFO[sp.name]){
-   var evA=evalItemPrestigeSE(sp,stones,false);
+   var itemScore=(TIER_RANK[lvl]||0)*10 + (RARITY_RANK[rar]||0);
+   var evA=evalItemPrestigeSE(sp,stones,'active');
    if(!bestActiveByType[sp.name] || evA.seGainMult>bestActiveByType[sp.name].seGainMult || (evA.seGainMult===bestActiveByType[sp.name].seGainMult && !evA.isPureDilithium && bestActiveByType[sp.name].isPureDilithium)){
-    bestActiveByType[sp.name]={rawName:sp.name,name:displayLabel,baseName:formatArtLabel(sp),seGainMult:evA.seGainMult,isPureDilithium:evA.isPureDilithium};
+    bestActiveByType[sp.name]={rawName:sp.name,name:displayLabel,baseName:formatArtLabel(sp),score:itemScore,seGainMult:evA.seGainMult,isPureDilithium:evA.isPureDilithium};
    }
-   var evL=evalItemPrestigeSE(sp,stones,true);
+   var evP=evalItemPrestigeSE(sp,stones,'passive');
+   if(!bestPassiveByType[sp.name] || evP.seGainMult>bestPassiveByType[sp.name].seGainMult || (evP.seGainMult===bestPassiveByType[sp.name].seGainMult && !evP.isPureDilithium && bestPassiveByType[sp.name].isPureDilithium)){
+    bestPassiveByType[sp.name]={rawName:sp.name,name:displayLabel,baseName:formatArtLabel(sp),score:itemScore,seGainMult:evP.seGainMult,isPureDilithium:evP.isPureDilithium};
+   }
+   var evL=evalItemPrestigeSE(sp,stones,'lunar');
    if(!bestLunarByType[sp.name] || evL.seGainMult>bestLunarByType[sp.name].seGainMult || (evL.seGainMult===bestLunarByType[sp.name].seGainMult && !evL.isPureDilithium && bestLunarByType[sp.name].isPureDilithium)){
-    bestLunarByType[sp.name]={rawName:sp.name,name:displayLabel,baseName:formatArtLabel(sp),seGainMult:evL.seGainMult,isPureDilithium:evL.isPureDilithium};
+    bestLunarByType[sp.name]={rawName:sp.name,name:displayLabel,baseName:formatArtLabel(sp),score:itemScore,seGainMult:evL.seGainMult,isPureDilithium:evL.isPureDilithium};
    }
   }
 
@@ -1742,6 +1755,14 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   :pickSet(activeKeys,bestActiveByType);
  var optimalActiveSEMult=setMain.reduce(function(acc,x){return acc*(x.seGainMult||1)},1);
 
+ var passiveKeys=['PHOENIX_FEATHER','BOOK_OF_BASAN','DEMETERS_NECKLACE','TUNGSTEN_ANKH']
+  .filter(function(k){return !!bestPassiveByType[k] && bestPassiveByType[k].seGainMult>1.001})
+  .sort(function(a,b){return bestPassiveByType[b].seGainMult-bestPassiveByType[a].seGainMult});
+ var setPassive=isEnlightenment
+  ?setMain
+  :pickSet(passiveKeys,bestPassiveByType);
+ var optimalPassiveSEMult=setPassive.reduce(function(acc,x){return acc*(x.seGainMult||1)},1);
+
  var lunarKeys=['LUNAR_TOTEM','PHOENIX_FEATHER','BOOK_OF_BASAN','DEMETERS_NECKLACE','TUNGSTEN_ANKH']
   .filter(function(k){return !!bestLunarByType[k]})
   .sort(function(a,b){return bestLunarByType[b].seGainMult-bestLunarByType[a].seGainMult});
@@ -1750,8 +1771,36 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
 
  var setIHR=pickSet(['THE_CHALICE','DILITHIUM_MONOCLE','ORNATE_GUSSET','DEMETERS_NECKLACE','TUNGSTEN_ANKH'],bestOwned);
  var setContract=pickSet(['TACHYON_DEFLECTOR','QUANTUM_METRONOME','INTERSTELLAR_COMPASS','ORNATE_GUSSET','THE_CHALICE'],bestOwned);
+ var contractResKeys=(lunarTotemMult>=20)
+  ?['TACHYON_DEFLECTOR','PUZZLE_CUBE','DEMETERS_NECKLACE','LUNAR_TOTEM','TUNGSTEN_ANKH']
+  :['TACHYON_DEFLECTOR','PUZZLE_CUBE','DEMETERS_NECKLACE','TUNGSTEN_ANKH','SHIP_IN_A_BOTTLE'];
+ var setContractResearch=pickSet(contractResKeys,bestOwned);
+ var setContractIHR=pickSet(['TACHYON_DEFLECTOR','THE_CHALICE','ORNATE_GUSSET','DILITHIUM_MONOCLE','QUANTUM_METRONOME'],bestOwned);
  var setResearch=pickSet(['PUZZLE_CUBE','DEMETERS_NECKLACE','TUNGSTEN_ANKH'],bestOwned);
  var setDrones=pickSet(['AURELIAN_BROOCH','NEODYMIUM_MEDALLION','BEAK_OF_MIDAS','PUZZLE_CUBE','DEMETERS_NECKLACE'],bestOwned);
+
+ function getSetEquippedForFarmIndex(farmIdx){
+  var targetSlots=(sets[farmIdx]&&sets[farmIdx].slots)||[];
+  var list=[];
+  for(var si=0;si<maxArtSlots;si++){
+   var sSlot=targetSlots[si];
+   if(sSlot && sSlot.occupied && byId[sSlot.itemId]){
+    var sit=byId[sSlot.itemId];
+    var scomp=sit.artifact||{};
+    var ssp=scomp.spec||{};
+    var slvl=normLevel(ssp.level);
+    var srar=normRarity(ssp.rarity);
+    var sstones=scomp.stones||[];
+    var sLabels=formatStoneList(sstones);
+    list.push({
+     itemId:sit.itemId,rawName:ssp.name,score:(TIER_RANK[slvl]||0)*10 + (RARITY_RANK[srar]||0),
+     name:formatArtLabel(ssp)+(sLabels.length?' ['+sLabels.join(', ')+']':''),
+     baseName:formatArtLabel(ssp)
+    });
+   }
+  }
+  return list;
+ }
 
  var contractMetronomeMult=1, contractCompassMult=1;
  setContract.forEach(function(item){
@@ -1790,14 +1839,17 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   dilithiumMult:dilithiumMult,potentialDilithiumMult:potentialDilithiumMult,
   lunarTotemMult:lunarTotemMult,lunarStoneMult:lunarStoneMult,
   artifactEarningsMult:artifactEarningsMult,bookBonus:bookBonus,soulStonePts:soulStonePts,prophStonePts:prophStonePts,vialAdd:vialAdd,terraAdd:terraAdd,
-  equippedActiveSEMult:equippedActiveSEMult,equippedLunarSEMult:equippedLunarSEMult,
-  optimalActiveSEMult:optimalActiveSEMult,optimalLunarSEMult:optimalLunarSEMult,
+  equippedActiveSEMult:equippedActiveSEMult,equippedPassiveSEMult:equippedPassiveSEMult,equippedLunarSEMult:equippedLunarSEMult,
+  optimalActiveSEMult:optimalActiveSEMult,optimalPassiveSEMult:optimalPassiveSEMult,optimalLunarSEMult:optimalLunarSEMult,
   bestGusset:bestGusset,maxClarityEff:maxClarityEff,
   bestTachyonMult:bestTachyonMult,bestQuantumMult:bestQuantumMult,bestProphPts:bestProphPts,bestSoulPts:bestSoulPts,
   totalContractSlots:totalContractSlots,
   setDilithium:setDilithium,looseStones:looseStones,
   enlightenmentWarnings:enlightenmentWarnings,
-  setMain:setMain,setLunar:setLunar,setIHR:setIHR,setContract:setContract,setResearch:setResearch,setDrones:setDrones,demoteList:demoteList,
+  setMain:setMain,setPassive:setPassive,setLunar:setLunar,setIHR:setIHR,
+  setContract:setContract,setContractResearch:setContractResearch,setContractIHR:setContractIHR,
+  setResearch:setResearch,setDrones:setDrones,demoteList:demoteList,
+  getSetEquippedForFarmIndex:getSetEquippedForFarmIndex,
   craftTargets:craftTargets
  };
 }
@@ -2540,6 +2592,198 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  };
 }
 
+function resolveArtifactContext(b,art,logi,macro,prestigeInfo,eggProg,hasActiveBoost,runMode,activeRunning,CD){
+ var focusPref=($('artFocus')?$('artFocus').value:'auto')||'auto';
+ var farms=b.farms||[];
+
+ function pickPrimaryContract(){
+  if(!activeRunning || !activeRunning.length)return null;
+  var ranked=activeRunning.slice().sort(function(x,y){
+   var px=(x.needs10B||x.hasPE)?1:0;
+   var py=(y.needs10B||y.hasPE)?1:0;
+   if(px!==py)return py-px;
+   var rx=(!x.pointsOnly)?1:0;
+   var ry=(!y.pointsOnly)?1:0;
+   if(rx!==ry)return ry-rx;
+   var gx=(x.cfMetrics && x.cfMetrics.habPct<90)?1:0;
+   var gy=(y.cfMetrics && y.cfMetrics.habPct<90)?1:0;
+   if(gx!==gy)return gy-gx;
+   return 0;
+  });
+  return ranked[0]||null;
+ }
+
+ var mode='home_passive';
+ var targetContract=pickPrimaryContract();
+
+ if(focusPref==='contract'){
+  mode='contract';
+ }else if(focusPref==='home_active'){
+  mode=macro.isEnl?'enlightenment':'home_active';
+ }else if(focusPref==='home_passive'){
+  mode=macro.isEnl?'enlightenment':(logi.lunarBeatsActive?'home_lunar':'home_passive');
+ }else{
+  if(macro.isEnl){
+   mode='enlightenment';
+  }else if(macro.isVirt){
+   mode=(hasActiveBoost)?'home_active':'home_passive';
+  }else if((hasActiveBoost && !logi.lunarBeatsActive) || prestigeInfo.status==='boost_then_prestige' || runMode==='ready'){
+   mode='home_active';
+  }else if(prestigeInfo.status==='ready' || eggProg.canUpgradeEgg){
+   mode=logi.lunarBeatsActive?'home_lunar':'home_passive';
+  }else if(targetContract){
+   mode='contract';
+  }else if(logi.lunarBeatsActive){
+   mode='home_lunar';
+  }else{
+   mode='home_passive';
+  }
+ }
+
+ if(mode==='contract'){
+  if(targetContract){
+   var cfIdx=-1;
+   for(var fi=0;fi<farms.length;fi++){
+    if(farms[fi].farmType==='CONTRACT' && farms[fi].contractId===targetContract.id){cfIdx=fi;break}
+   }
+   var cEq=(cfIdx>0 && art.getSetEquippedForFarmIndex)?art.getSetEquippedForFarmIndex(cfIdx):[];
+   var stage='CONTRACT_PROD';
+   var stageLabel='תפוקת חוזה מקסימלית';
+   var cTargetSet=art.setContract;
+   var cm=targetContract.cfMetrics;
+   var crp=targetContract.researchPlan;
+   if(cm && cm.pop<5e7 && ((crp && crp.affordableList.length>0) || cm.habPct<15)){
+    stage='CONTRACT_RESEARCH';
+    stageLabel='תחילת חוזה — מחקר והכנסות (ללא ריצה)';
+    cTargetSet=art.setContractResearch.length?art.setContractResearch:art.setContract;
+   }else if(cm && (!crp || crp.affordableList.length===0) && cm.habPct<80){
+    stage='CONTRACT_IHR';
+    stageLabel='מילוי לולים בחוזה (IHR)';
+    cTargetSet=art.setContractIHR.length?art.setContractIHR:art.setContract;
+   }
+   var eqByRaw={};
+   cEq.forEach(function(it){
+    if(!eqByRaw[it.rawName] || (it.score||0)>eqByRaw[it.rawName].score)eqByRaw[it.rawName]=it;
+   });
+   var missingItems=cTargetSet.filter(function(t){
+    var cur=eqByRaw[t.rawName];
+    return !cur || (cur.score||0)<(t.score||0);
+   });
+   var isOpt=(cTargetSet.length===0) || (missingItems.length===0);
+   return {
+    focusPref:focusPref,
+    mode:'contract',
+    modeBadge:'חוזה פעיל: '+targetContract.name+' ('+stageLabel+')',
+    contractId:targetContract.id,
+    contractName:targetContract.name,
+    contractStage:stage,
+    stageLabel:stageLabel,
+    targetSet:cTargetSet,
+    equippedList:cEq,
+    farmLabel:'בחוזה '+targetContract.name,
+    isOptimal:isOpt,
+    gainBoostPct:0,
+    whyNote:'מותאם לשלב הנוכחי בחוזה ללא תלות בריצת תרנגולות.'
+   };
+  }
+  var fallbackEq=art.equipped;
+  var fbEqByRaw={};
+  fallbackEq.forEach(function(it){
+   if(!fbEqByRaw[it.rawName] || (it.score||0)>fbEqByRaw[it.rawName].score)fbEqByRaw[it.rawName]=it;
+  });
+  var fbMissing=art.setContract.filter(function(t){
+   var cur=fbEqByRaw[t.rawName];
+   return !cur || (cur.score||0)<(t.score||0);
+  });
+  return {
+   focusPref:focusPref,
+   mode:'contract',
+   modeBadge:'מצב חוזים (אין חוזה פתוח כרגע — מוצג סט קו-אופ)',
+   contractId:null,
+   contractName:'',
+   contractStage:'CONTRACT_PROD',
+   stageLabel:'סט חוזים כללי',
+   targetSet:art.setContract,
+   equippedList:fallbackEq,
+   farmLabel:'כרגע',
+   isOptimal:(art.setContract.length===0 || fbMissing.length===0),
+   gainBoostPct:0,
+   whyNote:'סט חוזים כללי ללא תלות בריצת תרנגולות.'
+  };
+ }
+
+ if(mode==='enlightenment'){
+  var enlOpt=(art.enlightenmentWarnings.length===0 && art.equipped.length>=art.setMain.length && art.equippedPassiveSEMult>=art.optimalPassiveSEMult*0.98);
+  return {
+   focusPref:focusPref,
+   mode:'enlightenment',
+   modeBadge:'ביצת Enlightenment (Clarity Stones)',
+   contractId:null,contractName:'',contractStage:'',stageLabel:'Enlightenment',
+   targetSet:art.setMain,
+   equippedList:art.equipped,
+   farmLabel:'בחווה',
+   isOptimal:enlOpt,
+   gainBoostPct:0,
+   whyNote:'מבוסס על Light of Eggendil וארטיפקטים עם אבני Clarity.'
+  };
+ }
+
+ if(mode==='home_lunar'){
+  var optL=art.optimalLunarSEMult;
+  var curL=art.equippedLunarSEMult;
+  var isOptL=(art.equipped.length>=art.setLunar.length && curL>=optL*0.98) || (optL<=curL*1.02);
+  var gainL=Math.max(0,Math.round(((optL/Math.max(1,curL))-1)*100));
+  return {
+   focusPref:focusPref,
+   mode:'home_lunar',
+   modeBadge:'חווה ראשית — אופליין / Lunar (ללא ריצת תרנגולות)',
+   contractId:null,contractName:'',contractStage:'',stageLabel:'אופליין / Lunar',
+   targetSet:art.setLunar,
+   equippedList:art.equipped,
+   farmLabel:'בחווה',
+   isOptimal:isOptL,
+   gainBoostPct:gainL,
+   whyNote:'סט Lunar Totem ממקסם הכנסות ו-SE ללא צורך בהחזקת כפתור הריצה.'
+  };
+ }
+
+ if(mode==='home_active'){
+  var optA=art.optimalActiveSEMult;
+  var curA=art.equippedActiveSEMult;
+  var isOptA=(art.equipped.length>=art.setMain.length && curA>=optA*0.98) || (optA<=curA*1.02);
+  var gainA=Math.max(0,Math.round(((optA/Math.max(1,curA))-1)*100));
+  return {
+   focusPref:focusPref,
+   mode:'home_active',
+   modeBadge:'חווה ראשית — ריצת תרנגולות פעילה (Prestige)',
+   contractId:null,contractName:'',contractStage:'',stageLabel:'ריצה פעילה',
+   targetSet:art.setMain,
+   equippedList:art.equipped,
+   farmLabel:'בחווה',
+   isOptimal:isOptA,
+   gainBoostPct:gainA,
+   whyNote:'כולל תוספי Running Chicken Bonus (Vial/Terra) לדחיפת Prestige אקטיבית.'
+  };
+ }
+
+ var optP=art.optimalPassiveSEMult;
+ var curP=art.equippedPassiveSEMult;
+ var isOptP=(art.equipped.length>=art.setPassive.length && curP>=optP*0.98) || (optP<=curP*1.02);
+ var gainP=Math.max(0,Math.round(((optP/Math.max(1,curP))-1)*100));
+ return {
+  focusPref:focusPref,
+  mode:'home_passive',
+  modeBadge:'חווה ראשית — פאסיבי (ללא תלות בריצת תרנגולות)',
+  contractId:null,contractName:'',contractStage:'',stageLabel:'פאסיבי (ללא ריצה)',
+  targetSet:art.setPassive,
+  equippedList:art.equipped,
+  farmLabel:'בחווה',
+  isOptimal:isOptP,
+  gainBoostPct:gainP,
+  whyNote:'נבחרו ארטיפקטים שעובדים 100% ללא החזקת כפתור ריצת התרנגולות (ללא Vial/Terra).'
+ };
+}
+
 function plan(b,R){
  var now=Date.now()/1000,g=b.game||{},sim=homeFarm(b),db=b.artifactsDb||{},permitTier=getPermitTier(b),shipSlots=3,runMode=$('run').value,a=[];
  var events=getActiveEvents();
@@ -2644,22 +2888,7 @@ function plan(b,R){
   a.push([19,'שדרג מחקרים ('+C.totalLevelsBought+' רמות ב-'+C.affordableList.length+' מחקרים)',top3+moreTxt,'research']);
  }
 
- var useLunarTarget=(logi.lunarBeatsActive && macro.phase==='LATE_GAME_MULTISTIGE');
- var targetSet=useLunarTarget?art.setLunar:art.setMain;
- var optSE=useLunarTarget?art.optimalLunarSEMult:art.optimalActiveSEMult;
- var curSEOnMode=useLunarTarget?art.equippedLunarSEMult:art.equippedActiveSEMult;
- var bestCurSE=Math.max(art.equippedActiveSEMult,art.equippedLunarSEMult);
- var isArtOptimal=(art.equipped.length>=targetSet.length && bestCurSE>=optSE*0.98) || (art.enlightenmentWarnings.length===0 && bestCurSE>=optSE*0.98);
- var mainNames=targetSet.map(function(x){return x.name}).join(' + ');
- var eqNames=art.equipped.map(function(x){return x.name}).join(' + ');
- if(mainNames && !isArtOptimal && optSE>curSEOnMode*1.02){
-  var gainBoostPct=Math.round(((optSE/Math.max(1,curSEOnMode))-1)*100);
-  a.push([21,'הרכב סט ארטיפקטים מומלץ (+'+gainBoostPct+'% SE): '+mainNames,'מותקן כרגע: '+(eqNames||'כלום')+'.','artifacts']);
- }
- if(art.canSocketNow){
-  var sockNames=art.socketableStones.slice(0,3).map(function(s){return s.name+' ×'+s.qty}).join(', ');
-  a.push([22,'שבץ '+Math.min(art.equippedEmptySlots,art.socketableCount)+' אבנים פנויות בסלוטים הריקים','באפשרותך לשבץ מיד: '+sockNames+' ב-'+art.equippedEmptyDetails.join(', ')+'.','artifacts']);
- }
+
 
  if(!fuelInfo.launchpadUnlocked){
   a.push([72,'פתיחת ספינות: צבור 10,000 SE לפתיחת כן השיגור','חסרים '+fmt(Math.max(0,10000-fuelInfo.curSE))+' Soul Eggs (והגעה לביצת Rocket Fuel עם 100K ביצים/דקה) כדי להתחיל לשגר ספינות.']);
@@ -2760,6 +2989,33 @@ function plan(b,R){
  var rewardContracts=activeRunning.filter(function(d){return !d.pointsOnly});
  var pointsContracts=activeRunning.filter(function(d){return d.pointsOnly});
  var waitingContracts=CD.filter(function(d){return d.waitingCoop});
+
+ var artCtx=resolveArtifactContext(b,art,logi,macro,prestigeInfo,eggProg,hasActiveBoost,runMode,activeRunning,CD);
+ var isArtOptimal=artCtx.isOptimal;
+ var targetArtNames=artCtx.targetSet.map(function(x){return x.name}).join(' + ');
+ var eqTargetNames=artCtx.equippedList.map(function(x){return x.name}).join(' + ');
+ if(targetArtNames && !isArtOptimal){
+  var artTitle='';
+  if(artCtx.mode==='contract'){
+   artTitle=artCtx.contractName
+    ?('הרכב סט לחוזה '+artCtx.contractName+' ('+artCtx.stageLabel+'): '+targetArtNames)
+    :('הרכב סט חוזים מומלץ: '+targetArtNames);
+  }else if(artCtx.mode==='home_lunar'){
+   artTitle='הרכב סט אופליין / Lunar (ללא ריצת תרנגולות): '+targetArtNames;
+  }else if(artCtx.mode==='home_active'){
+   artTitle='הרכב סט לריצת תרנגולות פעילה'+(artCtx.gainBoostPct>0?' (+'+artCtx.gainBoostPct+'% SE)':'')+': '+targetArtNames;
+  }else if(artCtx.mode==='enlightenment'){
+   artTitle='הרכב סט Enlightenment: '+targetArtNames;
+  }else{
+   artTitle='הרכב סט פאסיבי לחווה'+(artCtx.gainBoostPct>0?' (+'+artCtx.gainBoostPct+'% SE ללא ריצה)':' (ללא ריצת תרנגולות)')+': '+targetArtNames;
+  }
+  var artDesc='מותקן '+artCtx.farmLabel+' כרגע: '+(eqTargetNames||'כלום')+'. '+artCtx.whyNote;
+  a.push([21,artTitle,artDesc,'artifacts']);
+ }
+ if(art.canSocketNow && artCtx.mode!=='contract'){
+  var sockNames=art.socketableStones.slice(0,3).map(function(s){return s.name+' ×'+s.qty}).join(', ');
+  a.push([22,'שבץ '+Math.min(art.equippedEmptySlots,art.socketableCount)+' אבנים פנויות בסלוטים הריקים','באפשרותך לשבץ מיד: '+sockNames+' ב-'+art.equippedEmptyDetails.join(', ')+'.','artifacts']);
+ }
 
  var maxContractSlots=4;
  var slotsUsed=CD.length;
@@ -2928,7 +3184,7 @@ function plan(b,R){
  if((sim.unclaimedBoostTokens||0)>0)a.push([34,'אסוף '+sim.unclaimedBoostTokens+' טוקני בוסט בחווה','מוכנים לאיסוף.']);
  a.sort(function(x,y){return x[0]-y[0]});
  if(!a.length)a.push([99,'הכל מסודר כרגע','חזור לבדוק בעוד כמה דקות.']);
- return {CD:CD,availContracts:availContracts,bestPointsRec:bestPointsRec,contractSlotInfo:contractSlotInfo,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,permitTier:permitTier,shipSlots:shipSlots,free:free,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,logi:logi,eggProg:eggProg,cash:cash,art:art,isArtOptimal:isArtOptimal,stoneOpt:stoneOpt,prestigeInfo:prestigeInfo,boostInfo:boostInfo,macro:macro,trophies:trophies,events:events,collegg:collegg,geSpecRec:geSpecRec,keepOneWD:keepOneWD};
+ return {CD:CD,availContracts:availContracts,bestPointsRec:bestPointsRec,contractSlotInfo:contractSlotInfo,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,permitTier:permitTier,shipSlots:shipSlots,free:free,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,logi:logi,eggProg:eggProg,cash:cash,art:art,artCtx:artCtx,isArtOptimal:isArtOptimal,stoneOpt:stoneOpt,prestigeInfo:prestigeInfo,boostInfo:boostInfo,macro:macro,trophies:trophies,events:events,collegg:collegg,geSpecRec:geSpecRec,keepOneWD:keepOneWD};
 }
 
 function jumpTo(id){
@@ -3031,8 +3287,16 @@ function copyDiag(){
    shipRecommendation:shipRec,
    artifactLoadoutStatus:{
     isOptimal:P.isArtOptimal,
+    focusSetting:P.artCtx.focusPref,
+    resolvedMode:P.artCtx.mode,
+    contractId:P.artCtx.contractId,
+    contractStage:P.artCtx.contractStage,
+    recommendedSet:P.artCtx.targetSet.map(function(x){return x.name}),
+    equippedOnTargetFarm:P.artCtx.equippedList.map(function(x){return x.name}),
     equippedActiveSEMult:Number(P.art.equippedActiveSEMult.toFixed(3)),
     optimalActiveSEMult:Number(P.art.optimalActiveSEMult.toFixed(3)),
+    equippedPassiveSEMult:Number(P.art.equippedPassiveSEMult.toFixed(3)),
+    optimalPassiveSEMult:Number(P.art.optimalPassiveSEMult.toFixed(3)),
     equippedLunarSEMult:Number(P.art.equippedLunarSEMult.toFixed(3)),
     optimalLunarSEMult:Number(P.art.optimalLunarSEMult.toFixed(3))
    },
@@ -3211,6 +3475,17 @@ function show(b,R){
  h+='</div>';
 
  h+='<div id="sec-artifacts" class="card"><h3>ארטיפקטים, אבנים ו-Crafting</h3>';
+ var ctx=P.artCtx;
+ var ctxTargetStr=ctx.targetSet.length?ctx.targetSet.map(function(x){return esc(x.name)}).join(' + '):'אין ארטיפקטים זמינים';
+ var ctxEqStr=ctx.equippedList.length?ctx.equippedList.map(function(x){return esc(x.name)}).join(' + '):'כלום';
+ h+='<div class="row" style="margin-bottom:6px"><label style="flex:1;font-size:.8rem">מצב בחירת ארטיפקטים (הקשר עבודה)<select onchange="setArtFocus(this.value)">';
+ h+='<option value="auto"'+(ctx.focusPref==='auto'?' selected':'')+'>אוטומטי (לפי החוזה/חווה הפעילה)</option>';
+ h+='<option value="contract"'+(ctx.focusPref==='contract'?' selected':'')+'>עבודה על חוזה (Contract)</option>';
+ h+='<option value="home_passive"'+(ctx.focusPref==='home_passive'?' selected':'')+'>חווה ראשית — פאסיבי (ללא ריצת תרנגולות)</option>';
+ h+='<option value="home_active"'+(ctx.focusPref==='home_active'?' selected':'')+'>חווה ראשית — ריצת תרנגולות פעילה</option>';
+ h+='</select></label></div>';
+ h+='<div class="status-banner '+(ctx.isOptimal?'hold':'do')+'"><b>'+(ctx.isOptimal?'✓ הסט המומלץ כבר מורכב':'המלצת ארטיפקטים פעילה')+' ('+esc(ctx.modeBadge)+'):</b>';
+ h+='<small><b>מומלץ:</b> '+ctxTargetStr+'<br><b>מורכב '+esc(ctx.farmLabel)+' כרגע:</b> '+ctxEqStr+'<br>'+esc(ctx.whyNote)+'</small></div>';
  if(P.art.virtueArtifactsOnly){
   h+='<div class="status-banner hold"><b>מלאי ארטיפקטים מבודד (Path of Virtue):</b><small>כאן מוצגים רק ארטיפקטים ואבנים שנאספו בתוך Path of Virtue.</small></div>';
  }
@@ -3221,13 +3496,15 @@ function show(b,R){
  if(P.art.canSocketNow){
   h+='<div class="status-banner do"><b>שיבוץ אבנים פנויות:</b><small>יש לך '+P.art.equippedEmptySlots+' סלוטים ריקים בסט הנוכחי ('+esc(P.art.equippedEmptyDetails.join(', '))+') ו-'+P.art.socketableCount+' אבנים זמינות ('+esc(P.art.socketableStones.slice(0,4).map(function(s){return s.name+' ×'+s.qty}).join(', '))+').</small></div>';
  }
- h+='<div style="margin-bottom:6px"><small><b>סטים מומלצים מהמלאי שלך (עד '+P.art.maxArtSlots+' סלוטים):</b></small></div>';
+ h+='<div style="margin-bottom:6px"><small><b>כל הסטים המומלצים מהמלאי שלך (עד '+P.art.maxArtSlots+' סלוטים):</b></small></div>';
  if(P.art.setDilithium.length)h+=row('0. לפני בוסט (Dilithium +'+Math.round((P.art.potentialDilithiumMult-1)*100)+'% זמן)','<small>'+P.art.setDilithium.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
- if(P.art.setMain.length)h+=row('1. ריצה ו-Prestige פעיל','<small>'+P.art.setMain.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
- if(P.art.setLunar.length && P.art.lunarTotemMult>=20)h+=row('2. סט אופליין / Multi-Lunarstige','<small>'+P.art.setLunar.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
- if(P.art.setIHR.length)h+=row('3. מילוי לולים מהיר (IHR)','<small>'+P.art.setIHR.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
- if(P.art.setContract.length)h+=row('4. קו-אופ / חוזים','<small>'+P.art.setContract.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
- if(P.art.setDrones.length)h+=row('5. ציד רחפנים (GE)','<small>'+P.art.setDrones.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
+ if(P.art.setPassive.length)h+=row('1. חווה ראשית — פאסיבי (ללא ריצת תרנגולות)','<small>'+P.art.setPassive.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
+ if(P.art.setMain.length)h+=row('2. חווה ראשית — ריצת תרנגולות פעילה','<small>'+P.art.setMain.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
+ if(P.art.setLunar.length && P.art.lunarTotemMult>=20)h+=row('3. אופליין / Multi-Lunarstige','<small>'+P.art.setLunar.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
+ if(P.art.setIHR.length)h+=row('4. מילוי לולים מהיר (IHR)','<small>'+P.art.setIHR.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
+ if(P.art.setContract.length)h+=row('5. קו-אופ / חוזים (תפוקת ביצים ומשלוחים)','<small>'+P.art.setContract.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
+ if(P.art.setContractResearch.length)h+=row('6. תחילת חוזה (מחקר והכנסות ללא ריצה)','<small>'+P.art.setContractResearch.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
+ if(P.art.setDrones.length)h+=row('7. ציד רחפנים (GE)','<small>'+P.art.setDrones.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
  if(P.art.demoteList.length){
   h+='<div style="margin-top:8px"><small><b>פירוק כפילויות (Demote) לקבלת Golden Eggs:</b> '+P.art.demoteList.slice(0,4).map(function(d){return esc(d.name)+' (×'+d.excess+')'}).join(', ')+'</small></div>';
  }
@@ -3422,10 +3699,11 @@ $('go').onclick=function(){run($('eid').value,false)};
 $('btn-ref').onclick=function(){run($('eid').value,false)};
 $('btn-eid').onclick=function(){var b=$('eid-bar');b.style.display=(b.style.display==='none')?'flex':'none';$('eid').focus()};
 $('eid').onkeydown=function(e){if(e.key==='Enter')run($('eid').value,false)};
-['slots','run','shipTarget'].forEach(function(id){$(id).onchange=function(){sset(id,$(id).value);if(last&&RES)show(last,RES)}});
+function setArtFocus(val){if($('artFocus'))$('artFocus').value=val;sset('artFocus',val);if(last&&RES)show(last,RES)}
+['slots','run','shipTarget','artFocus'].forEach(function(id){$(id).onchange=function(){sset(id,$(id).value);if(last&&RES)show(last,RES)}});
 ['ev-prestige','ev-epic','ev-common','ev-cap','ev-drones','ev-craft'].forEach(function(id){$(id).onchange=function(){manualEventOverrides[id]=true;if(last&&RES)show(last,RES)}});
 
-['slots','run','shipTarget'].forEach(function(id){var v=sget(id);if(v)$(id).value=v});
+['slots','run','shipTarget','artFocus'].forEach(function(id){var v=sget(id);if(v)$(id).value=v});
 applyDefaultEventsIfUnset();
 var saved=sget('eid');if(saved){$('eid').value=saved;run(saved,false)}
 setInterval(function(){var e=sget('eid');if(e&&!document.hidden)run(e,true)},20000);
