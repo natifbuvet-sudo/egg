@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 52</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 53</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -851,6 +851,7 @@ function epicPlan(R,lv,avail,peCount,epicDisc,ctx){
  var rem=Math.max(0,Number(avail)||0);
  var buyMap={};
  var buyList=[];
+ var steps=[];
  var totalSum=0;
  var totalLevels=0;
 
@@ -877,11 +878,13 @@ function epicPlan(R,lv,avail,peCount,epicDisc,ctx){
    buyMap[best.r.id].n++;
    buyMap[best.r.id].sum+=best.p;
   }
+  steps.push({r:best.r,from:best.L,to:best.L+1,price:best.p,roi:best.sc});
  }
 
  var buy=null;
  if(rows.length){
-  buy={row:rows[0],n:buyList.length?buyList[0].n:0,sum:buyList.length?buyList[0].sum:0,list:buyList,totalSum:totalSum,totalLevels:totalLevels,remGE:rem};
+  buy={row:rows[0],n:buyList.length?buyList[0].n:0,sum:buyList.length?buyList[0].sum:0,list:buyList,steps:steps,
+   totalSum:totalSum,totalLevels:totalLevels,remGE:rem};
  }
  return {rows:rows,buy:buy};
 }
@@ -3624,6 +3627,7 @@ function copyDiag(){
    epicResearchPlan:{discountPct:Math.round((P.events.epicResearchDiscount||0)*100),
     isSundayEpicWeek:getEggIncPacificSchedule().isSundayEpic,
     affordableLevels:P.E.buy?P.E.buy.totalLevels:0,affordableCostGE:P.E.buy?P.E.buy.totalSum:0,
+    steps:(P.E.buy&&P.E.buy.steps)?P.E.buy.steps.slice(0,15).map(function(x){return {id:x.r.id,name:x.r.name,from:x.from,to:x.to,price:x.price};}):[],
     topPriority:P.E.rows.slice(0,5).map(function(x){return {id:x.r.id,name:x.r.name,from:x.L,max:x.r.levels,nextPrice:x.price,roi:Number(x.roi.toFixed(5))};})},
    shipRecommendation:shipRec,
    artifactLoadoutStatus:{
@@ -4020,10 +4024,19 @@ function show(b,R){
  }
  P.ships.forEach(function(s){h+=row(esc(s[0]),'<small>'+esc(s[1])+'</small>')});
  h+='<div style="margin-top:8px"><small><b>תוכנית רכישת Epic ('+fmt(P.avail)+' GE פנויות):</b></small></div>';
- if(P.E.buy && P.E.buy.list && P.E.buy.list.length){
-  P.E.buy.list.forEach(function(x){
-   h+=row('<b>'+esc(x.r.name)+'</b> <small>('+x.from+' ← '+x.to+' / '+x.r.levels+')</small>','<span class="tag-ok">'+fmt(x.sum)+' GE</span>');
-  });
+ if(P.E.buy && P.E.buy.steps && P.E.buy.steps.length){
+  var stAll=P.E.buy.steps;
+  h+='<p><small>סה"כ '+P.E.buy.totalLevels+' שדרוגים בודדים ב-'+fmt(P.E.buy.totalSum)+' GE (יישארו '+fmt(P.E.buy.remGE)+' GE):</small></p>';
+  var renderEpStep=function(x,i){
+   var lbl='<span class="step-num">'+(i+1)+'</span><b>'+esc(x.r.name)+'</b> <small>('+x.from+' ← '+x.to+' / '+x.r.levels+')</small>';
+   return row(lbl,'<span class="tag-ok">'+fmt(x.price)+' GE</span>');
+  };
+  stAll.slice(0,25).forEach(function(x,i){h+=renderEpStep(x,i)});
+  if(stAll.length>25){
+   h+='<details class="c-fold"><summary class="c-fold-sum"><span>הצג עוד '+(stAll.length-25)+' שדרוגים</span><span>▼</span></summary>';
+   stAll.slice(25).forEach(function(x,i){h+=renderEpStep(x,i+25)});
+   h+='</details>';
+  }
  }else if(P.E.rows.length){
   P.E.rows.slice(0,4).forEach(function(x){
    h+=row(esc(x.r.name)+' <small>('+x.L+'/'+x.r.levels+')</small>','<span class="tag-wait">'+fmt(x.price)+' GE</span>');
