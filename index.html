@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 61</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 62</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -975,22 +975,44 @@ function commonPlan(R,lv,virt,cash,elv,ctx,commonDisc,puzzleCubeMult,colleggDisc
  var startCash=remCash;
  var buyById={};
  var buyOrder=[];
- var totalLevelsBought=0;
- var totalSpent=0;
- var nextOutOfBudget=[];
+ var totalLevelsBought=0,totalSpent=0,nextOutOfBudget=[],bridgeInfo=null;
+ function okRes(r,L){return L<r.levels && !(ctx && ctx.keepOneWD && r.id==='wormhole_dampening' && L>=r.levels-1);}
+ function resPr(r,L){return (((virt?r.virtue_prices:r.prices)||r.prices)[L]||0)*labDisc;}
 
  for(var step=0;step<2500;step++){
-  var best=null;
+  var best=null,cheapOpen=null,openCands=[],openT=1;
+  while(openT<TH.length && bought(openT)>=TH[openT])openT++;
   for(var i=0;i<cm.length;i++){
    var r=cm[i],L=simLv[r.id]||0;
-   if(L>=r.levels)continue;
-   if(r.tier>1&&(r.tier-1>=TH.length||bought(r.tier-1)<TH[r.tier-1]))continue;
-   if(ctx && ctx.keepOneWD && r.id==='wormhole_dampening' && L>=r.levels-1)continue;
-   var pr=(virt?r.virtue_prices:r.prices)||r.prices;
-   var p=(pr[L]||0)*labDisc;
-   if(!p)continue;
-   var sc=cgain(r,L,ctx,p)/p;
+   if(r.tier>openT || !okRes(r,L))continue;
+   var p=resPr(r,L);if(!p)continue;
+   var sc=cgain(r,L,ctx,p)/p;openCands.push({r:r,L:L});
    if(!best||sc>best.score)best={r:r,L:L,price:p,score:sc};
+   if(!cheapOpen||p<cheapOpen.price)cheapOpen={r:r,L:L,price:p,score:sc};
+  }
+  if(openT<TH.length && cheapOpen && remCash>=cheapOpen.price){
+   var miss=TH[openT]-bought(openT),bestNext=null,minNextP=Infinity,pList=[];
+   for(var j=0;j<cm.length;j++){
+    var nr=cm[j],nL=simLv[nr.id]||0;
+    if(nr.tier!==openT+1 || !okRes(nr,nL))continue;
+    var np=resPr(nr,nL);if(!np)continue;
+    if(np<minNextP)minNextP=np;
+    var nsc=cgain(nr,nL,ctx,np)/np;if(!bestNext||nsc>bestNext.score)bestNext={price:np,score:nsc};
+   }
+   for(var k=0;bestNext && k<openCands.length;k++){
+    for(var lv2=openCands[k].L;okRes(openCands[k].r,lv2) && pList.length<miss+20;lv2++){
+     var lvP=resPr(openCands[k].r,lv2);if(lvP>0)pList.push(lvP);
+    }
+   }
+   pList.sort(function(a,b){return a-b});
+   if(bestNext && pList.length>=miss){
+    var bCost=0;for(var m=0;m<miss;m++)bCost+=pList[m];
+    if((!best||remCash<best.price||bestNext.score>best.score*1.15) && remCash>=bCost+minNextP && bCost<=Math.max(remCash*0.25,minNextP*2)){
+     best={r:cheapOpen.r,L:cheapOpen.L,price:cheapOpen.price,score:Math.max(cheapOpen.score,bestNext.score*0.98)};
+     if(!bridgeInfo)bridgeInfo={toTier:openT+1,levels:0,cost:0};
+     bridgeInfo.levels++;bridgeInfo.cost+=cheapOpen.price;
+    }
+   }
   }
   if(!best)break;
 
@@ -1029,7 +1051,8 @@ function commonPlan(R,lv,virt,cash,elv,ctx,commonDisc,puzzleCubeMult,colleggDisc
   totalLevelsBought:totalLevelsBought,
   totalSpent:totalSpent,
   remCash:remCash,
-  startCash:startCash
+  startCash:startCash,
+  tierBridge:bridgeInfo
  };
 }
 
@@ -3728,7 +3751,7 @@ function copyDiag(){
     willCrossNextEggAt90:P.eggProg.willCrossNextEggAt90
    },
    commonResearchPlan:{affordableLevels:P.C.totalLevelsBought,affordableSpent:Number(P.C.totalSpent.toExponential(3)),
-    remCash:Number(P.C.remCash.toExponential(3)),
+    remCash:Number(P.C.remCash.toExponential(3)),tierBridge:P.C.tierBridge,
     topAffordable:P.C.affordableList.slice(0,8).map(function(x){return {id:x.r.id,name:x.r.name,tier:x.r.tier,from:x.from,to:x.to,cost:Number(x.cost.toExponential(3)),roi:Number(x.firstScore.toExponential(3))};}),
     nextOutOfBudget:P.C.nextList.slice(0,5).map(function(x){return {id:x.r.id,name:x.r.name,tier:x.r.tier,from:x.from,to:x.to,cost:Number(x.cost.toExponential(3))};})},
    goldenEggRecommendation:P.geSpecRec,
@@ -3871,6 +3894,9 @@ function show(b,R){
  }
  if(P.keepOneWD && P.logi.habPct>=80){
   h+='<div class="status-banner hold"><b>הגנת Running Chicken Bonus (RCB):</b><small>המנוע שומר רמה 24/25 של Wormhole Dampening פתוחה כדי שלא תיחסם מלהריץ תרנגולות.</small></div>';
+ }
+ if(P.C.tierBridge){
+  h+='<div class="status-banner do"><b>גישור לפתיחת Tier '+P.C.tierBridge.toTier+':</b><small>נרכשו '+P.C.tierBridge.levels+' רמות זולות ('+fmt(P.C.tierBridge.cost)+') כדי לפתוח שדרוגים משתלמים ב-Tier '+P.C.tierBridge.toTier+'.</small></div>';
  }
  if(P.C.affordableList.length){
   h+='<p><small>סה"כ '+P.C.totalLevelsBought+' רמות • עלות '+fmt(P.C.totalSpent)+' (יישארו '+fmt(P.C.remCash)+')</small></p>';
