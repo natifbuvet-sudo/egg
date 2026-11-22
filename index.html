@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 63</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 64</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -874,15 +874,25 @@ function epicPlan(R,lv,avail,peCount,epicDisc,ctx){
  var totalSum=0;
  var totalLevels=0;
 
+ var saveTarget=null;
  for(var step=0;step<250;step++){
-  var best=null;
+  var best=null,bestAny=null;
   for(var i=0;i<ep.length;i++){
    var r=ep[i],L=simLv[r.id]||0;
    if(L>=r.levels)continue;
    var p=Math.max(1,Math.floor((r.prices[L]||0)*discMult));
-   if(!p || p>rem)continue;
+   if(!p)continue;
    var sc=getEpicWeight(r.id,peCount,L,ctx)/p;
-   if(!best || sc>best.sc)best={r:r,L:L,p:p,sc:sc};
+   if(!bestAny || sc>bestAny.sc)bestAny={r:r,L:L,p:p,sc:sc};
+   if(p<=rem && (!best || sc>best.sc))best={r:r,L:L,p:p,sc:sc};
+  }
+  if(!bestAny)break;
+  if(bestAny.p>rem){
+   var gap=bestAny.p-rem;
+   if(!best || (bestAny.sc>best.sc*1.5 && (rem>=bestAny.p*0.35 || (rem>=bestAny.p*0.15 && gap<=100000)))){
+    saveTarget={r:bestAny.r,L:bestAny.L,price:bestAny.p,missing:gap,roi:bestAny.sc};
+    break;
+   }
   }
   if(!best)break;
   rem-=best.p;
@@ -903,7 +913,7 @@ function epicPlan(R,lv,avail,peCount,epicDisc,ctx){
  var buy=null;
  if(rows.length){
   buy={row:rows[0],n:buyList.length?buyList[0].n:0,sum:buyList.length?buyList[0].sum:0,list:buyList,steps:steps,
-   totalSum:totalSum,totalLevels:totalLevels,remGE:rem};
+   totalSum:totalSum,totalLevels:totalLevels,remGE:rem,saveTarget:saveTarget};
  }
  return {rows:rows,buy:buy};
 }
@@ -3565,11 +3575,16 @@ function plan(b,R){
   if(E.buy.list && E.buy.list.length>0){
    var epSummary=E.buy.list.slice(0,3).map(function(x){return x.r.name+' (+'+x.n+')'}).join(' • ');
    geSpecRec={action:saleActive?'BUY_EPIC_RESEARCH':'WAIT_FOR_35_EPIC_SALE',target:E.buy.list[0].r.id,reason:saleActive?'מבצע 35% Epic פעיל כעת — מומלץ לקנות!':'מומלץ להמתין למבצע 35% Epic (ימי ראשון פעם בשבועיים) לחיסכון עצום ב-GE.'};
+   var svNote=E.buy.saveTarget?(' ושמור יתרה ל-'+E.buy.saveTarget.r.name):'';
    if(saleActive){
-    a.push([20,'מבצע 35% Epic: קנה '+epSummary,'סה"כ '+E.buy.totalLevels+' רמות ב-'+fmt(E.buy.totalSum)+' GE מתוך '+fmt(avail)+' פנויות.']);
+    a.push([20,'מבצע 35% Epic: קנה '+epSummary,'סה"כ '+E.buy.totalLevels+' רמות ב-'+fmt(E.buy.totalSum)+' GE'+svNote+'.']);
    }else{
-    a.push([82,'שמור '+fmt(avail)+' GE למבצע 35% Epic ביום ראשון','התכנון מוכן ('+E.buy.totalLevels+' רמות של '+epSummary+'), אך מומלץ להמתין להנחה.']);
+    a.push([82,'שמור '+fmt(avail)+' GE למבצע 35% Epic ביום ראשון','התכנון מוכן ('+E.buy.totalLevels+' רמות של '+epSummary+svNote+'), אך מומלץ להמתין להנחה.']);
    }
+  }else if(E.buy.saveTarget){
+   var st=E.buy.saveTarget;
+   geSpecRec={action:'SAVE_FOR_EPIC',target:st.r.id,reason:'עצור וחסוך עוד '+fmt(st.missing)+' GE ל-'+st.r.name+' ('+fmt(st.price)+' GE).'};
+   a.push([83,'מחקר אפיק: עצור וחסוך ל-'+st.r.name,'חסרות '+fmt(st.missing)+' GE (עולה '+fmt(st.price)+') — משתלם בהרבה מהזולים הזמינים.']);
   }else{
    var f=E.buy.row;
    geSpecRec={action:'SAVE_FOR_EPIC',target:f.r.id,reason:'חסוך '+fmt(f.price)+' GE לשלב הבא של '+f.r.name+'.'};
@@ -3739,6 +3754,7 @@ function copyDiag(){
    goldenEggRecommendation:P.geSpecRec,
    epicResearchPlan:{discountPct:Math.round((P.events.epicResearchDiscount||0)*100),
     isSundayEpicWeek:getEggIncPacificSchedule().isSundayEpic,
+    saveTarget:P.E.buy&&P.E.buy.saveTarget?{id:P.E.buy.saveTarget.r.id,price:P.E.buy.saveTarget.price,missingGE:P.E.buy.saveTarget.missing}:null,
     affordableLevels:P.E.buy?P.E.buy.totalLevels:0,affordableCostGE:P.E.buy?P.E.buy.totalSum:0,
     steps:(P.E.buy&&P.E.buy.steps)?P.E.buy.steps.slice(0,15).map(function(x){return {id:x.r.id,name:x.r.name,from:x.from,to:x.to,price:x.price};}):[],
     topPriority:P.E.rows.slice(0,5).map(function(x){return {id:x.r.id,name:x.r.name,from:x.L,max:x.r.levels,nextPrice:x.price,roi:Number(x.roi.toFixed(5))};})},
@@ -4252,7 +4268,17 @@ function show(b,R){
    stAll.slice(25).forEach(function(x,i){h+=renderEpStep(x,i+25)});
    h+='</details>';
   }
+  if(P.E.buy.saveTarget){
+   var st0=P.E.buy.saveTarget;
+   h+='<div class="status-banner hold" style="margin-top:6px"><b>עצירת חיסכון (Save Guard):</b>';
+   h+='<small>שמור '+fmt(P.E.buy.remGE)+' GE ל-'+esc(st0.r.name)+' (חסרות '+fmt(st0.missing)+' GE).</small></div>';
+  }
  }else if(P.E.rows.length){
+  if(P.E.buy && P.E.buy.saveTarget){
+   var st1=P.E.buy.saveTarget;
+   h+='<div class="status-banner hold" style="margin:6px 0"><b>המלצת חיסכון (Save Guard):</b>';
+   h+='<small>עצור וחסוך ל-'+esc(st1.r.name)+' ('+fmt(st1.price)+' GE, חסרות '+fmt(st1.missing)+' GE) — ROI גבוה בהרבה.</small></div>';
+  }
   P.E.rows.slice(0,4).forEach(function(x){
    h+=row(esc(x.r.name)+' <small>('+x.L+'/'+x.r.levels+')</small>','<span class="tag-wait">'+fmt(x.price)+' GE</span>');
   });
