@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 51</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 52</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -519,7 +519,7 @@ function getEggIncPacificSchedule(){
   evDay:evDay,
   isEggDay:isEggDay,
   isFridayResearch:(evDay===5),
-  isWeekendPrestige:(evDay===6 || evDay===0 || isEggDay),
+  isWeekendPrestige:(evDay===6 || isEggDay),
   isSundayEpic:(evDay===0 && sunWks%2===0),
   isSundayCraft:(evDay===0 && sunWks%2===1)
  };
@@ -803,14 +803,14 @@ function analyzeColleggtibles(b){
 }
 
 var EPIC_SPEC={hold_to_hatch:[15,10,444],epic_hatchery:[20,10,1000],epic_internal_incubators:[20,50,5000],video_doubler_time:[12,200,5000],
- epic_clucking:[20,25,5000],epic_multiplier:[100,50,10000],cheaper_contractors:[10,50,2500],bust_unions:[10,50,2500],
- cheaper_research:[10,250,15000],silo_capacity:[20,50,5000],int_hatch_sharing:[10,100,2500],int_hatch_calm:[20,250,25000],
- accounting_tricks:[20,100,10000],soul_eggs:[140,500,10000],prestige_bonus:[20,2000,30000],drone_rewards:[20,100,10000],
+ epic_clucking:[20,25,5000],epic_multiplier:[100,50,5000],cheaper_contractors:[10,50,2500],bust_unions:[10,50,2500],
+ cheaper_research:[10,250,15000],silo_capacity:[20,5,5000],int_hatch_sharing:[10,100,2500],int_hatch_calm:[20,250,25000],
+ accounting_tricks:[20,100,10000],soul_eggs:[140,500,5000],prestige_bonus:[20,2000,30000],drone_rewards:[20,100,10000],
  epic_egg_laying:[20,250,50000],transportation_lobbyist:[30,250,7500],prophecy_bonus:[5,100000,1000000],hold_to_research:[8,5000,50000],
  afx_mission_time:[60,5000,150000],afx_mission_capacity:[10,50000,1000000]};
 function getEpicPrices(r){
  var sp=EPIC_SPEC[r.id];if(!sp)return r.prices||[];
- var arr=[];for(var i=0;i<sp[0];i++)arr.push(sp[0]>1?Math.floor(sp[1]+(sp[2]-sp[1])*i/(sp[0]-1)):sp[1]);
+ var arr=[];for(var i=0;i<sp[0];i++)arr.push(sp[0]>1?Math.round(sp[1]+(sp[2]-sp[1])*i/(sp[0]-1)):sp[1]);
  return arr;
 }
 function getEpicWeight(id,peCount,L,ctx){
