@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 60</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 61</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -212,7 +212,8 @@ var EPIC_W={
  hold_to_research:0.5
 };
 
-var W={egg_value:1.15,egg_laying_rate:1,'egg_laying_rate,egg_value':1.1,running_chicken_bonus:.75,shipping_capacity:.5,hab_capacity:.65,internal_hatchery_rate:.8,fleet_size:.2,hatchery_capacity:.1,hatchery_refill_rate:.05};
+var W={egg_value:1.15,egg_laying_rate:1,'egg_laying_rate,egg_value':1.1,running_chicken_bonus:.75,shipping_capacity:.5,
+ hab_capacity:.65,internal_hatchery_rate:.8,fleet_size:.002,hatchery_capacity:.002,hatchery_refill_rate:.002};
 var VIRT={CURIOSITY:1,INTEGRITY:1,HUMILITY:1,RESILIENCE:1,KINDNESS:1};
 var VIRT_KEYS=['CURIOSITY','INTEGRITY','KINDNESS','RESILIENCE','HUMILITY'];
 var VIRT_FACILITY={
@@ -938,20 +939,26 @@ function cgain(r,L,ctx,price){
  }
 
  if(ctx){
-  if(cat==='shipping_capacity' || cat==='fleet_size'){
-   if(ctx.shipBottleneck)w=(cat==='shipping_capacity')?2.5:1.8;
-   else if(ctx.shipUtilPct>=75)w=(cat==='shipping_capacity')?1.1:0.5;
-   else if(ctx.shipUtilPct>=55)w=(cat==='shipping_capacity')?0.45:0.2;
-   else w=0.12;
+  if(cat==='fleet_size'){
+   w=(ctx.unusedVehSlots===0 && (ctx.shipBottleneck || ctx.shipUtilPct>=85))?1.6:0.002;
+  }else if(cat==='shipping_capacity'){
+   if(ctx.shipBottleneck || ctx.shipUtilPct>=92)w=2.6;
+   else if(ctx.shipUtilPct>=80)w=1.15;
+   else if(ctx.shipUtilPct>=70)w=0.25;
+   else w=0.015;
+  }else if(cat==='egg_laying_rate' || cat==='egg_laying_rate,egg_value'){
+   if(ctx.shipBottleneck || ctx.shipUtilPct>=95)w=(cat==='egg_laying_rate,egg_value')?1.2:0.12;
+  }else if(cat==='running_chicken_bonus'){
+   if(ctx.habPct>=97 || ctx.lunarBeatsActive)w=0.02;
   }else if(cat==='internal_hatchery_rate'){
-   var cheapIHR=(ctx.cash>0 && price < ctx.cash*0.01);
-   w=(ctx.habPct<85)?(cheapIHR?1.55:0.95):0.2;
+   if(ctx.habPct>=98)w=0.01;
+   else{var cheapIHR=(ctx.cash>0 && price < ctx.cash*0.01);w=(ctx.habPct<85)?(cheapIHR?1.55:0.95):0.2;}
   }else if(cat==='hab_capacity'){
-   if(ctx.habPct>=85){
-    w=ctx.keepOneWD?0.35:1.6;
-   }else{
-    w=0.55;
-   }
+   if(ctx.habPct>=85)w=ctx.keepOneWD?0.35:1.65;
+   else if(ctx.habPct>=72)w=0.45;
+   else w=0.06;
+  }else if(cat==='hatchery_capacity' || cat==='hatchery_refill_rate'){
+   w=0.002;
   }
  }
  return g*w;
@@ -1014,10 +1021,7 @@ function commonPlan(R,lv,virt,cash,elv,ctx,commonDisc,puzzleCubeMult,colleggDisc
   }
  }
 
- buyOrder.sort(function(a,b){
-  if(a.r.tier!==b.r.tier)return a.r.tier-b.r.tier;
-  return b.firstScore-a.firstScore;
- });
+ buyOrder.sort(function(a,b){return b.firstScore-a.firstScore});
 
  return {
   affordableList:buyOrder,
@@ -2596,11 +2600,8 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
   cLogi=calcFarmLogistics(b,cf,lvMap(cf.commonResearch),elv,contractArt,R,collegg,permitTier);
   var cfKeepOneWD=(cLogi.habPct<95);
   cp=commonPlan(R,lvMap(cf.commonResearch),false,cfCash,elv,{
-   shipBottleneck:cLogi.shipBottleneck,
-   shipUtilPct:cLogi.shipUtilPct,
-   habPct:cLogi.habPct,
-   cash:cfCash,
-   keepOneWD:cfKeepOneWD
+   shipBottleneck:cLogi.shipBottleneck,shipUtilPct:cLogi.shipUtilPct,unusedVehSlots:cLogi.unusedVehSlots,
+   habPct:cLogi.habPct,lunarBeatsActive:cLogi.lunarBeatsActive,cash:cfCash,keepOneWD:cfKeepOneWD
   },0,1,(collegg&&collegg.mults&&collegg.mults.researchCost)||1);
 
   if(cp.affordableList.length){
@@ -3200,7 +3201,9 @@ function plan(b,R){
  var trophies=analyzeDiamondTrophies(b,logi.ebPercent);
 
  var keepOneWD=(!macro.isEnl && runMode!=='ready');
- var C=commonPlan(R,clv,virt,cash,elv,{shipBottleneck:logi.shipBottleneck,shipUtilPct:logi.shipUtilPct,habPct:logi.habPct,cash:cash,keepOneWD:keepOneWD},events.commonResearchDiscount,art.puzzleCubeMult,collegg.mults.researchCost);
+ var cCtx={shipBottleneck:logi.shipBottleneck,shipUtilPct:logi.shipUtilPct,unusedVehSlots:logi.unusedVehSlots,
+  habPct:logi.habPct,lunarBeatsActive:logi.lunarBeatsActive,cash:cash,keepOneWD:keepOneWD};
+ var C=commonPlan(R,clv,virt,cash,elv,cCtx,events.commonResearchDiscount,art.puzzleCubeMult,collegg.mults.researchCost);
  var hasAffordableResearch=(C.affordableList.length>0);
  var fuelInfo=checkShipFuel(b,sim,virt,events,cash,logi,permitTier);
  var eggProg=calcEggProgress(b,sim,logi,fuelInfo);
@@ -3273,7 +3276,8 @@ function plan(b,R){
  if(logi.emptyHabSlots>0 && cash>500 && !macro.isVirt){
   a.push([16,'יש לך '+logi.emptyHabSlots+' מקומות ריקים ללולים — בנה לול נוסף','הגדלת מספר הלולים תכפיל את קצב גדילת התרנגולות (Internal Hatchery).']);
  }
- if(logi.unusedVehSlots>0 && logi.shipUtilPct>75 && cash>500 && !macro.isVirt){
+ var vehCost=((collegg&&collegg.mults&&collegg.mults.vehCost)||1)*(1-0.05*(elv['bust_unions']||0));
+ if(logi.unusedVehSlots>0 && logi.shipUtilPct>75 && cash>=2500*vehCost && !macro.isVirt){
   a.push([17,'יש לך '+logi.unusedVehSlots+' מקומות פנויים לרכבים — הוסף משאית','הוספת משאית תמנע סתימה במשלוחים.']);
  }
 
@@ -3723,6 +3727,10 @@ function copyDiag(){
     belowPeakEgg:P.eggProg.belowPeakEgg,
     willCrossNextEggAt90:P.eggProg.willCrossNextEggAt90
    },
+   commonResearchPlan:{affordableLevels:P.C.totalLevelsBought,affordableSpent:Number(P.C.totalSpent.toExponential(3)),
+    remCash:Number(P.C.remCash.toExponential(3)),
+    topAffordable:P.C.affordableList.slice(0,8).map(function(x){return {id:x.r.id,name:x.r.name,tier:x.r.tier,from:x.from,to:x.to,cost:Number(x.cost.toExponential(3)),roi:Number(x.firstScore.toExponential(3))};}),
+    nextOutOfBudget:P.C.nextList.slice(0,5).map(function(x){return {id:x.r.id,name:x.r.name,tier:x.r.tier,from:x.from,to:x.to,cost:Number(x.cost.toExponential(3))};})},
    goldenEggRecommendation:P.geSpecRec,
    epicResearchPlan:{discountPct:Math.round((P.events.epicResearchDiscount||0)*100),
     isSundayEpicWeek:getEggIncPacificSchedule().isSundayEpic,
