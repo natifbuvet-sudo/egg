@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 54</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 55</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -3917,27 +3917,35 @@ function show(b,R){
    h+='<option value="cs"'+(d.manualGoalMode==='cs'?' selected':'')+'>מקסום ניקוד (Contract Score / Speedrun)</option>';
    h+='<option value="rewards"'+(d.manualGoalMode==='rewards'?' selected':'')+'>פרסים בלבד (Rewards-only / חיסכון)</option>';
    h+='</select></div>';
+   var tokCnt=d.boostPlan?d.boostPlan.unclaimedTokens:0;
    h+='<div class="c-chips">';
    h+='<span class="c-chip">יעדים: <b>'+d.achieved+'/3</b></span>';
-   h+=d.coop?'<span class="c-chip ok">קו-אופ: '+esc(d.coop)+'</span>':'<span class="c-chip bad">ללא קו-אופ</span>';
-   if(d.timeLeft>0)h+='<span class="c-chip">נותרו '+hrs(d.timeLeft)+'</span>';
    if(d.cfMetrics){
-    h+='<span class="c-chip">אוכלוסייה: '+fmt(d.cfMetrics.pop)+'/'+fmt(d.cfMetrics.maxCap)+'</span>';
-    h+='<span class="c-chip'+(d.cfMetrics.shipBottleneck?' bad':'')+'">משלוחים: '+d.cfMetrics.shipUtilPct.toFixed(0)+'%</span>';
-    h+='<span class="c-chip">מזומן: '+fmt(d.cfMetrics.cash)+'</span>';
+    var m=d.cfMetrics;
+    h+='<span class="c-chip">לולים: <b>'+m.habPct.toFixed(0)+'%</b> ('+fmt(m.pop)+'/'+fmt(m.maxCap)+')</span>';
+    h+='<span class="c-chip'+(m.shipBottleneck?' bad':'')+'">משלוחים: <b>'+m.shipUtilPct.toFixed(0)+'%</b></span>';
    }
-   if(d.boostPlan && d.boostPlan.unclaimedTokens>0){
-    h+='<span class="c-chip ok">טוקנים לאיסוף: '+d.boostPlan.unclaimedTokens+'</span>';
-   }
+   h+='<span class="c-chip'+(tokCnt>0?' ok':'')+'">טוקנים: <b>'+tokCnt+'</b></span>';
+   if(d.timeLeft>0)h+='<span class="c-chip">נותרו '+hrs(d.timeLeft)+'</span>';
    h+='</div>';
-   if(d.rewardsText)h+='<div class="c-meta-line"><b>פרסים:</b> '+esc(d.rewardsText)+'</div>';
-   h+='<div class="c-next '+d.nextStepLevel+'"><b>הצעד הבא:</b> '+esc(d.nextStep)+'</div>';
-   if(d.boostPlan && d.boostPlan.combo && d.boostPlan.combo.length){
-    h+='<div class="c-meta-line"><b>בוסטים מותאמים למלאי ('+d.boostPlan.maxBoostSlots+' סלוטים):</b> '+d.boostPlan.combo.map(function(x){return '<span class="tag-ok">'+(x.useQty>1?x.useQty+'× ':'')+esc(x.name)+'</span>'}).join(' ')+'</div>';
-   }
-   if(d.stoneAdvice)h+='<div class="c-meta-line"><b>אבנים:</b> '+esc(d.stoneAdvice)+'</div>';
-   if(d.researchPlan && d.cfMetrics){
-    var crp=d.researchPlan;
+   h+='<div class="c-next '+d.nextStepLevel+'"><b>מה לעשות עכשיו:</b> '+esc(d.nextStep)+'</div>';
+   var metaPts=[d.coop?('קו-אופ: '+esc(d.coop)):'ללא קו-אופ'];
+   if(d.cfMetrics)metaPts.push('מזומן: '+fmt(d.cfMetrics.cash));
+   if(d.rewardsText)metaPts.push('פרסים: '+esc(d.rewardsText));
+   h+='<div class="c-meta-line">'+metaPts.join(' • ')+'</div>';
+   var hasBoosts=d.boostPlan && d.boostPlan.combo && d.boostPlan.combo.length;
+   var hasRes=d.researchPlan && d.cfMetrics;
+   if(hasBoosts || d.stoneAdvice || hasRes){
+    var affCnt=hasRes?d.researchPlan.affordableList.length:0;
+    var foldTitle='בוסטים, אבנים ומחקר בחוזה'+(affCnt>0?' ('+affCnt+' שדרוגים מוכנים)':'');
+    h+='<details class="c-fold"><summary class="c-fold-sum"><span>'+foldTitle+'</span><span>▼</span></summary>';
+    if(hasBoosts){
+     var bTags=d.boostPlan.combo.map(function(x){return '<span class="tag-ok">'+(x.useQty>1?x.useQty+'× ':'')+esc(x.name)+'</span>'}).join(' ');
+     h+='<div class="c-meta-line" style="margin-top:6px"><b>בוסטים ('+d.boostPlan.maxBoostSlots+' סלוטים):</b> '+bTags+'</div>';
+    }
+    if(d.stoneAdvice)h+='<div class="c-meta-line"><b>אבנים:</b> '+esc(d.stoneAdvice)+'</div>';
+    if(hasRes){
+     var crp=d.researchPlan;
     h+='<div class="c-res-box"><div class="c-res-head"><span>שדרוגי מחקר מומלצים בחוזה</span><small>תקציב: '+fmt(d.cfMetrics.cash)+'</small></div>';
     if(crp.affordableList.length){
      h+='<p class="c-res-sum">סה"כ '+crp.totalLevelsBought+' רמות • עלות '+fmt(crp.totalSpent)+' (יישארו '+fmt(crp.remCash)+')</p>';
@@ -3958,7 +3966,9 @@ function show(b,R){
       h+=row(rLbl,'<span class="tag-wait">'+fmt(x.cost)+'</span>');
      });
     }
-    h+='</div>';
+     h+='</div>';
+    }
+    h+='</details>';
    }
    if(d.pointsPlaybook){
     h+='<details class="c-fold"><summary class="c-fold-sum"><span>מדריך 5 שלבים למקסימום CS בחוזה זה</span><span>▼</span></summary>';
