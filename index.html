@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 55</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 56</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -664,6 +664,40 @@ var msg=Req.create({rinfo:rinfo73,eiUserId:cleanEid,deviceId:'wasmegg',clientVer
  var o=Res.toObject(Res.decode(u),{longs:Number,enums:String,defaults:false});
  if(!o.backup)throw new Error('לא נמצא חשבון עם ה-EID הזה');
  return o.backup;
+}
+
+var liveCoopStatuses={};
+async function fetchCoopStatuses(eid,b){
+ try{
+  var list=(b&&b.contracts&&b.contracts.contracts)||[];
+  var active=list.filter(function(c){return c.coopIdentifier&&!c.coopSimulationEndTime});
+  if(!active.length)return;
+  var R=await getRoot();
+  var Req=R.lookupType('ei.ContractCoopStatusRequest'),Res=R.lookupType('ei.ContractCoopStatusResponse');
+  var cleanEid=eid.indexOf('mk2!')===0?eid.slice(4):eid;
+  var eps=['/proxy?endpoint=ei/coop_status','/proxy?path=/ei/coop_status','/proxy?url=https://www.auxbrain.com/ei/coop_status','/proxy/ei/coop_status'];
+  await Promise.all(active.map(async function(c){
+   var cid=(c.contract&&c.contract.identifier)||c.contractIdentifier||'',coop=c.coopIdentifier||'';
+   if(!cid||!coop)return;
+   var msg=Req.create({rinfo:{eiUserId:cleanEid,clientVersion:73,version:'1.35.8',build:'111346',platform:'IOS'},
+    contractIdentifier:cid,coopIdentifier:coop,userId:cleanEid,clientVersion:73});
+   var bytes=Req.encode(msg).finish(),bin='';for(var i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);var b64=btoa(bin);
+   for(var k=0;k<eps.length;k++){
+    try{
+     var r=await postTo(eps[k],b64,false);if(!r.ok)r=await postTo(eps[k],b64,true);if(!r.ok)continue;
+     var txt=(await r.text()).trim();if(!txt||txt.indexOf('<')===0)continue;
+     var raw=atob(txt),u=new Uint8Array(raw.length);for(var j=0;j<raw.length;j++)u[j]=raw.charCodeAt(j);
+     var dec=Res.toObject(Res.decode(u),{longs:Number,enums:String,defaults:false});
+     if(dec&&(dec.totalAmount!==undefined||Array.isArray(dec.contributors))){
+      var rate=0;(dec.contributors||[]).forEach(function(m){rate+=Number(m.contributionRate||0)});
+      liveCoopStatuses[cid+':'+coop]={totalAmount:Number(dec.totalAmount||0),totalRate:rate,
+       memberCount:(dec.contributors||[]).length,secondsRemaining:Number(dec.secondsRemaining||0),allGoalsAchieved:!!dec.allGoalsAchieved};
+      break;
+     }
+    }catch(e){}
+   }
+  }));
+ }catch(e){}
 }
 
 async function fetchPeriodicals(eid,b){
@@ -2485,6 +2519,25 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
  var ownAmt=c.coopLastUploadedContribution||0;
  var lastRewAmt=c.lastAmountWhenRewardGiven||0;
  var simEnd=c.coopSimulationEndTime||0;
+ var csRaw=c.coopIdentifier?liveCoopStatuses[id+':'+c.coopIdentifier]:null;
+ var gSpecs=k.gradeSpecs||[];
+ var gMatch=gSpecs.filter(function(gs){return gs.grade===c.grade})[0]||gSpecs[gSpecs.length-1];
+ var gList=(gMatch&&gMatch.goals&&gMatch.goals.length)?gMatch.goals:(k.goals||[]);
+ var finalGoal=gList.length?Number(gList[gList.length-1].targetAmount||0):0;
+ var liveCoop=null;
+ if(csRaw){
+  var coopTot=Math.max(csRaw.totalAmount,ownAmt),remEggs=finalGoal>0?Math.max(0,finalGoal-coopTot):0;
+  var etaSec=(remEggs>0&&csRaw.totalRate>0)?(remEggs/csRaw.totalRate):0;
+  var pctDone=finalGoal>0?Math.min(100,(coopTot/finalGoal)*100):0;
+  var durSec=Number(k.lengthSeconds||0);if(durSec>1e12)durSec/=1000;
+  var remSec=csRaw.secondsRemaining||Math.max(0,(c.timeAccepted||0)+durSec-now);
+  var elap=durSec>0?Math.max(0,durSec-remSec):0;
+  var frac=(durSec>0&&etaSec>0)?Math.min(1,(elap+etaSec)/durSec):0;
+  var estCsMult=csRaw.allGoalsAchieved?1.5:(etaSec>0?(1+Math.max(0,1-frac)):1);
+  var onTrack=csRaw.allGoalsAchieved||remEggs<=0||(etaSec>0&&etaSec<=remSec);
+  liveCoop={totalAmount:coopTot,finalGoal:finalGoal,pctDone:pctDone,totalRate:csRaw.totalRate,
+   memberCount:csRaw.memberCount,etaSec:etaSec,estCsMult:estCsMult,onTrack:onTrack,allGoalsAchieved:csRaw.allGoalsAchieved};
+ }
  var graceEnd=c.coopGracePeriodEndTime||0;
  var sharedEnd=c.coopSharedEndTime||0;
  var rew=analyzeContractRewards(c,b);
@@ -2672,7 +2725,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
   statusType:statusType,badgeText:badgeText,badgeClass:badgeClass,
   waitingCoop:waitingCoop,pointsOnly:pointsOnly,pointsPlaybook:pointsPlaybook,achieved:achieved,hasPE:rew.hasPE,needs10B:coll.needs10B,rewardsText:rew.rewardsText,
   ownAmt:ownAmt,lastRewAmt:lastRewAmt,
-  cfMetrics:cfMetrics,boostPlan:boostPlan,nextStep:nextStep,nextStepLevel:nextStepLevel,
+  cfMetrics:cfMetrics,boostPlan:boostPlan,liveCoop:liveCoop,nextStep:nextStep,nextStepLevel:nextStepLevel,
   actionText:actionText,researchHint:researchHint,researchPlan:cp,stoneAdvice:stoneAdvice,cfAlerts:cfAlerts,urgent:urgent
  };
 }
@@ -3653,7 +3706,9 @@ function copyDiag(){
       contractGoalMode:d.goalMode,manualOverride:d.manualGoalMode,
       paceForecast:d.paceForecast,pointsOnly:d.pointsOnly,nextStep:d.nextStep,
       matchedBoosts:d.boostPlan?d.boostPlan.combo:[],
-      boostStage:d.boostPlan?d.boostPlan.stage:null};
+      boostStage:d.boostPlan?d.boostPlan.stage:null,
+      liveCoop:d.liveCoop?{members:d.liveCoop.memberCount,pctDone:Number(d.liveCoop.pctDone.toFixed(1)),
+       etaSec:Math.round(d.liveCoop.etaSec),estCsMult:Number(d.liveCoop.estCsMult.toFixed(2)),onTrack:d.liveCoop.onTrack}:null};
     }),
     waitingCoopCount:P.CD.filter(function(d){return d.waitingCoop}).length,
     recommendedAvailCount:P.availContracts.filter(function(x){return x.prio<=2 || (P.bestPointsRec && x.id===P.bestPointsRec.id)}).length,
@@ -3926,8 +3981,15 @@ function show(b,R){
     h+='<span class="c-chip'+(m.shipBottleneck?' bad':'')+'">משלוחים: <b>'+m.shipUtilPct.toFixed(0)+'%</b></span>';
    }
    h+='<span class="c-chip'+(tokCnt>0?' ok':'')+'">טוקנים: <b>'+tokCnt+'</b></span>';
+   if(d.liveCoop)h+='<span class="c-chip'+(d.liveCoop.onTrack?' ok':' bad')+'">קבוצה: <b>'+d.liveCoop.pctDone.toFixed(0)+'%</b></span>';
    if(d.timeLeft>0)h+='<span class="c-chip">נותרו '+hrs(d.timeLeft)+'</span>';
    h+='</div>';
+   if(d.liveCoop){
+    var lc=d.liveCoop;
+    var etaTxt=lc.allGoalsAchieved?'כל היעדים הושגו!':(lc.etaSec>0?('סיום משוער בעוד '+hrs(lc.etaSec)):'ממתין לקצב');
+    var csTxt=d.pointsOnly?(' • מכפיל CS צפוי: ~'+lc.estCsMult.toFixed(2)+'x'):'';
+    h+='<div class="c-meta-line"><b>קו-אופ חי ('+lc.memberCount+' שחקנים):</b> '+fmt(lc.totalAmount)+(lc.finalGoal>0?' / '+fmt(lc.finalGoal):'')+' • '+etaTxt+csTxt+'</div>';
+   }
    h+='<div class="c-next '+d.nextStepLevel+'"><b>מה לעשות עכשיו:</b> '+esc(d.nextStep)+'</div>';
    var metaPts=[d.coop?('קו-אופ: '+esc(d.coop)):'ללא קו-אופ'];
    if(d.cfMetrics)metaPts.push('מזומן: '+fmt(d.cfMetrics.cash));
@@ -4075,6 +4137,7 @@ async function run(eid,isAuto){
   $('eid-bar').style.display='none';
   var res=await Promise.all([load(eid),getRes(),fetchPeriodicals(eid,last)]);
   last=res[0];RES=res[1];
+  await fetchCoopStatuses(eid,last);
   show(last,RES);
   var t=new Date((last.approxTime||Date.now()/1000)*1000);
   $('sync').textContent='עודכן: '+t.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+(liveServerEvents?' • אירועים מסונכרנים מהשרת':'');
