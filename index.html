@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 50</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 51</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -496,13 +496,16 @@ function sset(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 var root=null,RES=null,last=null,liveServerEvents=null,liveEventsSyncNote='not_run',manualEventOverrides={},busy=false;
 
 function getEggIncPacificSchedule(){
- var ptDay=new Date().getUTCDay(),ptHour=new Date().getUTCHours(),ptMonth=new Date().getUTCMonth()+1,ptDate=new Date().getUTCDate();
+ var nowD=new Date(),ptY=nowD.getUTCFullYear(),ptDay=nowD.getUTCDay();
+ var ptHour=nowD.getUTCHours(),ptMonth=nowD.getUTCMonth()+1,ptDate=nowD.getUTCDate();
  try{
-  var parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',weekday:'short',month:'numeric',day:'numeric',hour:'numeric',hour12:false}).formatToParts(new Date());
+  var opts={timeZone:'America/Los_Angeles',year:'numeric',weekday:'short',month:'numeric',day:'numeric',hour:'numeric',hour12:false};
+  var parts=new Intl.DateTimeFormat('en-US',opts).formatToParts(nowD);
   var map={};parts.forEach(function(p){map[p.type]=p.value});
   var wMap={Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
   if(wMap[map.weekday]!==undefined)ptDay=wMap[map.weekday];
   if(map.hour!==undefined)ptHour=parseInt(map.hour,10)%24;
+  if(map.year!==undefined)ptY=parseInt(map.year,10);
   if(map.month!==undefined)ptMonth=parseInt(map.month,10);
   if(map.day!==undefined)ptDate=parseInt(map.day,10);
  }catch(e){
@@ -511,11 +514,14 @@ function getEggIncPacificSchedule(){
  }
  var evDay=(ptHour<9)?((ptDay+6)%7):ptDay;
  var isEggDay=(ptMonth===7 && ptDate===14 && ptHour>=9) || (ptMonth===7 && ptDate===15 && ptHour<9);
+ var sunWks=Math.abs(Math.round(((Date.UTC(ptY,ptMonth-1,ptDate-(ptHour<9?1:0))-Date.UTC(2026,10,22))/86400000)/7));
  return {
   evDay:evDay,
   isEggDay:isEggDay,
   isFridayResearch:(evDay===5),
-  isWeekendPrestige:(evDay===6 || evDay===0 || isEggDay)
+  isWeekendPrestige:(evDay===6 || evDay===0 || isEggDay),
+  isSundayEpic:(evDay===0 && sunWks%2===0),
+  isSundayCraft:(evDay===0 && sunWks%2===1)
  };
 }
 
@@ -590,9 +596,10 @@ function getActiveEvents(){
  var autoPrestige=sched.isWeekendPrestige;
  var autoCommon=sched.isFridayResearch;
  var prestChecked=($('ev-prestige')?$('ev-prestige').checked:autoPrestige);
+ var autoEpic=sched.isSundayEpic,autoCraft=sched.isSundayCraft;
  var commChecked=($('ev-common')?$('ev-common').checked:autoCommon);
- var epicChecked=($('ev-epic')?$('ev-epic').checked:false);
- var craftChecked=($('ev-craft')?$('ev-craft').checked:false);
+ var epicChecked=($('ev-epic')?$('ev-epic').checked:autoEpic);
+ var craftChecked=($('ev-craft')?$('ev-craft').checked:autoCraft);
  var droneChecked=($('ev-drones')?$('ev-drones').checked:false);
  var capChecked=($('ev-cap')?$('ev-cap').checked:false);
  return {
@@ -605,7 +612,7 @@ function getActiveEvents(){
   fromServer:!!liveServerEvents,
   syncNote:liveEventsSyncNote,
   extraLabels:(liveServerEvents&&liveServerEvents.extraLabels)||[],
-  autoDefaults:{prestige:autoPrestige,common:autoCommon,epic:false}
+  autoDefaults:{prestige:autoPrestige,common:autoCommon,epic:autoEpic,craft:autoCraft}
  };
 }
 
@@ -614,6 +621,7 @@ function applyDefaultEventsIfUnset(){
  if($('ev-prestige') && !manualEventOverrides['ev-prestige'])$('ev-prestige').checked=defEv.prestige;
  if($('ev-common') && !manualEventOverrides['ev-common'])$('ev-common').checked=defEv.common;
  if($('ev-epic') && !manualEventOverrides['ev-epic'])$('ev-epic').checked=defEv.epic;
+ if($('ev-craft') && !manualEventOverrides['ev-craft'])$('ev-craft').checked=defEv.craft;
 }
 
 function toggleEvent(id){
@@ -647,7 +655,8 @@ async function post(b64,enc){return postTo('/proxy',b64,enc)}
 async function load(eid){
  var R=await getRoot();var Req=R.lookupType('ei.EggIncFirstContactRequest');var Res=R.lookupType('ei.EggIncFirstContactResponse');
  var cleanEid=eid.indexOf('mk2!')===0?eid.slice(4):eid;
- var msg=Req.create({rinfo:{eiUserId:'',clientVersion:72,version:'1.35.7',build:'111343',platform:'IOS'},eiUserId:cleanEid,deviceId:'wasmegg',clientVersion:72,platform:1});
+ var rinfo73={eiUserId:'',clientVersion:73,version:'1.35.8',build:'111346',platform:'IOS'};
+var msg=Req.create({rinfo:rinfo73,eiUserId:cleanEid,deviceId:'wasmegg',clientVersion:73,platform:1});
  var bytes=Req.encode(msg).finish();var bin='';for(var i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);var b64=btoa(bin);
  var r=await post(b64,false);if(!r.ok)r=await post(b64,true);
  var txt=await r.text();if(!r.ok)throw new Error('השרת של המשחק החזיר שגיאה ('+r.status+')');
@@ -664,9 +673,9 @@ async function fetchPeriodicals(eid,b){
   var Res=R.lookupType('ei.PeriodicalsResponse');
   var cleanEid=eid.indexOf('mk2!')===0?eid.slice(4):eid;
   var msg=Req.create({
-   rinfo:{eiUserId:cleanEid,clientVersion:72,version:'1.35.7',build:'111343',platform:'IOS'},
+   rinfo:{eiUserId:cleanEid,clientVersion:73,version:'1.35.8',build:'111346',platform:'IOS'},
    userId:cleanEid,
-   clientVersion:72
+   clientVersion:73
   });
   var bytes=Req.encode(msg).finish();
   var bin='';for(var i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
@@ -793,20 +802,47 @@ function analyzeColleggtibles(b){
  return {mults:mults,unlocked:unlocked};
 }
 
-function getEpicWeight(id,peCount){
- if(id==='prophecy_bonus')return (peCount>=30)?42.0:((peCount>=15)?24.0:8.0);
- return EPIC_W[id]||0.5;
+var EPIC_SPEC={hold_to_hatch:[15,10,444],epic_hatchery:[20,10,1000],epic_internal_incubators:[20,50,5000],video_doubler_time:[12,200,5000],
+ epic_clucking:[20,25,5000],epic_multiplier:[100,50,10000],cheaper_contractors:[10,50,2500],bust_unions:[10,50,2500],
+ cheaper_research:[10,250,15000],silo_capacity:[20,50,5000],int_hatch_sharing:[10,100,2500],int_hatch_calm:[20,250,25000],
+ accounting_tricks:[20,100,10000],soul_eggs:[140,500,10000],prestige_bonus:[20,2000,30000],drone_rewards:[20,100,10000],
+ epic_egg_laying:[20,250,50000],transportation_lobbyist:[30,250,7500],prophecy_bonus:[5,100000,1000000],hold_to_research:[8,5000,50000],
+ afx_mission_time:[60,5000,150000],afx_mission_capacity:[10,50000,1000000]};
+function getEpicPrices(r){
+ var sp=EPIC_SPEC[r.id];if(!sp)return r.prices||[];
+ var arr=[];for(var i=0;i<sp[0];i++)arr.push(sp[0]>1?Math.floor(sp[1]+(sp[2]-sp[1])*i/(sp[0]-1)):sp[1]);
+ return arr;
+}
+function getEpicWeight(id,peCount,L,ctx){
+ var lvl=L||0,c=ctx||{},se=c.curSE||0,ship=c.shipIdx||0,perm=c.permitTier||3,ebW=se<1e12?55:30;
+ if(id==='soul_eggs')return (1/(10+lvl))*ebW;
+ if(id==='prophecy_bonus')return peCount>0?(Math.pow((1.06+0.01*lvl)/(1.05+0.01*lvl),peCount)-1)*ebW:0.05;
+ if(id==='prestige_bonus')return (0.1/(1+0.1*lvl))*85;
+ if(id==='cheaper_research')return (0.05/Math.max(0.5,1-0.05*lvl))*75;
+ if(id==='int_hatch_calm'||id==='epic_internal_incubators')
+  return (id==='int_hatch_calm'?4.5:2.1)/(1+(id==='int_hatch_calm'?0.1:0.05)*lvl);
+ if(id==='epic_egg_laying'||id==='transportation_lobbyist')return (id==='epic_egg_laying'?1.7:1.4)/(1+0.05*lvl);
+ if(id==='cheaper_contractors'||id==='bust_unions')return (id==='cheaper_contractors'?0.9:0.8)/Math.max(0.5,1-0.05*lvl);
+ if(id==='afx_mission_time')return (ship<4&&se<2.5e6)?0.02:(0.01/Math.max(0.4,1-0.01*lvl))*(ship>=9?55:25);
+ if(id==='afx_mission_capacity')return (ship<1&&se<1e4)?0.02:(0.05/(1+0.05*lvl))*(ship>=9?48:22);
+ if(id==='accounting_tricks'||id==='silo_capacity')
+  return id==='accounting_tricks'?(se<1e14?1.1:0.3)/(1+0.05*lvl):(perm===1?72:15)/(60+6*lvl);
+ if(id==='epic_multiplier'||id==='drone_rewards')
+  return id==='epic_multiplier'?Math.min(1.5,20/(5+2*lvl)):(se<1e9?1:0.4)/(1+0.1*lvl);
+ return ({epic_hatchery:0.6,epic_clucking:0.15,int_hatch_sharing:0.12,video_doubler_time:0.08})[id]||0.06;
 }
 
-function epicPlan(R,lv,avail,peCount,epicDisc){
+function epicPlan(R,lv,avail,peCount,epicDisc,ctx){
  var discMult=1-(epicDisc||0);
- var ep=R.filter(function(r){return r.type==='epic'}).filter(function(r){return (lv[r.id]||0)<r.levels});
+ var ep=R.filter(function(r){return r.type==='epic'}).map(function(r){
+  var pr=getEpicPrices(r);return Object.assign({},r,{prices:pr,levels:pr.length||r.levels});
+ }).filter(function(r){return (lv[r.id]||0)<r.levels});
  var rows=ep.map(function(r){
   var L=lv[r.id]||0;
-  var price=Math.ceil((r.prices[L]||1)*discMult);
+  var price=Math.max(1,Math.floor((r.prices[L]||1)*discMult));
   var left=0;
-  for(var i=L;i<r.levels;i++)left+=Math.ceil(r.prices[i]*discMult);
-  var roi=getEpicWeight(r.id,peCount)/Math.max(1,price);
+  for(var i=L;i<r.levels;i++)left+=Math.max(1,Math.floor(r.prices[i]*discMult));
+  var roi=getEpicWeight(r.id,peCount,L,ctx)/Math.max(1,price);
   return {r:r,L:L,price:price,left:left,roi:roi};
  });
  rows.sort(function(a,b){return b.roi-a.roi});
@@ -823,9 +859,9 @@ function epicPlan(R,lv,avail,peCount,epicDisc){
   for(var i=0;i<ep.length;i++){
    var r=ep[i],L=simLv[r.id]||0;
    if(L>=r.levels)continue;
-   var p=Math.ceil((r.prices[L]||0)*discMult);
+   var p=Math.max(1,Math.floor((r.prices[L]||0)*discMult));
    if(!p || p>rem)continue;
-   var sc=getEpicWeight(r.id,peCount)/p;
+   var sc=getEpicWeight(r.id,peCount,L,ctx)/p;
    if(!best || sc>best.sc)best={r:r,L:L,p:p,sc:sc};
   }
   if(!best)break;
@@ -3418,7 +3454,8 @@ function plan(b,R){
  }
 
  var avail=(g.goldenEggsEarned||0)-(g.goldenEggsSpent||0);
- var E=epicPlan(R,elv,avail,peCount,events.epicResearchDiscount);
+ var epCtx={curSE:prestigeInfo.curSE,shipIdx:fuelInfo.shipProg.unlockedIdx,permitTier:permitTier};
+ var E=epicPlan(R,elv,avail,peCount,events.epicResearchDiscount,epCtx);
  var geSpecRec={action:'SAVE_GE',target:'NONE',reason:'אין כרגע GE פנויות או מבצע פעיל.'};
  var needHyperloop=(!g.hyperloopStation && (logi.shipBottleneck || logi.ebPercent>=1e12));
  var needTankUpgrade=(permitTier===3 && fuelInfo.hasFuelTank && fuelInfo.tankLevel<3 && SHIP_ORDER.indexOf(fuelInfo.target)>=4);
@@ -3584,6 +3621,10 @@ function copyDiag(){
     willCrossNextEggAt90:P.eggProg.willCrossNextEggAt90
    },
    goldenEggRecommendation:P.geSpecRec,
+   epicResearchPlan:{discountPct:Math.round((P.events.epicResearchDiscount||0)*100),
+    isSundayEpicWeek:getEggIncPacificSchedule().isSundayEpic,
+    affordableLevels:P.E.buy?P.E.buy.totalLevels:0,affordableCostGE:P.E.buy?P.E.buy.totalSum:0,
+    topPriority:P.E.rows.slice(0,5).map(function(x){return {id:x.r.id,name:x.r.name,from:x.L,max:x.r.levels,nextPrice:x.price,roi:Number(x.roi.toFixed(5))};})},
    shipRecommendation:shipRec,
    artifactLoadoutStatus:{
     isOptimal:P.isArtOptimal,
