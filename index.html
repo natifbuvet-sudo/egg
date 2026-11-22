@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 58</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 59</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -2967,9 +2967,18 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
   var reqAmt=costMap[f]||1e6;
   return {egg:f,name:EGG_HE[f]||f,stored:stored,reqAmt:reqAmt,missingAmt:Math.max(0,reqAmt-stored),launches:reqAmt>0?Math.floor(stored/reqAmt):0};
  });
+ var oneLaunchFuel=reqFuels.reduce(function(s,f){return s+(costMap[f]||0)},0);
+ var maxLaunchesInCap=(hasFuelTank && oneLaunchFuel>0)?Math.floor(tankCapacity/oneLaunchFuel):0;
+ var reqStoredSum=fuelBreakdown.reduce(function(s,fb){return s+fb.stored},0);
+ var unrelatedFuel=hasFuelTank?Math.max(0,tankTotal-reqStoredSum):0;
+ var tankSplits=fuelBreakdown.map(function(fb){
+  var ideal=fb.reqAmt*maxLaunchesInCap;
+  return {egg:fb.egg,name:fb.name,ideal:ideal,toAdd:Math.max(0,ideal-fb.stored),excess:Math.max(0,fb.stored-ideal)};
+ });
+ var tankPlan={maxLaunchesInCap:maxLaunchesInCap,oneLaunchFuel:oneLaunchFuel,unrelatedFuel:unrelatedFuel,splits:tankSplits};
 
  return {
-  curSE:curSE,launchpadUnlocked:launchpadUnlocked,hasFuelTank:hasFuelTank,fuelBreakdown:fuelBreakdown,
+  curSE:curSE,launchpadUnlocked:launchpadUnlocked,hasFuelTank:hasFuelTank,fuelBreakdown:fuelBreakdown,tankPlan:tankPlan,
   curEggIdx:curEggIdx,rfIdx:rfIdx,
   target:target,shipProg:shipProg,reqFuels:reqFuels,reqNames:reqNames,onFuelEgg:onFuelEgg,
   hasFuelInTank:hasAllFuelsInTank,canFuelNow:canFuelNow,canAffordFund:canAffordFund,fundCost:fundCost,
@@ -3613,7 +3622,12 @@ function copyDiag(){
   shipRec.tankLevel=P.fuelInfo.tankLevel;
   shipRec.tankUsed=fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity);
   shipRec.launchesAvailableInTank=P.fuelInfo.minLaunchesInTank;
-  shipRec.fuelBreakdown=P.fuelInfo.fuelBreakdown.map(function(fb){return {egg:fb.egg,stored:fmt(fb.stored),required:fmt(fb.reqAmt),missing:fmt(fb.missingAmt)};});
+  shipRec.fuelBreakdown=P.fuelInfo.fuelBreakdown.map(function(fb){
+   return {egg:fb.egg,stored:fmt(fb.stored),required:fmt(fb.reqAmt),missing:fmt(fb.missingAmt)};
+  });
+  shipRec.tankPlan=P.fuelInfo.tankPlan?{maxLaunches:P.fuelInfo.tankPlan.maxLaunchesInCap,
+   unrelatedFuel:fmt(P.fuelInfo.tankPlan.unrelatedFuel),
+   splits:P.fuelInfo.tankPlan.splits.map(function(sp){return {egg:sp.egg,ideal:fmt(sp.ideal),toAdd:fmt(sp.toAdd),excess:fmt(sp.excess)};})}:null;
  }
  var ptsRec=P.bestPointsRec?{
   id:P.bestPointsRec.id,
@@ -3979,14 +3993,40 @@ function show(b,R){
 
  var activeNowList=P.CD.filter(function(d){return !d.waitingCoop});
  var waitingList=P.CD.filter(function(d){return d.waitingCoop});
- var recAvailList=P.availContracts.filter(function(av){
-  return av.prio<=2 || (P.bestPointsRec && av.id===P.bestPointsRec.id);
+ var cFilt=window._cFilt||'all',cSort=window._cSort||'prio';
+ var filtAvail=P.availContracts.filter(function(av){
+  if(cFilt==='pe')return !!av.hasPE;
+  if(cFilt==='col')return !!(av.needs10B||av.isColleggtible);
+  if(cFilt==='pts')return !!av.isReplay;
+  if(cFilt==='exp')return av.joinLeft>0 && av.joinLeft<=172800;
+  return true;
+ }).slice();
+ if(cSort==='exp')filtAvail.sort(function(x,y){return (x.joinLeft||9e9)-(y.joinLeft||9e9)});
+ else if(cSort==='cs')filtAvail.sort(function(x,y){return (y.csPotentialScore||0)-(x.csPotentialScore||0)});
+ var customView=(cFilt!=='all'||cSort!=='prio');
+ var recAvailList=customView?filtAvail:filtAvail.filter(function(av){
+  return av.prio<=2||(P.bestPointsRec&&av.id===P.bestPointsRec.id);
  });
- var recIds={};
- recAvailList.forEach(function(av){recIds[av.id]=true});
- var otherAvailList=P.availContracts.filter(function(av){return !recIds[av.id]});
+ var recIds={};recAvailList.forEach(function(av){recIds[av.id]=true});
+ var otherAvailList=customView?[]:filtAvail.filter(function(av){return !recIds[av.id]});
 
- if(!activeNowList.length && !recAvailList.length && !waitingList.length && !otherAvailList.length){
+ if(P.availContracts.length>0){
+  h+='<div class="row" style="margin:6px 0"><select aria-label="סינון חוזים" '+
+   'onchange="window._cFilt=this.value;if(last&&RES)show(last,RES)" style="flex:1;padding:4px 7px;font-size:.76rem">';
+  h+='<option value="all"'+(cFilt==='all'?' selected':'')+'>סינון זמינים: הכל ('+P.availContracts.length+')</option>';
+  h+='<option value="pe"'+(cFilt==='pe'?' selected':'')+'>Prophecy Egg בלבד</option>';
+  h+='<option value="col"'+(cFilt==='col'?' selected':'')+'>Colleggtibles בלבד</option>';
+  h+='<option value="pts"'+(cFilt==='pts'?' selected':'')+'>Points Replay (CS)</option>';
+  h+='<option value="exp"'+(cFilt==='exp'?' selected':'')+'>עומדים לפוג (&lt;48 ש\')</option></select>';
+  h+='<select aria-label="מיון חוזים" '+
+   'onchange="window._cSort=this.value;if(last&&RES)show(last,RES)" style="flex:1;padding:4px 7px;font-size:.76rem">';
+  h+='<option value="prio"'+(cSort==='prio'?' selected':'')+'>מיון: עדיפות ו-CS</option>';
+  h+='<option value="exp"'+(cSort==='exp'?' selected':'')+'>מיון: פג תוקף בקרוב</option>';
+  h+='<option value="cs"'+(cSort==='cs'?' selected':'')+'>מיון: פוטנציאל CS</option></select></div>';
+ }
+ if(customView && !filtAvail.length){
+  h+='<p><small>אין חוזים זמינים התואמים לסינון הנבחר.</small></p>';
+ }else if(!activeNowList.length && !recAvailList.length && !waitingList.length && !otherAvailList.length){
   h+='<p><small>אין חוזים פעילים או זמינים להצטרפות כרגע.</small></p>';
  }
 
@@ -4083,7 +4123,10 @@ function show(b,R){
    h+='<div class="c-chips">';
    if(av.eggName)h+='<span class="c-chip">'+esc(av.eggName)+'</span>';
    if(av.maxCoop)h+='<span class="c-chip">עד '+av.maxCoop+' שחקנים</span>';
-   if(av.joinLeft>0)h+='<span class="c-chip">נסגר בעוד '+hrs(av.joinLeft)+'</span>';
+   if(av.joinLeft>0){
+    var expSoon=(av.joinLeft<=172800);
+    h+='<span class="c-chip'+(expSoon?' bad':'')+'">'+(expSoon?'עומד לפוג: ':'נסגר בעוד ')+hrs(av.joinLeft)+'</span>';
+   }
    h+='</div>';
    if(av.rewardsText)h+='<div class="c-meta-line"><b>פרסים:</b> '+esc(av.rewardsText)+'</div>';
    h+='<div class="c-next '+(av.guardState==='SLOTS_FULL_P1'?'alert':'do')+'">'+esc(av.guardReason?av.guardReason+' ':'')+esc(av.shortWhy)+'</div>';
@@ -4150,6 +4193,21 @@ function show(b,R){
   }
  }
  P.ships.forEach(function(s){h+=row(esc(s[0]),'<small>'+esc(s[1])+'</small>')});
+ if(P.fuelInfo.hasFuelTank && P.fuelInfo.tankPlan){
+  var tp=P.fuelInfo.tankPlan;
+  h+='<div class="status-banner '+(tp.maxLaunchesInCap>0?'do':'hold')+'" style="margin-top:6px">';
+  if(tp.maxLaunchesInCap>0){
+   h+='<b>תוכנית מילוי אופטימלית למיכל ('+tp.maxLaunchesInCap+' שיגורים מלאים):</b>';
+   tp.splits.forEach(function(sp){
+    var stTxt=sp.toAdd>0?('להוסיף +'+fmt(sp.toAdd)):(sp.excess>0?('עודף '+fmt(sp.excess)):'מלא ✓');
+    h+='<div style="font-size:.78rem;margin-top:2px">• '+esc(sp.name)+': יעד <b>'+fmt(sp.ideal)+'</b> ('+stTxt+')</div>';
+   });
+   if(tp.unrelatedFuel>0)h+='<small style="display:block;margin-top:3px">שים לב: יש במיכל '+fmt(tp.unrelatedFuel)+' דלק מביצים לא קשורות שתופס נפח.</small>';
+  }else{
+   h+='<b>קיבולת מיכל קטנה משיגור מלא:</b><small>שיגור בודד דורש '+fmt(tp.oneLaunchFuel)+' דלק, וקיבולת המיכל היא '+fmt(P.fuelInfo.tankCapacity)+'.</small>';
+  }
+  h+='</div>';
+ }
  h+='<div style="margin-top:8px"><small><b>תוכנית רכישת Epic ('+fmt(P.avail)+' GE פנויות):</b></small></div>';
  if(P.E.buy && P.E.buy.steps && P.E.buy.steps.length){
   var stAll=P.E.buy.steps;
