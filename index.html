@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 62</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 63</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -190,27 +190,7 @@ details summary::-webkit-details-marker{display:none}
 var PROTO='https://raw.githubusercontent.com/carpetsage/egg/main/protobuf/ei.proto';
 var RES_URL='https://raw.githubusercontent.com/carpetsage/egg/main/lib/researches.json';
 
-var EPIC_W={
- soul_eggs:14.0,
- prestige_bonus:11.0,
- cheaper_research:10.5,
- int_hatch_calm:9.5,
- epic_internal_incubators:9.0,
- epic_egg_laying:6.5,
- transportation_lobbyist:6.0,
- cheaper_contractors:5.2,
- bust_unions:5.0,
- accounting_tricks:4.5,
- afx_mission_time:4.2,
- afx_mission_capacity:4.0,
- epic_multiplier:3.2,
- epic_hatchery:1.8,
- drone_rewards:1.4,
- epic_clucking:1.0,
- silo_capacity:0.8,
- hold_to_hatch:0.5,
- hold_to_research:0.5
-};
+// Epic weights computed dynamically in getEpicWeight()
 
 var W={egg_value:1.15,egg_laying_rate:1,'egg_laying_rate,egg_value':1.1,running_chicken_bonus:.75,shipping_capacity:.5,
  hab_capacity:.65,internal_hatchery_rate:.8,fleet_size:.002,hatchery_capacity:.002,hatchery_refill_rate:.002};
@@ -779,7 +759,7 @@ async function fetchPeriodicals(eid,b){
  }
 }
 
-var TH=[0,30,80,160,280,400,520,650,800,980,1185,1390,1655];
+var TH=[0,30,80,160,280,400,520,700,900,1100,1320,1560,1840];
 function homeFarm(b){var f=b.farms||[];for(var i=0;i<f.length;i++){if(f[i].farmType==='HOME')return f[i]}return f[0]||b.sim||{}}
 
 function farmCash(f){
@@ -851,22 +831,24 @@ function getEpicPrices(r){
  return arr;
 }
 function getEpicWeight(id,peCount,L,ctx){
- var lvl=L||0,c=ctx||{},se=c.curSE||0,ship=c.shipIdx||0,perm=c.permitTier||3,ebW=se<1e12?55:30;
+ var lvl=L||0,c=ctx||{},se=c.curSE||0,ship=c.shipIdx||0,perm=c.permitTier||3,ebW=se<1e13?58:36;
  if(id==='soul_eggs')return (1/(10+lvl))*ebW;
- if(id==='prophecy_bonus')return peCount>0?(Math.pow((1.06+0.01*lvl)/(1.05+0.01*lvl),peCount)-1)*ebW:0.05;
- if(id==='prestige_bonus')return (0.1/(1+0.1*lvl))*85;
- if(id==='cheaper_research')return (0.05/Math.max(0.5,1-0.05*lvl))*75;
+ if(id==='prophecy_bonus')return peCount>0?(Math.pow((1.06+0.01*lvl)/(1.05+0.01*lvl),peCount)-1)*Math.max(46,ebW):0.04;
+ if(id==='prestige_bonus')return (0.1/(1+0.1*lvl))*90;
+ if(id==='cheaper_research')return (0.05/Math.max(0.5,1-0.05*lvl))*80;
  if(id==='int_hatch_calm'||id==='epic_internal_incubators')
-  return (id==='int_hatch_calm'?4.5:2.1)/(1+(id==='int_hatch_calm'?0.1:0.05)*lvl);
- if(id==='epic_egg_laying'||id==='transportation_lobbyist')return (id==='epic_egg_laying'?1.7:1.4)/(1+0.05*lvl);
- if(id==='cheaper_contractors'||id==='bust_unions')return (id==='cheaper_contractors'?0.9:0.8)/Math.max(0.5,1-0.05*lvl);
- if(id==='afx_mission_time')return (ship<4&&se<2.5e6)?0.02:(0.01/Math.max(0.4,1-0.01*lvl))*(ship>=9?55:25);
- if(id==='afx_mission_capacity')return (ship<1&&se<1e4)?0.02:(0.05/(1+0.05*lvl))*(ship>=9?48:22);
+  return (id==='int_hatch_calm'?4.8:2.2)/(1+(id==='int_hatch_calm'?0.08:0.05)*lvl);
+ if(id==='epic_egg_laying'||id==='transportation_lobbyist')return (id==='epic_egg_laying'?2.0:1.5)/(1+0.04*lvl);
+ if(id==='cheaper_contractors'||id==='bust_unions')return (id==='cheaper_contractors'?0.22:0.25)/(1+0.1*lvl);
+ if(id==='afx_mission_time')return (ship<4)?0.02:(0.01/Math.max(0.4,1-0.01*lvl))*(ship>=9?58:26);
+ if(id==='afx_mission_capacity')return (ship<1&&se<1e4)?0.02:(0.05/(1+0.05*lvl))*(ship>=9?50:24);
  if(id==='accounting_tricks'||id==='silo_capacity')
-  return id==='accounting_tricks'?(se<1e14?1.1:0.3)/(1+0.05*lvl):(perm===1?72:15)/(60+6*lvl);
- if(id==='epic_multiplier'||id==='drone_rewards')
-  return id==='epic_multiplier'?Math.min(1.5,20/(5+2*lvl)):(se<1e9?1:0.4)/(1+0.1*lvl);
- return ({epic_hatchery:0.6,epic_clucking:0.15,int_hatch_sharing:0.12,video_doubler_time:0.08})[id]||0.06;
+  return id==='accounting_tricks'?(se<1e13?1.1:(se<1e16?0.35:0.08))/(1+0.05*lvl):(perm===1?75:12)/(60+6*lvl);
+ if(id==='epic_multiplier')return (2/(50+2*lvl))*(se<1e14?42:18);
+ if(id==='drone_rewards')return (se<1e10?1.1:0.35)/(1+0.1*lvl);
+ if(id==='int_hatch_sharing')return 0.85/(1+0.1*lvl);
+ if(id==='hold_to_research')return se>=1e11?(0.45/(1+0.08*lvl)):0.06;
+ return ({epic_hatchery:0.25/(1+0.1*lvl),epic_clucking:0.05,video_doubler_time:0.06})[id]||0.04;
 }
 
 function epicPlan(R,lv,avail,peCount,epicDisc,ctx){
@@ -4125,6 +4107,9 @@ function show(b,R){
     if(hasRes){
      var crp=d.researchPlan;
     h+='<div class="c-res-box"><div class="c-res-head"><span>שדרוגי מחקר מומלצים בחוזה</span><small>תקציב: '+fmt(d.cfMetrics.cash)+'</small></div>';
+    if(crp.tierBridge){
+     h+='<div class="status-banner do" style="margin:4px 0"><b>גישור לפתיחת Tier '+crp.tierBridge.toTier+':</b><small>נרכשו '+crp.tierBridge.levels+' רמות זולות לפתיחת Tier '+crp.tierBridge.toTier+'.</small></div>';
+    }
     if(crp.affordableList.length){
      h+='<p class="c-res-sum">סה"כ '+crp.totalLevelsBought+' רמות • עלות '+fmt(crp.totalSpent)+' (יישארו '+fmt(crp.remCash)+')</p>';
      crp.affordableList.forEach(function(x){
