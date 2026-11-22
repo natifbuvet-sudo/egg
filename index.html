@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 56</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 57</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -2650,6 +2650,18 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
   soloProjected:Math.round(soloProj),onTrackWithoutBoosts:onTrackNoBoost};
  var collWithPace=Object.assign({},coll,{paceForecast:paceForecast});
  var boostPlan=(!waitingCoop)?planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,collWithPace,pointsOnly,runCapActive):null;
+ var setSwapAdvice='';
+ if(cf && !waitingCoop && cLogi){
+  var bStg=boostPlan?boostPlan.stage:'';
+  if(bStg==='ACTIVE_HATCHERY_BOOST'){
+   setSwapAdvice='החלף עכשיו לסט IHR (אבני Life) בזמן הבוסט, ובסיומו עבור ל-'+defLabel+' + אבני Tachyon/Quantum';
+  }else if(cLogi.habPct<85 && (bStg==='FILL_HABS'||bStg==='RESEARCH')){
+   setSwapAdvice='לפני בוסט: הרכב סט Dilithium → הפעל בוסטים → החלף מיד לסט IHR (אבני Life)';
+  }else{
+   setSwapAdvice='שלב משלוחים: הרכב '+defLabel+' + Metronome/Compass'+(stoneAdvice?' • '+stoneAdvice:'');
+  }
+  stoneAdvice=setSwapAdvice;
+ }
  var pointsPlaybook=pointsOnly?buildPointsPlaybook({
   name:name,maxCoop:maxCoop,dur:dur,prevCS:prevCS,
   isCurrentSeason:!!k.seasonId,seasonId:k.seasonId||'',
@@ -3707,6 +3719,7 @@ function copyDiag(){
       paceForecast:d.paceForecast,pointsOnly:d.pointsOnly,nextStep:d.nextStep,
       matchedBoosts:d.boostPlan?d.boostPlan.combo:[],
       boostStage:d.boostPlan?d.boostPlan.stage:null,
+      stoneSetAdvice:d.stoneAdvice||null,
       liveCoop:d.liveCoop?{members:d.liveCoop.memberCount,pctDone:Number(d.liveCoop.pctDone.toFixed(1)),
        etaSec:Math.round(d.liveCoop.etaSec),estCsMult:Number(d.liveCoop.estCsMult.toFixed(2)),onTrack:d.liveCoop.onTrack}:null};
     }),
@@ -3855,13 +3868,19 @@ function show(b,R){
   h+=row('בונוסי Colleggtibles ('+P.collegg.unlocked.length+')','<small>'+cTags+'</small>');
  }
  if(P.macro.isVirt){
+  var eotMins=(P.logi.totalLayRate>0 && P.macro.nextEoTEggs>0)?(P.macro.nextEoTEggs/P.logi.totalLayRate):0;
+  var eotEtaTxt=eotMins>0?(' • זמן משוער בקצב נוכחי: <b>~'+fmtWait(eotMins)+'</b> (ממגורות: '+fmtWait(P.logi.maxSiloMins)+')'):'';
   h+='<div class="status-banner hold" style="margin-top:8px"><b>Path of Virtue — מצב ביצים ועלות החלפה (Shift):</b>';
   h+='<small>בוצעו <b>'+P.macro.shifts+'</b> החלפות • עלות Shift הבא: <b>~'+fmt(P.macro.nextShiftSECost)+' SE</b> (3 הבאות: ~'+fmt(P.macro.next3ShiftsSECost)+' SE).<br>';
-  h+='המלצת סף: צבור לפחות <b>+'+P.macro.minRecommendedEoTGain+' EoT</b> לפני מעבר ביצה (ליעד #'+P.macro.nextEoTN+' נדרשות ~'+fmt(P.macro.nextEoTEggs)+' ביצים).<br>';
+  h+='המלצת סף: צבור לפחות <b>+'+P.macro.minRecommendedEoTGain+' EoT</b> לפני מעבר ביצה (ליעד #'+P.macro.nextEoTN+' נדרשות ~'+fmt(P.macro.nextEoTEggs)+' ביצים'+eotEtaTxt+').<br>';
   h+=P.macro.virtPerEgg.map(function(v){return '• <b>'+esc(v.name)+':</b> '+v.eot+' EoT ('+esc(v.facility)+')'}).join('<br>');
   h+='</small></div>';
  }else if(P.macro.isEnl){
-  h+='<div class="status-banner '+(P.macro.enlPossible?'do':'alert')+'" style="margin-top:8px"><b>מחשבון Enlightenment 10B:</b><small>נדרשת רמת Wormhole Dampening <b>'+P.macro.reqWD+'/25</b> עם '+esc(P.macro.bestGusset?P.macro.bestGusset.name:'ללא Gusset')+' ('+Math.round(P.macro.maxClarityEff*100)+'% Clarity).</small></div>';
+  var remEnl=Math.max(0,1e10-P.logi.pop);
+  var enlMins=(remEnl>0 && P.logi.ihrOfflinePerMin>0)?(remEnl/P.logi.ihrOfflinePerMin):0;
+  var siloHits=(enlMins>0 && P.logi.maxSiloMins>0)?Math.ceil(enlMins/P.logi.maxSiloMins):0;
+  var enlEta=remEnl===0?'הגעת ל-10B תרנגולות!':(enlMins>0?(' • נותרו '+fmt(remEnl)+' תרנגולות (~<b>'+fmtWait(enlMins)+'</b>, ~'+siloHits+' רענוני ממגורות)'):'');
+  h+='<div class="status-banner '+(P.macro.enlPossible?'do':'alert')+'" style="margin-top:8px"><b>מחשבון Enlightenment 10B:</b><small>נדרשת רמת Wormhole Dampening <b>'+P.macro.reqWD+'/25</b> עם '+esc(P.macro.bestGusset?P.macro.bestGusset.name:'ללא Gusset')+' ('+Math.round(P.macro.maxClarityEff*100)+'% Clarity)'+enlEta+'.</small></div>';
  }else if(P.trophies.eligible && P.trophies.unlocked){
   var trTxt=(P.trophies.completed>=18)?'הושלמו כל 18/18 גביעי היהלום!':('הושלמו '+P.trophies.completed+'/18 • הבא בתור: <b>'+esc(P.trophies.nextTarget.eggName)+'</b>');
   h+=row('גביעי יהלום (Diamond Trophies 10B)',trTxt);
@@ -4094,9 +4113,18 @@ function show(b,R){
  }else{
   var tankPct=P.fuelInfo.tankCapacity>0?Math.min(100,(P.fuelInfo.tankTotal/P.fuelInfo.tankCapacity)*100):0;
   h+=row('מיכל דלק (רמה '+P.fuelInfo.tankLevel+')','<b>'+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+'</b> ('+tankPct.toFixed(0)+'%)');
+  var minL=P.fuelInfo.minLaunchesInTank||0,minFb=null;
   P.fuelInfo.fuelBreakdown.forEach(function(fb){
+   if(!minFb||fb.launches<minFb.launches)minFb=fb;
    h+=row('• '+esc(fb.name)+' (נדרש '+fmt(fb.reqAmt)+')',fb.missingAmt===0?'<span class="tag-ok">'+fmt(fb.stored)+' ('+fb.launches+' שיגורים)</span>':'<span class="tag-wait">'+fmt(fb.stored)+' (חסר '+fmt(fb.missingAmt)+')</span>');
   });
+  if(minL===0 && minFb){
+   h+='<div class="status-banner alert" style="margin-top:6px"><b>התראת דלק ריק:</b><small>חסר דלק מסוג <b>'+esc(minFb.name)+'</b> ('+fmt(minFb.missingAmt)+') לשיגור '+esc(shipName(P.fuelInfo.target))+'.</small></div>';
+  }else if(minL<P.shipSlots && minFb){
+   h+='<div class="status-banner hold" style="margin-top:6px"><b>סימולטור דלק — מלאי נמוך:</b><small>מספיק ל-<b>'+minL+'</b> שיגורים בלבד (פחות מסבב של '+P.shipSlots+' ספינות). צוואר בקבוק: <b>'+esc(minFb.name)+'</b>.</small></div>';
+  }else if(minL>0){
+   h+='<div class="status-banner do" style="margin-top:6px"><b>סימולטור מיכל דלק:</b><small>מוכן ל-<b>'+minL+'</b> שיגורים רצופים של '+esc(shipName(P.fuelInfo.target))+(minFb?' (מגביל ראשון: '+esc(minFb.name)+')':'')+'.</small></div>';
+  }
  }
  P.ships.forEach(function(s){h+=row(esc(s[0]),'<small>'+esc(s[1])+'</small>')});
  h+='<div style="margin-top:8px"><small><b>תוכנית רכישת Epic ('+fmt(P.avail)+' GE פנויות):</b></small></div>';
