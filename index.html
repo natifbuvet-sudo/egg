@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 64</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 65</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -888,9 +888,10 @@ function epicPlan(R,lv,avail,peCount,epicDisc,ctx){
   }
   if(!bestAny)break;
   if(bestAny.p>rem){
-   var gap=bestAny.p-rem;
-   if(!best || (bestAny.sc>best.sc*1.5 && (rem>=bestAny.p*0.35 || (rem>=bestAny.p*0.15 && gap<=100000)))){
-    saveTarget={r:bestAny.r,L:bestAny.L,price:bestAny.p,missing:gap,roi:bestAny.sc};
+   var gap=bestAny.p-rem,near=(rem>=bestAny.p*0.45||gap<=25000),worth=(rem>=bestAny.p*0.30||gap<=100000);
+   var beatRatio=step===0?(near?1.05:1.30):1.25;
+   if(!best || (bestAny.sc>best.sc*beatRatio && (near||worth))){
+    saveTarget={r:bestAny.r,L:bestAny.L,price:bestAny.p,missing:gap,roi:bestAny.sc,pureHold:(step===0)};
     break;
    }
   }
@@ -3583,8 +3584,8 @@ function plan(b,R){
    }
   }else if(E.buy.saveTarget){
    var st=E.buy.saveTarget;
-   geSpecRec={action:'SAVE_FOR_EPIC',target:st.r.id,reason:'עצור וחסוך עוד '+fmt(st.missing)+' GE ל-'+st.r.name+' ('+fmt(st.price)+' GE).'};
-   a.push([83,'מחקר אפיק: עצור וחסוך ל-'+st.r.name,'חסרות '+fmt(st.missing)+' GE (עולה '+fmt(st.price)+') — משתלם בהרבה מהזולים הזמינים.']);
+   geSpecRec={action:'SAVE_FOR_EPIC',target:st.r.id,reason:'אל תקנה שדרוגים זולים כעת — חסוך עוד '+fmt(st.missing)+' GE ל-'+st.r.name+'.'};
+   a.push([83,'מחקר אפיק: המתן וחסוך ל-'+st.r.name,'חסרות רק '+fmt(st.missing)+' GE (מתוך '+fmt(st.price)+') — אל תבזבז על זולים.']);
   }else{
    var f=E.buy.row;
    geSpecRec={action:'SAVE_FOR_EPIC',target:f.r.id,reason:'חסוך '+fmt(f.price)+' GE לשלב הבא של '+f.r.name+'.'};
@@ -4270,14 +4271,14 @@ function show(b,R){
   }
   if(P.E.buy.saveTarget){
    var st0=P.E.buy.saveTarget;
-   h+='<div class="status-banner hold" style="margin-top:6px"><b>עצירת חיסכון (Save Guard):</b>';
-   h+='<small>שמור '+fmt(P.E.buy.remGE)+' GE ל-'+esc(st0.r.name)+' (חסרות '+fmt(st0.missing)+' GE).</small></div>';
+   h+='<div class="status-banner do" style="margin-top:6px"><b>לאחר הרכישות למעלה:</b>';
+   h+='<small>יישארו לך '+fmt(P.E.buy.remGE)+' GE — שמור אותן ל-'+esc(st0.r.name)+' (חסרות '+fmt(st0.missing)+' GE).</small></div>';
   }
  }else if(P.E.rows.length){
   if(P.E.buy && P.E.buy.saveTarget){
    var st1=P.E.buy.saveTarget;
-   h+='<div class="status-banner hold" style="margin:6px 0"><b>המלצת חיסכון (Save Guard):</b>';
-   h+='<small>עצור וחסוך ל-'+esc(st1.r.name)+' ('+fmt(st1.price)+' GE, חסרות '+fmt(st1.missing)+' GE) — ROI גבוה בהרבה.</small></div>';
+   h+='<div class="status-banner hold" style="margin:6px 0"><b>המלצה: המתן וחסוך (אל תקנה כרגע):</b>';
+   h+='<small>חסוך עוד '+fmt(st1.missing)+' GE ל-<b>'+esc(st1.r.name)+'</b> ('+fmt(st1.price)+' GE) במקום לבזבז על זולים למטה.</small></div>';
   }
   P.E.rows.slice(0,4).forEach(function(x){
    h+=row(esc(x.r.name)+' <small>('+x.L+'/'+x.r.levels+')</small>','<span class="tag-wait">'+fmt(x.price)+' GE</span>');
