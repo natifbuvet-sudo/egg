@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 59</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 60</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -3589,10 +3589,21 @@ function plan(b,R){
  return {CD:CD,availContracts:availContracts,bestPointsRec:bestPointsRec,contractSlotInfo:contractSlotInfo,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,permitTier:permitTier,shipSlots:shipSlots,free:free,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,logi:logi,eggProg:eggProg,cash:cash,art:art,artCtx:artCtx,isArtOptimal:isArtOptimal,stoneOpt:stoneOpt,prestigeInfo:prestigeInfo,boostInfo:boostInfo,macro:macro,trophies:trophies,events:events,collegg:collegg,geSpecRec:geSpecRec,keepOneWD:keepOneWD};
 }
 
+function detKey(d,seen){
+ if(d.id)return 'id:'+d.id;
+ var sec=d.parentElement?d.parentElement.closest('[id]'):null;
+ var card=d.closest('.c-card');
+ var ct=card&&card.querySelector('.c-head span')?card.querySelector('.c-head span').textContent.trim():'';
+ var sm=d.querySelector('summary');
+ var st=sm?sm.textContent.replace(/\([^)]*\)/g,'').replace(/\s+/g,' ').trim():'';
+ var base=(sec?sec.id:'')+'|'+ct+'|'+st;
+ var n=(seen[base]||0)+1;seen[base]=n;
+ return base+'#'+n;
+}
 function jumpTo(id){
  var el=$(id);
  if(el){
-  if(el.tagName==='DETAILS')el.open=true;
+  for(var p=el;p;p=p.parentElement){if(p.tagName==='DETAILS')p.open=true;}
   el.scrollIntoView({behavior:'smooth',block:'start'});
  }
 }
@@ -4232,7 +4243,24 @@ function show(b,R){
  h+='</div>';
 
  h+='<button class="copy-btn" onclick="copyDiag()">העתק נתוני חווה (ללא EID)</button>';
- $('out').innerHTML=h;
+ var outEl=$('out'),prevY=window.scrollY,hadDets=outEl.querySelectorAll('details');
+ window._openDet=window._openDet||{};
+ if(!outEl._detBound){
+  outEl._detBound=true;
+  outEl.addEventListener('toggle',function(e){
+   if(e.target&&e.target.tagName==='DETAILS'){
+    var s={};outEl.querySelectorAll('details').forEach(function(x){window._openDet[detKey(x,s)]=!!x.open;});
+   }
+  },true);
+ }
+ if(hadDets.length){var sb={};hadDets.forEach(function(d){window._openDet[detKey(d,sb)]=!!d.open;});}
+ outEl.innerHTML=h;
+ var sa={};
+ outEl.querySelectorAll('details').forEach(function(d){
+  var k=detKey(d,sa);
+  if(k in window._openDet)d.open=!!window._openDet[k];
+ });
+ if(hadDets.length&&prevY>0)window.scrollTo(0,prevY);
 }
 
 async function run(eid,isAuto){
