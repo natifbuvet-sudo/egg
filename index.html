@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 49</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 50</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -2122,9 +2122,12 @@ function getContractInventorySummary(b,permitTier){
   list.sort(function(a,b){return b.power-a.power});
   return list[0]||null;
  }
+var availGE=Math.max(0,(g.goldenEggsEarned||0)-(g.goldenEggsSpent||0));
+ var spare100x=owned.filter(function(x){
+  return x.cat==='tachyon'&&x.power>=100&&x.power<1000&&x.count>=3;
+ })[0]||null;
  return {
-  maxBoostSlots:maxBoostSlots,
-  owned:owned,
+  maxBoostSlots:maxBoostSlots,availGE:availGE,owned:owned,
   best1000x:pick('tachyon',1000,10000),
   best100x:pick('tachyon',100,999),
   best10xFree:pick('tachyon',1,99),
@@ -2134,6 +2137,14 @@ function getContractInventorySummary(b,permitTier){
   bestFeed:pick('feed',1,1000)
  };
 }
+var contractGoalModes={};
+try{contractGoalModes=JSON.parse(sget('contractGoalModes')||'{}')||{};}catch(e){}
+function setContractGoalMode(id,val){
+ if(val==='auto')delete contractGoalModes[id];
+ else contractGoalModes[id]=val;
+ sset('contractGoalModes',JSON.stringify(contractGoalModes));
+ if(last&&RES)show(last,RES);
+}
 
 function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,runCapActive){
  var inv=getContractInventorySummary(b,permitTier);
@@ -2142,16 +2153,25 @@ function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,r
  var hasDilithium=!!(art && art.potentialDilithiumMult>1.01);
  var dilPct=hasDilithium?Math.round((art.potentialDilithiumMult-1)*100):0;
 
- var bestDef=(art&&art.bestOwned)?art.bestOwned['TACHYON_DEFLECTOR']:null;
- var bestSiab=(art&&art.bestOwned)?art.bestOwned['SHIP_IN_A_BOTTLE']:null;
- var bestChalice=(art&&art.bestOwned)?art.bestOwned['THE_CHALICE']:null;
- var bestGusset=(art&&art.bestOwned)?art.bestOwned['ORNATE_GUSSET']:null;
- var bestCube=(art&&art.bestOwned)?art.bestOwned['PUZZLE_CUBE']:null;
+ var bo=(art&&art.bestOwned)||{};
+ var bestDef=bo['TACHYON_DEFLECTOR']||null, bestSiab=bo['SHIP_IN_A_BOTTLE']||null;
+ var bestChalice=bo['THE_CHALICE']||null, bestGusset=bo['ORNATE_GUSSET']||null;
+ var bestCube=bo['PUZZLE_CUBE']||null;
+ var hasLife=!!(art&&(art.lifeStoneMult>1||
+  (art.looseStones||[]).some(function(s){return s.rawName==='LIFE_STONE'})));
+ var ownedSetNames=(art&&art.setContract&&art.setContract.length)
+  ?art.setContract.map(function(x){return x.name}).join(' + '):'';
 
- var coopArtName=bestDef?bestDef.name:(bestSiab?(bestSiab.name+' (חלופה כשאין Deflector)'):'Tachyon Deflector / Ship in a Bottle');
+ var coopArtName=bestDef?bestDef.name:(bestSiab?(bestSiab.name+' (חלופה מהמלאי)'):
+  (ownedSetNames||'הארטיפקטים הפנויים במלאי'));
+ var ihrParts=[];
+ if(bestChalice)ihrParts.push(bestChalice.name);
+ if(hasLife)ihrParts.push('Life Stones');
+ if(bestGusset)ihrParts.push(bestGusset.name);
+ var ihrArtStr=ihrParts.length?ihrParts.join(' + '):(ownedSetNames||'סט הייצור מהמלאי');
  var prepArtNote=hasDilithium
-  ?('הרכב סט Dilithium (+'+dilPct+'% זמן) לפני ההפעלה ומיד החלף ל-'+(bestChalice?bestChalice.name:'The Chalice')+(bestGusset?' + '+bestGusset.name:''))
-  :('אין סט Dilithium — הרכב מראש '+(bestChalice?bestChalice.name:'The Chalice')+' + Life Stones'+(bestGusset?' + '+bestGusset.name:'')+' לפני ההפעלה');
+  ?('הרכב סט Dilithium (+'+dilPct+'% זמן) לפני ההפעלה ומיד החלף ל-'+ihrArtStr)
+  :('אין סט Dilithium במלאי — הרכב מראש '+ihrArtStr+' לפני ההפעלה');
  var exitFarmNote=(calmLv>0)
   ?('צא מיד מחוות החוזה לאחר ההפעלה (Internal Hatchery Calm רמה '+calmLv+'/20 מכפיל בקיעה פי ×'+calmMult.toFixed(1)+')')
   :('צא מחוות החוזה לאחר ההפעלה (שים לב: Internal Hatchery Calm ברמה 0 — כדאי לשדרג אותו במבצע Epic ביום ראשון)');
@@ -2204,7 +2224,19 @@ function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,r
   }
  }else if(!cLogi || cLogi.habPct<80){
   stage='FILL_HABS';
-  if(inv.best1000x && inv.bestBeacon10x){
+  var paceOk=!pointsOnly && coll && coll.paceForecast && coll.paceForecast.onTrackWithoutBoosts;
+  if(paceOk){
+   stage='PASSIVE_REWARDS';
+   tokensNeeded=0;
+   if(inv.best10xFree)combo.push({name:inv.best10xFree.name+' (0 טוקנים!)',useQty:1,tokens:0});
+   summary='מצב פרסים (חיסכון בבוסטים): הקצב הנוכחי מספיק ללא בוסטים יקרים!';
+   detailNote='הרכב '+coopArtName+', רענן סילואים ואסוף Chicken Boxes — חבל לבזבז 1000x/GE.';
+  }else if(!pointsOnly && inv.spare100x){
+   tokensNeeded=4;
+   combo.push({name:inv.spare100x.name,useQty:2,tokens:4});
+   summary='מילוי לולים חסכוני מעודף מלאי (4 טוקנים): 2× '+inv.spare100x.name;
+   detailNote='במצב פרסים עדיף לנצל עודף '+inv.spare100x.name+' ולשמור 1000x. '+prepArtNote+'.';
+  }else if(inv.best1000x && inv.bestBeacon10x){
    tokensNeeded=4;
    combo.push({name:inv.best1000x.name,useQty:1,tokens:3});
    combo.push({name:inv.bestBeacon10x.name,useQty:1,tokens:1});
@@ -2236,8 +2268,9 @@ function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,r
   }
  }else{
   stage='PRODUCTION';
+  var prodSetStr=ownedSetNames||coopArtName;
   summary='לולים מלאים ('+(cLogi?cLogi.habPct.toFixed(0):'80+')+'%) — מקסימום תפוקה ועבודת צוות';
-  detailNote='הרכב '+coopArtName+' + Quantum Metronome + Interstellar Compass, בצע '+runCapActive+' ריצות תרנגולות ושלח טוקנים מיותרים לחברים שטרם מילאו לולים.';
+  detailNote='הרכב '+prodSetStr+', בצע '+runCapActive+' ריצות תרנגולות ושלח טוקנים מיותרים לחברים.';
  }
 
  return {
@@ -2420,7 +2453,10 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
  var permitTier=getPermitTier(b);
 
  var waitingCoop=(simEnd>0);
- var pointsOnly=(isReplay || achieved>=3) && !coll.needs10B;
+ var manualGoalMode=contractGoalModes[id]||'auto';
+ var autoGoalMode=((isReplay || achieved>=3) && !coll.needs10B)?'cs':'rewards';
+ var goalMode=(manualGoalMode==='cs'||manualGoalMode==='rewards')?manualGoalMode:autoGoalMode;
+ var pointsOnly=(goalMode==='cs');
  var maxCoop=k.maxCoopSize||0;
  var runCapActive=(maxCoop>1)?Math.min(maxCoop-1,20):20;
  var dur=Number(k.lengthSeconds||0);
@@ -2451,7 +2487,8 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
  var nextStepLevel='info';
  var defItem=(art && art.setContract)?art.setContract.filter(function(x){return x.rawName==='TACHYON_DEFLECTOR'})[0]:null;
  var siabItem=(art && art.bestOwned)?art.bestOwned['SHIP_IN_A_BOTTLE']:null;
- var defLabel=defItem?defItem.name:(siabItem?(siabItem.name+' (חלופה כשאין Deflector)'):'Tachyon Deflector');
+ var fallbackArt=(art && art.setContract && art.setContract.length)?art.setContract[0].name:'הארטיפקטים מהמלאי';
+ var defLabel=defItem?defItem.name:(siabItem?(siabItem.name+' (חלופה מהמלאי)'):fallbackArt);
  var cfAlerts=[];
 
  if(cf && !waitingCoop){
@@ -2511,7 +2548,16 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
   }
  }
 
- var boostPlan=(!waitingCoop)?planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,runCapActive):null;
+ var cGoals=getContractGoals(c,b), finalGoal=cGoals.length?cGoals[cGoals.length-1]:null;
+ var finalTarget=finalGoal?Number(finalGoal.targetAmount||0):0;
+ var remSec=sharedEnd>now?(sharedEnd-now):0;
+ var soloProj=(cLogi&&remSec>0)?(ownAmt+(cLogi.totalLayRate/60)*remSec):ownAmt;
+ var fairShare=(finalTarget>0&&maxCoop>0)?(finalTarget/maxCoop):finalTarget;
+ var onTrackNoBoost=!!(achieved>=3||(fairShare>0&&soloProj>=fairShare*0.95));
+ var paceForecast={finalTarget:finalTarget,fairShareTarget:Math.round(fairShare),
+  soloProjected:Math.round(soloProj),onTrackWithoutBoosts:onTrackNoBoost};
+ var collWithPace=Object.assign({},coll,{paceForecast:paceForecast});
+ var boostPlan=(!waitingCoop)?planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,collWithPace,pointsOnly,runCapActive):null;
  var pointsPlaybook=pointsOnly?buildPointsPlaybook({
   name:name,maxCoop:maxCoop,dur:dur,prevCS:prevCS,
   isCurrentSeason:!!k.seasonId,seasonId:k.seasonId||'',
@@ -2582,7 +2628,8 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
  var timeLeftGeneric=sharedEnd>now?(sharedEnd-now):0;
  return {
   id:id,name:name,grade:String(c.grade||'').replace('GRADE_',''),coop:c.coopIdentifier||'',
-  timeLeft:timeLeftGeneric,
+  timeLeft:timeLeftGeneric,goalMode:goalMode,manualGoalMode:manualGoalMode,
+  paceForecast:paceForecast,
   statusType:statusType,badgeText:badgeText,badgeClass:badgeClass,
   waitingCoop:waitingCoop,pointsOnly:pointsOnly,pointsPlaybook:pointsPlaybook,achieved:achieved,hasPE:rew.hasPE,needs10B:coll.needs10B,rewardsText:rew.rewardsText,
   ownAmt:ownAmt,lastRewAmt:lastRewAmt,
@@ -3555,7 +3602,14 @@ function copyDiag(){
    },
    contractSlotGuard:P.contractSlotInfo,
    contractsSummary:{
-    activeRunning:P.CD.filter(function(d){return !d.waitingCoop}).map(function(d){return {id:d.id,name:d.name,grade:d.grade,achieved:d.achieved,pointsOnly:d.pointsOnly,nextStep:d.nextStep,cfMetrics:d.cfMetrics,boostPlan:d.boostPlan?{stage:d.boostPlan.stage,combo:d.boostPlan.combo,tokensNeeded:d.boostPlan.tokensNeeded,maxBoostSlots:d.boostPlan.maxBoostSlots,calmLv:d.boostPlan.calmLv,calmMult:d.boostPlan.calmMult,hasDilithium:d.boostPlan.hasDilithium,hasDeflector:d.boostPlan.hasDeflector,hasSiab:d.boostPlan.hasSiab,unclaimedTokens:d.boostPlan.unclaimedTokens}:null,researchSummary:d.researchPlan?{affordableCount:d.researchPlan.affordableList.length,totalLevelsBought:d.researchPlan.totalLevelsBought,nextCount:d.researchPlan.nextList.length}:null};}),
+    matchedInventoryArtifacts:P.art.setContract.map(function(x){return x.name}),
+    activeRunning:P.CD.filter(function(d){return !d.waitingCoop}).map(function(d){
+     return {id:d.id,name:d.name,grade:d.grade,achieved:d.achieved,
+      contractGoalMode:d.goalMode,manualOverride:d.manualGoalMode,
+      paceForecast:d.paceForecast,pointsOnly:d.pointsOnly,nextStep:d.nextStep,
+      matchedBoosts:d.boostPlan?d.boostPlan.combo:[],
+      boostStage:d.boostPlan?d.boostPlan.stage:null};
+    }),
     waitingCoopCount:P.CD.filter(function(d){return d.waitingCoop}).length,
     recommendedAvailCount:P.availContracts.filter(function(x){return x.prio<=2 || (P.bestPointsRec && x.id===P.bestPointsRec.id)}).length,
     deferredAvailCount:P.availContracts.filter(function(x){return !(x.prio<=2 || (P.bestPointsRec && x.id===P.bestPointsRec.id))}).length
@@ -3808,7 +3862,14 @@ function show(b,R){
   activeNowList.forEach(function(d){
    var cardCls=(d.nextStepLevel==='alert')?'alert':(d.pointsOnly?'pts':(d.needs10B?'col':'p1'));
    h+='<div class="c-card '+cardCls+'">';
-   h+='<div class="c-head"><span>'+esc(d.name)+' <small>'+(d.grade?'['+esc(d.grade)+']':'')+'</small></span><span class="badge '+d.badgeClass+'">'+esc(d.badgeText)+'</span></div>';
+   h+='<div class="c-head"><span>'+esc(d.name)+' <small>'+(d.grade?'['+esc(d.grade)+']':'')+'</small></span>';
+   h+='<span class="badge '+d.badgeClass+'">'+esc(d.badgeText)+'</span></div>';
+   h+='<div class="row" style="margin:4px 0"><select aria-label="מטרת חוזה" ';
+   h+='onchange="setContractGoalMode(\''+esc(d.id)+'\',this.value)" style="padding:3px 7px;font-size:.76rem">';
+   h+='<option value="auto"'+(d.manualGoalMode==='auto'?' selected':'')+'>מצב אוטומטי ('+(d.goalMode==='cs'?'ניקוד CS':'פרסים בלבד')+')</option>';
+   h+='<option value="cs"'+(d.manualGoalMode==='cs'?' selected':'')+'>מקסום ניקוד (Contract Score / Speedrun)</option>';
+   h+='<option value="rewards"'+(d.manualGoalMode==='rewards'?' selected':'')+'>פרסים בלבד (Rewards-only / חיסכון)</option>';
+   h+='</select></div>';
    h+='<div class="c-chips">';
    h+='<span class="c-chip">יעדים: <b>'+d.achieved+'/3</b></span>';
    h+=d.coop?'<span class="c-chip ok">קו-אופ: '+esc(d.coop)+'</span>':'<span class="c-chip bad">ללא קו-אופ</span>';
