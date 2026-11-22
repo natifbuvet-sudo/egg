@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 65</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 66</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -405,26 +405,26 @@ var BOOST_CAT={
  jimbos_blue_v2:{name:"Jimbo's Bird Feed (3x 20m)",cat:'feed',power:3},
  jimbos_blue_big:{name:"Jimbo's Bird Feed (10x 15m)",cat:'feed',power:10},
  jimbos_blue_big_v2:{name:"Jimbo's Bird Feed (10x 15m)",cat:'feed',power:10},
- jimbos_purple:{name:"Jimbo's Bird Feed (10x 1h)",cat:'feed',power:10},
- jimbos_purple_v2:{name:"Jimbo's Bird Feed (10x 1h)",cat:'feed',power:10},
+ jimbos_purple:{name:"Jimbo's Bird Feed (10x 1h)",cat:'feed',power:12},
+ jimbos_purple_v2:{name:"Jimbo's Bird Feed (10x 1h)",cat:'feed',power:12},
  jimbos_purple_big:{name:"Jimbo's Bird Feed (50x 10m)",cat:'feed',power:50},
  jimbos_purple_big_v2:{name:"Jimbo's Bird Feed (50x 10m)",cat:'feed',power:50},
- jimbos_orange:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:50},
- jimbos_orange_v2:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:50},
- jimbos_orange_big:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:50},
+ jimbos_orange:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:55},
+ jimbos_orange_v2:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:55},
+ jimbos_orange_big:{name:"Jimbo's Bird Feed (50x 2h)",cat:'feed',power:55},
 
  tachyon_prism_blue:{name:"Tachyon Prism (10x 10m)",cat:'tachyon',power:10},
  tachyon_prism_blue_v2:{name:"Tachyon Prism (10x 10m)",cat:'tachyon',power:10},
- tachyon_prism_blue_big:{name:"Large Tachyon Prism (10x 4h)",cat:'tachyon',power:10},
- tachyon_prism_blue_big_v2:{name:"Large Tachyon Prism (10x 4h)",cat:'tachyon',power:10},
+ tachyon_prism_blue_big:{name:"Large Tachyon Prism (10x 4h)",cat:'tachyon',power:12},
+ tachyon_prism_blue_big_v2:{name:"Large Tachyon Prism (10x 4h)",cat:'tachyon',power:12},
  tachyon_prism_purple:{name:"Powerful Tachyon Prism (100x 20m)",cat:'tachyon',power:100},
  tachyon_prism_purple_v2:{name:"Powerful Tachyon Prism (100x 20m)",cat:'tachyon',power:100},
- tachyon_prism_purple_big:{name:"Epic Tachyon Prism (100x 2h)",cat:'tachyon',power:100},
- tachyon_prism_purple_big_v2:{name:"Epic Tachyon Prism (100x 2h)",cat:'tachyon',power:100},
+ tachyon_prism_purple_big:{name:"Epic Tachyon Prism (100x 2h)",cat:'tachyon',power:120},
+ tachyon_prism_purple_big_v2:{name:"Epic Tachyon Prism (100x 2h)",cat:'tachyon',power:120},
  tachyon_prism_orange:{name:"Legendary Tachyon Prism (1000x 10m)",cat:'tachyon',power:1000},
  tachyon_prism_orange_v2:{name:"Legendary Tachyon Prism (1000x 10m)",cat:'tachyon',power:1000},
- tachyon_prism_orange_big:{name:"Supreme Tachyon Prism (1000x 1h)",cat:'tachyon',power:1000},
- tachyon_prism_orange_big_v2:{name:"Supreme Tachyon Prism (1000x 1h)",cat:'tachyon',power:1000},
+ tachyon_prism_orange_big:{name:"Supreme Tachyon Prism (1000x 1h)",cat:'tachyon',power:1200},
+ tachyon_prism_orange_big_v2:{name:"Supreme Tachyon Prism (1000x 1h)",cat:'tachyon',power:1200},
 
  soul_beacon_blue:{name:"Soul Beacon (5x 30m)",cat:'soul',power:5},
  soul_blue:{name:"Soul Beacon (5x 30m)",cat:'soul',power:5},
@@ -585,8 +585,9 @@ function getActiveEvents(){
  var craftChecked=($('ev-craft')?$('ev-craft').checked:autoCraft);
  var droneChecked=($('ev-drones')?$('ev-drones').checked:false);
  var capChecked=($('ev-cap')?$('ev-cap').checked:false);
+ var srvPrest=(liveServerEvents&&liveServerEvents.prestigeMultiplier>1)?liveServerEvents.prestigeMultiplier:0;
  return {
-  prestigeMultiplier:sched.isEggDay?8.0:(prestChecked?(liveServerEvents&&liveServerEvents.prestigeMultiplier>1?liveServerEvents.prestigeMultiplier:2.0):1.0),
+  prestigeMultiplier:sched.isEggDay?Math.max(8.0,srvPrest):(prestChecked?(srvPrest||2.0):1.0),
   commonResearchDiscount:commChecked?(liveServerEvents&&liveServerEvents.commonResearchDiscount>0?liveServerEvents.commonResearchDiscount:0.70):0.0,
   epicResearchDiscount:epicChecked?(liveServerEvents&&liveServerEvents.epicResearchDiscount>0?liveServerEvents.epicResearchDiscount:0.35):0.0,
   craftingDiscount:craftChecked?(liveServerEvents&&liveServerEvents.craftingDiscount>0?liveServerEvents.craftingDiscount:0.30):0.0,
@@ -831,24 +832,24 @@ function getEpicPrices(r){
  return arr;
 }
 function getEpicWeight(id,peCount,L,ctx){
- var lvl=L||0,c=ctx||{},se=c.curSE||0,ship=c.shipIdx||0,perm=c.permitTier||3,ebW=se<1e13?58:36;
+ var lvl=L||0,c=ctx||{},se=c.curSE||0,ship=c.shipIdx||0,perm=c.permitTier||3,ebW=se<1e13?52:34;
  if(id==='soul_eggs')return (1/(10+lvl))*ebW;
- if(id==='prophecy_bonus')return peCount>0?(Math.pow((1.06+0.01*lvl)/(1.05+0.01*lvl),peCount)-1)*Math.max(46,ebW):0.04;
- if(id==='prestige_bonus')return (0.1/(1+0.1*lvl))*90;
- if(id==='cheaper_research')return (0.05/Math.max(0.5,1-0.05*lvl))*80;
+ if(id==='prophecy_bonus')return peCount>0?(peCount*Math.log((1.06+0.01*lvl)/(1.05+0.01*lvl))*135):0.04;
+ if(id==='prestige_bonus')return (0.1/(1+0.1*lvl))*230;
+ if(id==='cheaper_research')return (0.05/Math.max(0.5,1-0.05*lvl))*85;
  if(id==='int_hatch_calm'||id==='epic_internal_incubators')
   return (id==='int_hatch_calm'?4.8:2.2)/(1+(id==='int_hatch_calm'?0.08:0.05)*lvl);
- if(id==='epic_egg_laying'||id==='transportation_lobbyist')return (id==='epic_egg_laying'?2.0:1.5)/(1+0.04*lvl);
- if(id==='cheaper_contractors'||id==='bust_unions')return (id==='cheaper_contractors'?0.22:0.25)/(1+0.1*lvl);
- if(id==='afx_mission_time')return (ship<4)?0.02:(0.01/Math.max(0.4,1-0.01*lvl))*(ship>=9?58:26);
- if(id==='afx_mission_capacity')return (ship<1&&se<1e4)?0.02:(0.05/(1+0.05*lvl))*(ship>=9?50:24);
+ if(id==='epic_egg_laying'||id==='transportation_lobbyist')return (id==='epic_egg_laying'?2.1:1.6)/(1+0.04*lvl);
+ if(id==='cheaper_contractors'||id==='bust_unions')return (id==='cheaper_contractors'?0.20:0.22)/(1+0.1*lvl);
+ if(id==='afx_mission_time')return (ship<4)?0.02:(0.01/Math.max(0.4,1-0.01*lvl))*(ship>=9?85:28);
+ if(id==='afx_mission_capacity')return (ship<1&&se<1e4)?0.02:(0.05/(1+0.05*lvl))*(ship>=9?78:26);
  if(id==='accounting_tricks'||id==='silo_capacity')
-  return id==='accounting_tricks'?(se<1e13?1.1:(se<1e16?0.35:0.08))/(1+0.05*lvl):(perm===1?75:12)/(60+6*lvl);
- if(id==='epic_multiplier')return (2/(50+2*lvl))*(se<1e14?42:18);
- if(id==='drone_rewards')return (se<1e10?1.1:0.35)/(1+0.1*lvl);
- if(id==='int_hatch_sharing')return 0.85/(1+0.1*lvl);
+  return id==='accounting_tricks'?(se<1e13?0.95:(se<1e16?0.30:0.07))/(1+0.05*lvl):(perm===1?75:12)/(60+6*lvl);
+ if(id==='epic_multiplier')return (2/(50+2*lvl))*(se<1e14?38:16);
+ if(id==='drone_rewards'){var stepB=(lvl===9||lvl===19)?1.8:0.45;return ((se<1e10?0.9:0.25)*stepB)/(1+0.1*lvl);}
+ if(id==='int_hatch_sharing')return (se>=1e6?0.05:0.45)/(1+0.15*lvl);
  if(id==='hold_to_research')return se>=1e11?(0.45/(1+0.08*lvl)):0.06;
- return ({epic_hatchery:0.25/(1+0.1*lvl),epic_clucking:0.05,video_doubler_time:0.06})[id]||0.04;
+ return ({hold_to_hatch:(se>=1e5?0.01:0.12)/(1+0.2*lvl),epic_hatchery:(se>=1e5?0.02:0.15)/(1+0.15*lvl),epic_clucking:0.03,video_doubler_time:0.05})[id]||0.04;
 }
 
 function epicPlan(R,lv,avail,peCount,epicDisc,ctx){
@@ -875,7 +876,7 @@ function epicPlan(R,lv,avail,peCount,epicDisc,ctx){
  var totalLevels=0;
 
  var saveTarget=null;
- for(var step=0;step<250;step++){
+ for(var step=0;step<700;step++){
   var best=null,bestAny=null;
   for(var i=0;i<ep.length;i++){
    var r=ep[i],L=simLv[r.id]||0;
@@ -941,6 +942,9 @@ function cgain(r,L,ctx,price){
    else w=0.015;
   }else if(cat==='egg_laying_rate' || cat==='egg_laying_rate,egg_value'){
    if(ctx.shipBottleneck || ctx.shipUtilPct>=95)w=(cat==='egg_laying_rate,egg_value')?1.2:0.12;
+   else if(ctx.isContractProd)w=1.85;
+  }else if(cat==='egg_value' && ctx.isContractProd){
+   w=0.45;
   }else if(cat==='running_chicken_bonus'){
    if(ctx.habPct>=97 || ctx.lunarBeatsActive)w=0.02;
   }else if(cat==='internal_hatchery_rate'){
@@ -993,7 +997,7 @@ function commonPlan(R,lv,virt,cash,elv,ctx,commonDisc,puzzleCubeMult,colleggDisc
     var nsc=cgain(nr,nL,ctx,np)/np;if(!bestNext||nsc>bestNext.score)bestNext={price:np,score:nsc};
    }
    for(var k=0;bestNext && k<openCands.length;k++){
-    for(var lv2=openCands[k].L;okRes(openCands[k].r,lv2) && pList.length<miss+20;lv2++){
+    for(var lv2=openCands[k].L,taken=0;okRes(openCands[k].r,lv2) && taken<miss;lv2++,taken++){
      var lvP=resPr(openCands[k].r,lv2);if(lvP>0)pList.push(lvP);
     }
    }
@@ -1036,7 +1040,7 @@ function commonPlan(R,lv,virt,cash,elv,ctx,commonDisc,puzzleCubeMult,colleggDisc
   }
  }
 
- buyOrder.sort(function(a,b){return b.firstScore-a.firstScore});
+ buyOrder.sort(function(a,b){if(a.r.tier!==b.r.tier)return a.r.tier-b.r.tier;return b.firstScore-a.firstScore});
 
  return {
   affordableList:buyOrder,
@@ -1287,9 +1291,10 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier){
  var lunarMult=2 * cm.away * (artInfo?artInfo.lunarTotemMult:1) * (artInfo?artInfo.lunarStoneMult:1);
 
  var baseIncomePerMin=effectiveShippedPerMin * baseEggVal * valMult * fvEbMult * artEarnMult;
+ var potLunarMult=Math.max(lunarMult,2 * cm.away * ((artInfo&&artInfo.potentialLunarArtMult)||1));
  var idleIncomePerMin=baseIncomePerMin * lunarMult;
  var activeIncomePerMin=baseIncomePerMin * maxRCB;
- var lunarBeatsActive=(lunarMult > maxRCB && !isEnl);
+ var lunarBeatsActive=(potLunarMult > maxRCB && !isEnl);
 
  return {
   pop:pop,maxCap:maxCap,habPct:habPct,nearFull:habPct>=85,isFull:habPct>=97,
@@ -1338,7 +1343,8 @@ function calcVirtueShiftSECost(shifts,curSE){
  return Math.floor(Math.max(0,Number(curSE)||0)*ratio);
 }
 
-function analyzeMacroAndEndgame(b,sim,logi,art,clv){
+function getMultistigeTargetPop(eb){return eb>=1e26?3.5e9:(eb>=1e22?4.2e9:(eb>=1e20?5.0e9:7.0e9));}
+function analyzeMacroAndEndgame(b,sim,logi,art,clv,collegg){
  var g=b.game||{};
  var eb=logi.ebPercent;
  var curSE=Number(g.soulEggsD||g.soulEggs||0);
@@ -1350,7 +1356,8 @@ function analyzeMacroAndEndgame(b,sim,logi,art,clv){
  var bestGusset=art.bestGusset;
  var maxClarityEff=art.maxClarityEff;
  var enlGussetMult=bestGusset?(1 + (bestGusset.mult-1)*maxClarityEff):1;
- var preWDCap=7.56e9 * enlGussetMult;
+ var habColleggMult=(collegg&&collegg.mults&&collegg.mults.habCap)||1;
+ var preWDCap=7.56e9 * habColleggMult * enlGussetMult;
  var reqWD=26;
  for(var wd=0;wd<=25;wd++){
   if(preWDCap * (1 + 0.02*wd) >= 1e10){reqWD=wd;break}
@@ -1388,12 +1395,14 @@ function analyzeMacroAndEndgame(b,sim,logi,art,clv){
   phaseTip=isEnl
    ?(enlPossible?'נדרשת רמת Wormhole Dampening '+reqWD+' מתוך 25 (עם '+bestGusset.name+' ו-Clarity).':'נדרש Gusset נדיר יותר או אבני Clarity גבוהות יותר כדי להגיע ל-10B.')
    :('מתקן פעיל בביצה זו: '+(VIRT_FACILITY[curEgg]||'')+'. עלות Shift הבא: ~'+fmt(nextShiftSECost)+' SE (בוצעו '+shifts+' החלפות) — צבור לפחות +'+minRecommendedEoTGain+' EoT לפני מעבר.');
- }else if(eb>=1e18){
+ }else if(eb>=1e19){
   phase='LATE_GAME_MULTISTIGE';
-  phaseTitle=logi.lunarBeatsActive?'שלב 3: Late Game — Multi-Lunarstige (מטה נוכחית)':'שלב 3: Late Game — Multi-Prestige (Multistige)';
+  var msPopB=(getMultistigeTargetPop(eb)/1e9).toFixed(1).replace('.0','')+'B';
+  var msLegs=eb>=1e20?'3+ רגליים':'2 רגליים (Duostige)';
+  phaseTitle=logi.lunarBeatsActive?'שלב 3: Late Game — Multi-Lunarstige ('+msLegs+')':'שלב 3: Late Game — Multi-Prestige ('+msLegs+')';
   phaseTip=logi.lunarBeatsActive
-   ?'סט ה-Lunar Totem שלך עוקף תרנגולות רצות! הפעל 5 בוסטים, סגור ל-65+ שניות, ובצע Prestige ב-4.2B אוכלוסייה.'
-   :'תפוקת SE פוחתת (^0.21) — בצע Prestige מהיר ב-4.2B תרנגולות וקפוץ חזרה ל-Universe על הבוסט הפעיל.';
+   ?'סט ה-Lunar Totem שלך עוקף תרנגולות רצות! הפעל 5 בוסטים, סגור ל-65+ שניות, ובצע Prestige ב-'+msPopB+' אוכלוסייה.'
+   :'תפוקת SE פוחתת (^0.21) — בצע Prestige מהיר ב-'+msPopB+' תרנגולות וקפוץ חזרה ל-Universe על הבוסט הפעיל.';
  }else if(eb>=1e13){
   phase='MID_GAME';
   phaseTitle='שלב 2: Mid Game — קידום ספינות, Epic ו-Diamond Trophies';
@@ -1401,7 +1410,7 @@ function analyzeMacroAndEndgame(b,sim,logi,art,clv){
  }
 
  return {
-  phase:phase,phaseTitle:phaseTitle,phaseTip:phaseTip,skipPath:skipPath,
+  phase:phase,phaseTitle:phaseTitle,phaseTip:phaseTip,skipPath:skipPath,msTargetPop:getMultistigeTargetPop(eb),
   isEnl:isEnl,isVirt:isVirt,shifts:shifts,curEggEoT:curEggEoT,nextEoTN:nextEoTN,nextEoTEggs:nextEoTEggs,
   nextShiftSECost:nextShiftSECost,next3ShiftsSECost:next3ShiftsSECost,minRecommendedEoTGain:minRecommendedEoTGain,virtPerEgg:virtPerEgg,
   bestGusset:bestGusset,maxClarityEff:maxClarityEff,reqWD:reqWD,enlPossible:enlPossible
@@ -1513,14 +1522,15 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg,macro,events,hasActiveBoost,e
   status='upgrade_egg';
   title='שדרג לביצה הבאה: '+eggProg.nextName+'!';
   reason='שווי החווה הגיע ליעד הפתיחה! שדרוג לביצת '+eggProg.nextName+' יקפיץ משמעותית את ההכנסות וה-Soul Eggs.';
- }else if(isLate && hasActiveBoost && hab.pop>=4.2e9){
+ }else if(isLate && hasActiveBoost && hab.pop>=(macro.msTargetPop||4.2e9)){
+  var tPopLbl=((macro.msTargetPop||4.2e9)/1e9).toFixed(1).replace('.0','')+'B';
   status='ready';
   title='בצע Prestige עכשיו (רגל Multistige ב-'+fmt(hab.pop)+' תרנגולות)';
   reason=hab.lunarBeatsActive
-   ?'האוכלוסייה עברה 4.2B על הבוסט הפעיל! בצע Prestige מיד, קפוץ ל-Universe וסגור את המשחק ל-65+ שניות לסבב הבא.'
-   :'האוכלוסייה עברה 4.2B על הבוסט הפעיל! בצע Prestige מיד וקפוץ חזרה ל-Universe כדי למקסם רגליים על הבוסט הפעיל.';
+   ?'האוכלוסייה עברה '+tPopLbl+' על הבוסט הפעיל! בצע Prestige מיד, קפוץ ל-Universe וסגור את המשחק ל-65+ שניות לסבב הבא.'
+   :'האוכלוסייה עברה '+tPopLbl+' על הבוסט הפעיל! בצע Prestige מיד וקפוץ חזרה ל-Universe כדי למקסם רגליים על הבוסט הפעיל.';
  }else if(hab.isFull && !hasAffordableResearch){
-  if(isWeekend && !holdBoostsForNextEgg && gainPct<autoReadyGainPct && hasPrestigeBoosts){
+  if(isWeekend && !holdBoostsForNextEgg && hasPrestigeBoosts){
    status='boost_then_prestige';
    title='אירוע '+events.prestigeMultiplier+'x Prestige: הפעל בוסט לפני Prestige';
    reason=hab.lunarBeatsActive
@@ -1577,6 +1587,9 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
  var homeSet=(sets[0]&&sets[0].slots)||[];
  var maxArtSlots=(permitTier===3)?4:2;
 
+ var curSE=Number((b.game&&(b.game.soulEggsD||b.game.soulEggs))||0);
+ var seExp=(curSE<1e12)?0.15:(curSE<1e21)?0.16:(curSE<1e30)?0.17:(curSE<1e39)?0.18:(curSE<1e48)?0.19:(curSE<1e54)?0.20:0.21;
+ function getMonocleMult(l,r){if(l==='GREATER')return r==='LEGENDARY'?1.30:r==='EPIC'?1.25:1.20;if(l==='NORMAL')return r==='EPIC'?1.18:1.15;if(l==='LESSER')return r==='RARE'?1.12:1.10;return 1.05;}
  var baseMaxRCB=calcBaseMaxRCB(clv||{},elv||{},R||[]);
  var basePE=1 + (5 + ((elv&&elv['prophecy_bonus'])||0))/100;
  var baseSE=10 + ((elv&&elv['soul_eggs'])||0);
@@ -1616,6 +1629,7 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   else if(sp.name==='BOOK_OF_BASAN')bookAdd=getBookBonus(lvl,rar);
   else if(sp.name==='VIAL_MARTIAN_DUST')vialAdd=getVialAdd(lvl,rar);
   else if(sp.name==='LUNAR_TOTEM')lunarMult=getTotemMult(lvl,rar);
+  else if(sp.name==='DILITHIUM_MONOCLE' && (isLunar||isActiveRun)){var mm=getMonocleMult(lvl,rar);earnMult=mm*mm;}
   else if(sp.name==='LIGHT_OF_EGGENDIL' && isEnlightenment)earnMult=getEnlightenmentMult(lvl,rar);
 
   stList.forEach(function(st){
@@ -1633,7 +1647,8 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   var awayMult=isLunar?lunarMult:1;
   var totalEarnMult=earnMult * seStatMult * peStatMult * rcbMult * awayMult;
   return {
-   seGainMult:featherMult * Math.pow(Math.max(1,totalEarnMult),0.21),
+   seGainMult:featherMult * Math.pow(Math.max(1,totalEarnMult),seExp),
+   awayMult:lunarMult,
    dCount:dCount,
    isPureDilithium:(dCount>0 && dCount===stList.length)
   };
@@ -1794,7 +1809,7 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   if(dCount>0 && ART_INFO[sp.name]){
    var dMult=1;
    stones.forEach(function(st){if(st && st.name==='DILITHIUM_STONE')dMult*=(DILITHIUM_STONE_MULT[normLevel(st.level)]||1)});
-   dilithiumHolders.push({name:formatArtLabel(sp),dCount:dCount,mult:dMult});
+   dilithiumHolders.push({rawName:sp.name,name:formatArtLabel(sp),dCount:dCount,mult:dMult});
   }
 
   if((rar==='RARE' || rar==='EPIC') && stones.length===0 && (it.quantity||0)>1 && ART_INFO[sp.name]){
@@ -1803,10 +1818,8 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
 
   var score=(TIER_RANK[lvl]||0)*10 + (RARITY_RANK[rar]||0);
   if(sp.name==='ORNATE_GUSSET'){
-   var gMult=getGussetMult(lvl,rar);
-   if(!bestGusset || gMult>bestGusset.mult || (gMult===bestGusset.mult && slotCap>bestGusset.slotCap)){
-    bestGusset={name:formatArtLabel(sp),mult:gMult,slotCap:slotCap};
-   }
+   if(!bestOwned._g)bestOwned._g=[];
+   bestOwned._g.push({name:formatArtLabel(sp),mult:getGussetMult(lvl,rar),slotCap:slotCap});
   }
 
   var stoneLabels=formatStoneList(stones);
@@ -1824,7 +1837,7 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
    }
    var evL=evalItemPrestigeSE(sp,stones,'lunar');
    if(!bestLunarByType[sp.name] || evL.seGainMult>bestLunarByType[sp.name].seGainMult || (evL.seGainMult===bestLunarByType[sp.name].seGainMult && !evL.isPureDilithium && bestLunarByType[sp.name].isPureDilithium)){
-    bestLunarByType[sp.name]={rawName:sp.name,name:displayLabel,baseName:formatArtLabel(sp),score:itemScore,seGainMult:evL.seGainMult,isPureDilithium:evL.isPureDilithium};
+    bestLunarByType[sp.name]={rawName:sp.name,name:displayLabel,baseName:formatArtLabel(sp),score:itemScore,seGainMult:evL.seGainMult,awayMult:evL.awayMult,isPureDilithium:evL.isPureDilithium};
    }
   }
 
@@ -1847,12 +1860,21 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
  });
 
  clarityPowers.sort(function(a,b){return b-a});
+ var bestEnlEff=0;
+ (bestOwned._g||[]).forEach(function(gc){
+  var cSum=0;for(var ci=0;ci<Math.min(gc.slotCap,clarityPowers.length);ci++)cSum+=clarityPowers[ci];
+  var eff=1+(gc.mult-1)*cSum;
+  if(eff>bestEnlEff || (eff===bestEnlEff && (!bestGusset || gc.mult>bestGusset.mult))){bestEnlEff=eff;bestGusset=gc;}
+ });
+ delete bestOwned._g;
  var gussetSlots=bestGusset?bestGusset.slotCap:0;
  var maxClarityEff=0;
  for(var cIdx=0;cIdx<Math.min(gussetSlots,clarityPowers.length);cIdx++)maxClarityEff+=clarityPowers[cIdx];
 
- dilithiumHolders.sort(function(a,b){return b.mult-a.mult});
- var setDilithium=dilithiumHolders.slice(0,maxArtSlots);
+ var bestDilByType={};
+ dilithiumHolders.forEach(function(dh){var k=dh.rawName||dh.name;if(!bestDilByType[k]||dh.mult>bestDilByType[k].mult)bestDilByType[k]=dh;});
+ var uniqueDil=Object.keys(bestDilByType).map(function(k){return bestDilByType[k]}).sort(function(a,b){return b.mult-a.mult});
+ var setDilithium=uniqueDil.slice(0,maxArtSlots);
  var potentialDilithiumMult=1;
  setDilithium.forEach(function(x){potentialDilithiumMult*=x.mult});
 
@@ -1866,7 +1888,7 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   return res;
  }
 
- var activeKeys=['PHOENIX_FEATHER','BOOK_OF_BASAN','DEMETERS_NECKLACE','TUNGSTEN_ANKH','VIAL_MARTIAN_DUST']
+ var activeKeys=['PHOENIX_FEATHER','BOOK_OF_BASAN','DEMETERS_NECKLACE','TUNGSTEN_ANKH','VIAL_MARTIAN_DUST','DILITHIUM_MONOCLE']
   .filter(function(k){return !!bestActiveByType[k]})
   .sort(function(a,b){return bestActiveByType[b].seGainMult-bestActiveByType[a].seGainMult});
  var setMain=isEnlightenment
@@ -1882,11 +1904,12 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   :pickSet(passiveKeys,bestPassiveByType);
  var optimalPassiveSEMult=setPassive.reduce(function(acc,x){return acc*(x.seGainMult||1)},1);
 
- var lunarKeys=['LUNAR_TOTEM','PHOENIX_FEATHER','BOOK_OF_BASAN','DEMETERS_NECKLACE','TUNGSTEN_ANKH']
+ var lunarKeys=['LUNAR_TOTEM','PHOENIX_FEATHER','BOOK_OF_BASAN','DEMETERS_NECKLACE','TUNGSTEN_ANKH','DILITHIUM_MONOCLE']
   .filter(function(k){return !!bestLunarByType[k]})
   .sort(function(a,b){return bestLunarByType[b].seGainMult-bestLunarByType[a].seGainMult});
  var setLunar=pickSet(lunarKeys,bestLunarByType);
  var optimalLunarSEMult=setLunar.reduce(function(acc,x){return acc*(x.seGainMult||1)},1);
+ var potentialLunarArtMult=setLunar.reduce(function(acc,x){return acc*(x.awayMult||1)},1);
 
  var setIHR=pickSet(['THE_CHALICE','DILITHIUM_MONOCLE','ORNATE_GUSSET','DEMETERS_NECKLACE','TUNGSTEN_ANKH'],bestOwned);
  var setContract=pickSet(['TACHYON_DEFLECTOR','QUANTUM_METRONOME','INTERSTELLAR_COMPASS','ORNATE_GUSSET','THE_CHALICE'],bestOwned);
@@ -1959,7 +1982,7 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   lunarTotemMult:lunarTotemMult,lunarStoneMult:lunarStoneMult,
   artifactEarningsMult:artifactEarningsMult,bookBonus:bookBonus,soulStonePts:soulStonePts,prophStonePts:prophStonePts,vialAdd:vialAdd,terraAdd:terraAdd,
   equippedActiveSEMult:equippedActiveSEMult,equippedPassiveSEMult:equippedPassiveSEMult,equippedLunarSEMult:equippedLunarSEMult,
-  optimalActiveSEMult:optimalActiveSEMult,optimalPassiveSEMult:optimalPassiveSEMult,optimalLunarSEMult:optimalLunarSEMult,
+  optimalActiveSEMult:optimalActiveSEMult,optimalPassiveSEMult:optimalPassiveSEMult,optimalLunarSEMult:optimalLunarSEMult,potentialLunarArtMult:potentialLunarArtMult,
   bestGusset:bestGusset,maxClarityEff:maxClarityEff,
   bestTachyonMult:bestTachyonMult,bestQuantumMult:bestQuantumMult,bestProphPts:bestProphPts,bestSoulPts:bestSoulPts,
   totalContractSlots:totalContractSlots,
@@ -1985,6 +2008,8 @@ function optimizeStones(art,logi){
   :('שבץ Soul Stones (+'+((soulGainMult-1)*100).toFixed(2)+'% לאבן מול +'+((prophGainMult-1)*100).toFixed(2)+'% ב-Prophecy Stone עם '+pe+' PE)');
 
  var slots=art.totalContractSlots||0;
+ var availTach=(art.looseStones||[]).filter(function(s){return s.rawName==='TACHYON_STONE'}).reduce(function(a,s){return a+(s.qty||0)},0);
+ var availQuant=(art.looseStones||[]).filter(function(s){return s.rawName==='QUANTUM_STONE'}).reduce(function(a,s){return a+(s.qty||0)},0);
  var contractStoneAdvice='';
  if(slots<=0){
   contractStoneAdvice='אין סלוטים פנויים בסט החוזים הנוכחי (נדרשים ארטיפקטים Rare/Epic/Legendary).';
@@ -1992,18 +2017,17 @@ function optimizeStones(art,logi){
   var rawLay=(logi.totalLayRate / (Math.max(1,art.metronomeMult)*Math.max(1,art.tachyonStoneMult))) * (art.contractMetronomeMult||1);
   var rawShip=(logi.totalShipCap / (Math.max(1,art.compassMult)*Math.max(1,art.quantumStoneMult))) * (art.contractCompassMult||1);
   if(rawLay<=0 || rawShip<=0){
-   contractStoneAdvice='שבץ '+slots+' אבני Tachyon (להאצת הטלה) ואז אזן עם Quantum כשהמשלוחים מתקרבים ל-90%.';
+   contractStoneAdvice='שבץ '+Math.min(slots,availTach)+' אבני Tachyon (להאצת הטלה) ואז אזן עם Quantum כשהמשלוחים מתקרבים ל-90%.';
   }else{
-   var bestK=0, bestThroughput=-1;
-   for(var k=0;k<=slots;k++){
-    var q=slots-k;
+   var bestK=0,bestQ=0,bestThroughput=-1;
+   for(var k=0;k<=Math.min(slots,availTach);k++){
+    var q=Math.min(slots-k,availQuant);
     var lay=rawLay * Math.pow(art.bestTachyonMult,k);
     var ship=rawShip * Math.pow(art.bestQuantumMult,q);
     var thr=Math.min(lay,ship);
-    if(thr>bestThroughput){bestThroughput=thr;bestK=k;}
+    if(thr>bestThroughput){bestThroughput=thr;bestK=k;bestQ=q;}
    }
-   var bestQ=slots-bestK;
-   contractStoneAdvice='חלוקה אופטימלית ל-'+slots+' סלוטים (עם סט החוזים): '+bestK+'× Tachyon + '+bestQ+'× Quantum';
+   contractStoneAdvice='חלוקה אופטימלית ל-'+slots+' סלוטים (במלאי: '+availTach+' Tachyon, '+availQuant+' Quantum): '+bestK+'× Tachyon + '+bestQ+'× Quantum';
   }
  }
  return {useProphecy:useProphecy,prestigeStoneAdvice:prestigeStoneAdvice,contractStoneAdvice:contractStoneAdvice};
@@ -2038,8 +2062,8 @@ function analyzeBoosts(b,sim,permitTier,hab,prestigeInfo,hasAffordableResearch,a
   return list[0]||null;
  }
 
- var bestFeed=bestByCat('feed',1);
- var bestTachyon=bestByCat('tachyon',2);
+ var bestFeed=bestByCat('feed',isWeekend?0:1);
+ var bestTachyon=bestByCat('tachyon',isWeekend?0:2);
  var bestSoul=bestByCat('soul',0);
  var bestBeacon=bestByCat('beacon',0);
 
@@ -2067,9 +2091,10 @@ function analyzeBoosts(b,sim,permitTier,hab,prestigeInfo,hasAffordableResearch,a
  }else if(active.length>0){
   shouldUseNow=false;
   recTitle='בוסט פעיל כרגע ('+active.length+'/'+maxBoostSlots+')';
+  var aPopB=((macro.msTargetPop||4.2e9)/1e9).toFixed(1).replace('.0','')+'B';
   recReason=hab.lunarBeatsActive
-   ?'סט Lunar פעיל: סגור/מזער את המשחק ל-65+ שניות כדי להפעיל מכפיל אופליין מקסימלי ובצע Prestige ב-4.2B!'
-   :'החזק את כפתור התרנגולות הרצות (רמת WD 24/25 פתוחה) ובצע Prestige ב-4.2B תרנגולות!';
+   ?'סט Lunar פעיל: סגור/מזער את המשחק ל-65+ שניות כדי להפעיל מכפיל אופליין מקסימלי ובצע Prestige ב-'+aPopB+'!'
+   :'החזק את כפתור התרנגולות הרצות (רמת WD 24/25 פתוחה) ובצע Prestige ב-'+aPopB+' תרנגולות!';
  }else if(eggProg && eggProg.nextEgg && eggProg.nextEgg!=='ENLIGHTENMENT' && !eggProg.canUpgradeEgg && !eggProg.willCrossNextEggAt90 && eggProg.pct>=75 && !hasAffordableResearch && bestFeed && (bestFeed.count>1 || bestFeed.power>=10)){
   shouldUseNow=true;
   recCombo.push({name:bestFeed.name,count:bestFeed.count,useQty:1});
@@ -2093,31 +2118,16 @@ function analyzeBoosts(b,sim,permitTier,hab,prestigeInfo,hasAffordableResearch,a
    recReason='אירוע Prestige פעיל! מלא לולים ל-~90% עם '+bestTachyon.name+' (שמור רמת WD פתוחה) ואז הפעל Bird Feed + Soul Beacon.'+dilNote;
   }else if((macro.phase==='LATE_GAME_MULTISTIGE' || ((!prestigeInfo.withinReach || hab.isFull) && (hab.habPct>=45 || prestigeInfo.status==='boost_then_prestige' || prestigeInfo.hitTimeWall))) && (bestFeed || bestSoul)){
    shouldUseNow=true;
-   var usedSlots=0;
-   if(bestTachyon && macro.phase==='LATE_GAME_MULTISTIGE' && maxBoostSlots===5){
-    recCombo.push({name:bestTachyon.name,count:bestTachyon.count,useQty:1});
-    usedSlots++;
-   }
-   if(bestFeed && usedSlots<maxBoostSlots){
-    recCombo.push({name:bestFeed.name,count:bestFeed.count,useQty:1});
-    usedSlots++;
-   }
-   if(bestSoul && usedSlots<maxBoostSlots){
-    recCombo.push({name:bestSoul.name,count:bestSoul.count,useQty:1});
-    usedSlots++;
-   }
-   if(bestBeacon && usedSlots<maxBoostSlots){
-    var targetBeaconQty=(macro.phase==='LATE_GAME_MULTISTIGE' && maxBoostSlots===5)?2:1;
-    var actualBeaconQty=Math.min(targetBeaconQty, maxBoostSlots-usedSlots, bestBeacon.count);
-    if(actualBeaconQty>0){
-     recCombo.push({name:bestBeacon.name,count:bestBeacon.count,useQty:actualBeaconQty});
-     usedSlots+=actualBeaconQty;
-    }
-   }
-   recTitle=hab.lunarBeatsActive?'הפעל סבב Multi-Lunarstige (5 בוסטים)':'הפעל שילוב Prestige';
+   var usedSlots=0,isMs=(macro.phase==='LATE_GAME_MULTISTIGE');
+   if(bestTachyon && isMs && maxBoostSlots===5){recCombo.push({name:bestTachyon.name,count:bestTachyon.count,useQty:1});usedSlots++;}
+   if(bestFeed && usedSlots<maxBoostSlots){var fq=(!isMs&&maxBoostSlots===5)?Math.min(2,bestFeed.count):1;recCombo.push({name:bestFeed.name,count:bestFeed.count,useQty:fq});usedSlots+=fq;}
+   if(bestSoul && usedSlots<maxBoostSlots){var sq=(!isMs&&maxBoostSlots===5)?Math.min(2,bestSoul.count,Math.max(1,maxBoostSlots-usedSlots-1)):1;recCombo.push({name:bestSoul.name,count:bestSoul.count,useQty:sq});usedSlots+=sq;}
+   if(bestBeacon && usedSlots<maxBoostSlots){var bq=Math.min(maxBoostSlots-usedSlots,bestBeacon.count);if(bq>0){recCombo.push({name:bestBeacon.name,count:bestBeacon.count,useQty:bq});usedSlots+=bq;}}
+   var mPopB=((macro.msTargetPop||4.2e9)/1e9).toFixed(1).replace('.0','')+'B';
+   recTitle=hab.lunarBeatsActive?'הפעל סבב Multi-Lunarstige ('+usedSlots+' בוסטים)':'הפעל שילוב Prestige ('+usedSlots+' סלוטים)';
    recReason=hab.lunarBeatsActive
-    ?'אירוע Prestige פעיל וסט ה-Lunar שלך חזק! הפעל, החלף לסט Lunar, סגור את האפליקציה ל-65+ שניות, ובצע Prestige בכל פעם שהאוכלוסייה מגיעה ל-4.2B.'+dilNote
-    :'אירוע Prestige פעיל! הפעל, הרכב ארטיפקטי Prestige והרץ תרנגולות'+(macro.phase==='LATE_GAME_MULTISTIGE'?' (בצע Prestige ב-4.2B בכל רגל)':' 10 דקות לפני Prestige')+'.'+dilNote;
+    ?'אירוע Prestige פעיל וסט ה-Lunar שלך חזק! הפעל, החלף לסט Lunar, סגור את האפליקציה ל-65+ שניות, ובצע Prestige בכל פעם שהאוכלוסייה מגיעה ל-'+mPopB+'.'+dilNote
+    :'אירוע Prestige פעיל! הפעל, הרכב ארטיפקטי Prestige והרץ תרנגולות'+(isMs?' (בצע Prestige ב-'+mPopB+' בכל רגל)':' 10 דקות לפני Prestige')+'.'+dilNote;
   }
  }
 
@@ -2614,11 +2624,11 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
    quantumStoneMult:1
   }):null;
   cLogi=calcFarmLogistics(b,cf,lvMap(cf.commonResearch),elv,contractArt,R,collegg,permitTier);
-  var cfKeepOneWD=(cLogi.habPct<95);
+  var cfKeepOneWD=(cLogi.habPct<95),cEv=getActiveEvents(),isCRes=(cLogi.pop<5e7);
   cp=commonPlan(R,lvMap(cf.commonResearch),false,cfCash,elv,{
    shipBottleneck:cLogi.shipBottleneck,shipUtilPct:cLogi.shipUtilPct,unusedVehSlots:cLogi.unusedVehSlots,
-   habPct:cLogi.habPct,lunarBeatsActive:cLogi.lunarBeatsActive,cash:cfCash,keepOneWD:cfKeepOneWD
-  },0,1,(collegg&&collegg.mults&&collegg.mults.researchCost)||1);
+   habPct:cLogi.habPct,lunarBeatsActive:cLogi.lunarBeatsActive,cash:cfCash,keepOneWD:cfKeepOneWD,isContractProd:!isCRes
+  },cEv.commonResearchDiscount,isCRes&&art?art.puzzleCubeMult:1,(collegg&&collegg.mults&&collegg.mults.researchCost)||1);
 
   if(cp.affordableList.length){
    researchHint=cp.affordableList.slice(0,3).map(function(x){return x.r.name+' → '+x.to}).join(', ');
@@ -2662,9 +2672,10 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
  var cGoals=getContractGoals(c,b), finalGoal=cGoals.length?cGoals[cGoals.length-1]:null;
  var finalTarget=finalGoal?Number(finalGoal.targetAmount||0):0;
  var remSec=sharedEnd>now?(sharedEnd-now):0;
- var soloProj=(cLogi&&remSec>0)?(ownAmt+(cLogi.totalLayRate/60)*remSec):ownAmt;
+ var effRate=cLogi?Math.min(cLogi.totalLayRate,cLogi.totalShipCap):0;
+ var soloProj=(cLogi&&remSec>0)?(ownAmt+(effRate/60)*remSec):ownAmt;
  var fairShare=(finalTarget>0&&maxCoop>0)?(finalTarget/maxCoop):finalTarget;
- var onTrackNoBoost=!!(achieved>=3||(fairShare>0&&soloProj>=fairShare*0.95));
+ var onTrackNoBoost=!!(achieved>=3||(liveCoop&&liveCoop.onTrack)||(fairShare>0&&soloProj>=fairShare*0.95));
  var paceForecast={finalTarget:finalTarget,fairShareTarget:Math.round(fairShare),
   soloProjected:Math.round(soloProj),onTrackWithoutBoosts:onTrackNoBoost};
  var collWithPace=Object.assign({},coll,{paceForecast:paceForecast});
@@ -2837,7 +2848,8 @@ function detectBestShip(b,isVirt,events,hasFuelTank,curSE,permitTier){
  var missingSE=nextMeta?Math.max(0,nextMeta.reqSE-curSE):0;
  var estUnlockSec=missingLaunches*(SHIP_SHORT_SECS[curShipKey]||0);
 
- var preferExtended=(target==='HENERPRISE' || target==='ATREGGIES');
+ var isAutoShip=(!sel || sel==='auto');
+ var preferExtended=(target==='ATREGGIES' || (!isAutoShip && target==='HENERPRISE') || (target==='HENERPRISE' && curSE<5e13));
  var durKey=preferExtended?'EXTENDED':'SHORT';
  var missionDur=preferExtended?'Extended':'Short';
  if(events && events.missionCapacityMultiplier>1 && !preferExtended)missionDur='Short (2x Capacity!)';
@@ -2855,7 +2867,7 @@ function detectBestShip(b,isVirt,events,hasFuelTank,curSE,permitTier){
 
 function sIdxExceedsFreeTank(shipKey){
  var idx=SHIP_ORDER.indexOf(shipKey);
- return idx>=5;
+ return idx>=6;
 }
 
 function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
@@ -2863,8 +2875,8 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  var curSE=Number(g.soulEggsD||g.soulEggs||0);
  var db=b.artifactsDb||{};
  var vafx=(b.virtue&&b.virtue.afx)||{};
- var tank=db.tankFuels||vafx.tankFuels||[];
- var tankLevel=Number(db.tankLevel||0);
+ var tank=isVirt?(vafx.tankFuels||[]):(db.tankFuels||[]);
+ var tankLevel=isVirt?Number(vafx.tankLevel||db.tankLevel||0):Number(db.tankLevel||0);
  var tankTotal=tank.reduce(function(x,y){return x+(y||0)},0);
  var hasAnyMissions=((db.missionInfos&&db.missionInfos.length>0)||(db.missionArchive&&db.missionArchive.length>0));
 
@@ -2992,7 +3004,12 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
   var ideal=fb.reqAmt*maxLaunchesInCap;
   return {egg:fb.egg,name:fb.name,ideal:ideal,toAdd:Math.max(0,ideal-fb.stored),excess:Math.max(0,fb.stored-ideal)};
  });
- var tankPlan={maxLaunchesInCap:maxLaunchesInCap,oneLaunchFuel:oneLaunchFuel,unrelatedFuel:unrelatedFuel,splits:tankSplits};
+ var dmLaunches=(!isVirt&&target==='ATREGGIES'&&shipProg.durKey==='EXTENDED'&&tankCapacity>=1e13)?Math.floor(tankCapacity/7e12):0;
+ var dmSplits=dmLaunches>0?['TACHYON','DILITHIUM','ANTIMATTER'].map(function(eg){
+  var idl=(costMap[eg]||0)*dmLaunches,st=tank[EGG_ORDER.indexOf(eg)]||0;
+  return {egg:eg,name:EGG_HE[eg],ideal:idl,toAdd:Math.max(0,idl-st),excess:Math.max(0,st-idl)};
+ }):null;
+ var tankPlan={maxLaunchesInCap:dmLaunches||maxLaunchesInCap,oneLaunchFuel:dmLaunches?7e12:oneLaunchFuel,unrelatedFuel:unrelatedFuel,splits:dmSplits||tankSplits,sitEgg:dmLaunches?'DARK_MATTER':null};
 
  return {
   curSE:curSE,launchpadUnlocked:launchpadUnlocked,hasFuelTank:hasFuelTank,fuelBreakdown:fuelBreakdown,tankPlan:tankPlan,
@@ -3202,9 +3219,8 @@ function resolveArtifactContext(b,art,logi,macro,prestigeInfo,eggProg,hasActiveB
 }
 
 function plan(b,R){
- var now=Date.now()/1000,g=b.game||{},sim=homeFarm(b),db=b.artifactsDb||{},permitTier=getPermitTier(b),shipSlots=3,runMode=$('run').value,a=[];
+ var now=Date.now()/1000,g=b.game||{},sim=homeFarm(b),virt=!!VIRT[sim.eggType],db=virt?((b.virtue&&b.virtue.afx)||{}):(b.artifactsDb||{}),permitTier=getPermitTier(b),shipSlots=3,runMode=$('run').value,a=[];
  var events=getActiveEvents();
- var virt=!!VIRT[sim.eggType];
  var cash=farmCash(sim);
  var peCount=Number(g.eggsOfProphecy||0);
  var elv=lvMap(g.epicResearch);
@@ -3213,7 +3229,7 @@ function plan(b,R){
  var art=analyzeArtifacts(b,permitTier,sim.eggType,peCount,elv,clv,R);
  var logi=calcFarmLogistics(b,sim,clv,elv,art,R,collegg,permitTier);
  var stoneOpt=optimizeStones(art,logi);
- var macro=analyzeMacroAndEndgame(b,sim,logi,art,clv);
+ var macro=analyzeMacroAndEndgame(b,sim,logi,art,clv,collegg);
  var trophies=analyzeDiamondTrophies(b,logi.ebPercent);
 
  var keepOneWD=(!macro.isEnl && runMode!=='ready');
@@ -3609,6 +3625,12 @@ function plan(b,R){
 
  var gift=g.nextDailyGiftTime||0;if(gift>1e12)gift/=1000;if(gift>0&&gift<now)a.push([20,'אסוף את המתנה היומית','לחץ על אייקון המתנה בצד.']);
  if((sim.unclaimedBoostTokens||0)>0)a.push([34,'אסוף '+sim.unclaimedBoostTokens+' טוקני בוסט בחווה','מוכנים לאיסוף.']);
+ if(virt){
+  var vEg=sim.eggType;
+  if(macro.shifts>=524)a.push([7,'תקרת החלפות מקסימלית ב-Virtue ('+macro.shifts+'/524 Shifts)','הגעת לתקרת ה-524 — עלות Shift קיצונית, צבור EoT לפני מעבר.']);
+  else if(macro.shifts>=250)a.push([14,'אזהרת סף החלפות ב-Virtue ('+macro.shifts+'/250 Shifts)','עברת 250 החלפות — צבור לפחות +'+macro.minRecommendedEoTGain+' EoT לפני Shift.']);
+  a=a.filter(function(it){var tg=it[3]||'',tx=String(it[1]||'');if(vEg==='CURIOSITY')return tg!=='epic'&&tg!=='artifacts'&&tx.indexOf('לול')<0&&tx.indexOf('משלוחים')<0&&tx.indexOf('ממגורה')<0&&tx.indexOf('ספינ')<0;if(vEg==='INTEGRITY')return tg!=='research'&&tg!=='epic'&&tg!=='artifacts'&&tx.indexOf('מחקר')<0&&tx.indexOf('משלוחים')<0&&tx.indexOf('ממגורה')<0&&tx.indexOf('ספינ')<0;if(vEg==='KINDNESS')return tg!=='research'&&tg!=='epic'&&tg!=='artifacts'&&tx.indexOf('מחקר')<0&&tx.indexOf('לול')<0&&tx.indexOf('ממגורה')<0&&tx.indexOf('ספינ')<0;if(vEg==='RESILIENCE')return tg!=='research'&&tg!=='epic'&&tg!=='artifacts'&&tx.indexOf('מחקר')<0&&tx.indexOf('לול')<0&&tx.indexOf('משלוחים')<0&&tx.indexOf('ספינ')<0;if(vEg==='HUMILITY')return tg!=='research'&&tx.indexOf('מחקר')<0&&tx.indexOf('לול')<0&&tx.indexOf('משלוחים')<0&&tx.indexOf('ממגורה')<0;return true;});
+ }
  a.sort(function(x,y){return x[0]-y[0]});
  if(!a.length)a.push([99,'הכל מסודר כרגע','חזור לבדוק בעוד כמה דקות.']);
  return {CD:CD,availContracts:availContracts,bestPointsRec:bestPointsRec,contractSlotInfo:contractSlotInfo,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,permitTier:permitTier,shipSlots:shipSlots,free:free,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,logi:logi,eggProg:eggProg,cash:cash,art:art,artCtx:artCtx,isArtOptimal:isArtOptimal,stoneOpt:stoneOpt,prestigeInfo:prestigeInfo,boostInfo:boostInfo,macro:macro,trophies:trophies,events:events,collegg:collegg,geSpecRec:geSpecRec,keepOneWD:keepOneWD};
@@ -3677,6 +3699,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
+  version:'v66',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
