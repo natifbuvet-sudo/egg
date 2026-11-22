@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 53</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 54</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -802,15 +802,15 @@ function analyzeColleggtibles(b){
  return {mults:mults,unlocked:unlocked};
 }
 
-var EPIC_SPEC={hold_to_hatch:[15,10,444],epic_hatchery:[20,10,1000],epic_internal_incubators:[20,50,5000],video_doubler_time:[12,200,5000],
- epic_clucking:[20,25,5000],epic_multiplier:[100,50,5000],cheaper_contractors:[10,50,2500],bust_unions:[10,50,2500],
- cheaper_research:[10,250,15000],silo_capacity:[20,5,5000],int_hatch_sharing:[10,100,2500],int_hatch_calm:[20,250,25000],
- accounting_tricks:[20,100,10000],soul_eggs:[140,500,5000],prestige_bonus:[20,2000,30000],drone_rewards:[20,100,10000],
- epic_egg_laying:[20,250,50000],transportation_lobbyist:[30,250,7500],prophecy_bonus:[5,100000,1000000],hold_to_research:[8,5000,50000],
- afx_mission_time:[60,5000,150000],afx_mission_capacity:[10,50000,1000000]};
+var EPIC_SPEC={hold_to_hatch:[15,10,500],epic_hatchery:[20,2,1000],epic_internal_incubators:[20,50,10000],video_doubler_time:[12,100,5000],
+ epic_clucking:[20,100,10000],epic_multiplier:[100,50,10000],cheaper_contractors:[10,50,4000],bust_unions:[10,50,4000],
+ cheaper_research:[10,100,8000],silo_capacity:[20,5,2000],int_hatch_sharing:[10,100,2500],int_hatch_calm:[20,250,10000],
+ accounting_tricks:[20,100,10000],soul_eggs:[140,501,4999],prestige_bonus:[20,2000,20000],drone_rewards:[20,51,1999],
+ epic_egg_laying:[20,250,50000],transportation_lobbyist:[30,250,5000],prophecy_bonus:[5,100000,1000000],hold_to_research:[20,5000,20000],
+ afx_mission_time:[60,5000,200000],afx_mission_capacity:[10,50000,1000000]};
 function getEpicPrices(r){
  var sp=EPIC_SPEC[r.id];if(!sp)return r.prices||[];
- var arr=[];for(var i=0;i<sp[0];i++)arr.push(sp[0]>1?Math.round(sp[1]+(sp[2]-sp[1])*i/(sp[0]-1)):sp[1]);
+ var arr=[];for(var i=0;i<sp[0];i++)arr.push(sp[0]>1?Math.floor(sp[1]+(sp[2]-sp[1])*i/(sp[0]-1)):sp[1]);
  return arr;
 }
 function getEpicWeight(id,peCount,L,ctx){
@@ -833,7 +833,7 @@ function getEpicWeight(id,peCount,L,ctx){
 }
 
 function epicPlan(R,lv,avail,peCount,epicDisc,ctx){
- var discMult=1-(epicDisc||0);
+ var discMult=Math.fround(1-(epicDisc||0));
  var ep=R.filter(function(r){return r.type==='epic'}).map(function(r){
   var pr=getEpicPrices(r);return Object.assign({},r,{prices:pr,levels:pr.length||r.levels});
  }).filter(function(r){return (lv[r.id]||0)<r.levels});
@@ -1316,11 +1316,11 @@ function analyzeMacroAndEndgame(b,sim,logi,art,clv){
  });
 
  var skipPath='';
- if(eb>7.736e33)skipPath='Edible ← Prodigy (מינימום מחקר) ← Universe';
- else if(eb>1.8e29)skipPath='Edible ← Graviton (מינימום מחקר) ← Universe';
- else if(eb>4.738e23)skipPath='Edible ← Graviton ← Universe';
- else if(eb>2.321e21)skipPath='Edible ← Tachyon ← Dilithium ← Universe';
- else if(eb>4.545e19)skipPath='Edible ← CRISPR / Tachyon ← Dark Matter ← Universe';
+ if(eb>7.736e33)skipPath='Edible → Prodigy (מינימום מחקר) → Universe';
+ else if(eb>1.8e29)skipPath='Edible → Graviton (מינימום מחקר) → Universe';
+ else if(eb>4.738e23)skipPath='Edible → Graviton → Universe';
+ else if(eb>2.321e21)skipPath='Edible → Tachyon → Dilithium → Universe';
+ else if(eb>4.545e19)skipPath='Edible → CRISPR / Tachyon → Dark Matter → Universe';
 
  var phase='EARLY_GAME';
  var phaseTitle='שלב 1: Early Game — פתיחת ביצים וספינות';
@@ -2352,7 +2352,7 @@ function buildPointsPlaybook(opts,art,boostPlan){
 
  var reasons=[];
  if(isCurrentSeason)reasons.push('חוזה מהעונה הנוכחית'+(seasonId?' ('+seasonId+')':'')+' — מקדם ישירות ל-PE העונתי');
- if(gradeUpgraded)reasons.push('שדרוג דרגה ('+prevGrade+' ← '+curGrade+') — מכפיל את הניקוד הבסיסי');
+ if(gradeUpgraded)reasons.push('שדרוג דרגה ('+prevGrade+' → '+curGrade+') — מכפיל את הניקוד הבסיסי');
  if(durDays>0)reasons.push('משך '+durDays.toFixed(1).replace('.0','')+' ימים (מכפיל אורך ×'+lenMult.toFixed(2)+')');
  if(prevCS>0)reasons.push('שיא קודם להחלפה: '+fmt(prevCS)+' CS');
  else reasons.push('אין שיא CS רשום בגיבוי — הזדמנות לקבוע ציון גבוה');
@@ -2452,7 +2452,7 @@ function availableContractInfo(c,b,archivedMap,now,art){
  }else if(isReplay){
   prio=3;
   badgeText=gradeUpgraded
-   ?('Points Replay • שדרוג דרגה ('+prevGrade+' ← '+curGrade+')')
+   ?('Points Replay • שדרוג דרגה ('+prevGrade+' → '+curGrade+')')
    :(isCurrentSeason?'Points Replay • עונתי (CS)':'Points Replay'+(prevCS>0?' • שיא: '+fmt(prevCS)+' CS':''));
   badgeClass='b-pts';
   shortWhy=playbook?playbook.whyPick:'חוזה חוזר לשיפור ציון Contract Score בקבוצה מהירה.';
@@ -2549,9 +2549,9 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
   },0,1,(collegg&&collegg.mults&&collegg.mults.researchCost)||1);
 
   if(cp.affordableList.length){
-   researchHint=cp.affordableList.slice(0,3).map(function(x){return x.r.name+' ← '+x.to}).join(', ');
+   researchHint=cp.affordableList.slice(0,3).map(function(x){return x.r.name+' → '+x.to}).join(', ');
   }else if(cp.nextList.length){
-   researchHint='הבא: '+cp.nextList[0].r.name+' ← '+cp.nextList[0].to;
+   researchHint='הבא: '+cp.nextList[0].r.name+' → '+cp.nextList[0].to;
   }
   cfMetrics={
    pop:cLogi.pop,
@@ -3171,7 +3171,7 @@ function plan(b,R){
 
  if(eggProg.canUpgradeEgg && !macro.isVirt){
   if(macro.phase==='LATE_GAME_MULTISTIGE' && hasActiveBoost){
-   var fastPath=macro.skipPath||(eggProg.nextName+' ← Universe');
+   var fastPath=macro.skipPath||(eggProg.nextName+' → Universe');
    a.push([8,'דלג מהר ל-Universe (בוסט פעיל!): '+fastPath,'שווי החווה מספיק! קפוץ מיד ל-'+eggProg.nextName+' והמשך בדילוג מהיר ל-Universe בלי לבזבז שניות בוסט.']);
   }else if(eggProg.shouldFillTankFirst){
    a.push([10,'מלא מיכל דלק ('+eggProg.curName+') לפני שתעבור ל-'+eggProg.nextName,'הביצה הבאה פתוחה! מלא קודם את מיכל הדלק לספינות ואז שדרג ביצה.']);
@@ -3203,7 +3203,7 @@ function plan(b,R){
  if(ready>0)a.push([18,'אסוף '+ready+' ספינות שחזרו','פנה מקום לשיגור המשימה הבאה.']);
 
  if(C.affordableList.length>0){
-  var top3=C.affordableList.slice(0,3).map(function(x){return x.r.name+' ← '+x.to}).join(' • ');
+  var top3=C.affordableList.slice(0,3).map(function(x){return x.r.name+' → '+x.to}).join(' • ');
   var moreTxt=C.affordableList.length>3?(' (+'+(C.affordableList.length-3)+' נוספים)'):'';
   a.push([19,'שדרג מחקרים ('+C.totalLevelsBought+' רמות ב-'+C.affordableList.length+' מחקרים)',top3+moreTxt,'research']);
  }
@@ -3423,7 +3423,7 @@ function plan(b,R){
  }else if(bestPointsRec){
   var pb=bestPointsRec.playbook;
   var p3Title=bestPointsRec.gradeUpgraded
-   ?('חוזה מומלץ לנקודות ('+bestPointsRec.prevGrade+' ← '+bestPointsRec.curGrade+'): '+bestPointsRec.name)
+   ?('חוזה מומלץ לנקודות ('+bestPointsRec.prevGrade+' → '+bestPointsRec.curGrade+'): '+bestPointsRec.name)
    :(bestPointsRec.isCurrentSeason?('חוזה עונתי מומלץ לנקודות (CS): '+bestPointsRec.name):('חוזה מומלץ לנקודות (Points Replay): '+bestPointsRec.name));
   var p3Reason=(pb?pb.whyPick+' ':'')
    +'הצטרף לקבוצה מהירה ב-Discord/Reddit עם '+((pb&&pb.defLabel)||'Tachyon Deflector')+' ובצע '+((pb&&pb.runCap)||20)+' ריצות תרנגולות.';
@@ -3764,7 +3764,8 @@ function show(b,R){
   P.C.affordableList.forEach(function(x){
    var isMax=(x.to>=x.r.levels);
    var targetTxt=isMax?('למקסימום ('+x.to+')'):('לרמה '+x.to);
-   h+=row('<span class="tier-pill">T'+x.r.tier+'</span><b>'+esc(x.r.name)+'</b> <small>('+x.from+' ← '+targetTxt+')</small>','<span class="tag-ok">'+fmt(x.cost)+'</span>');
+   var rLbl='<span class="tier-pill">T'+x.r.tier+'</span><b>'+esc(x.r.name)+'</b> <small>('+x.from+' → '+targetTxt+')</small>';
+   h+=row(rLbl,'<span class="tag-ok">'+fmt(x.cost)+'</span>');
   });
  }else{
   var wallNote=(P.prestigeInfo.nextRes && isFinite(P.prestigeInfo.activeMinsToNext))
@@ -3775,7 +3776,8 @@ function show(b,R){
   h+='<div style="margin-top:8px"><small><b>הבאים בתור (כשיצטבר מזומן):</b></small></div>';
   P.C.nextList.forEach(function(x){
    var targetTxt=(x.to>=x.r.levels)?('למקסימום ('+x.to+')'):('לרמה '+x.to);
-   h+=row('<span class="tier-pill">T'+x.r.tier+'</span>'+esc(x.r.name)+' <small>('+x.from+' ← '+targetTxt+')</small>','<span class="tag-wait">'+fmt(x.cost)+'</span>');
+   var rLbl='<span class="tier-pill">T'+x.r.tier+'</span>'+esc(x.r.name)+' <small>('+x.from+' → '+targetTxt+')</small>';
+   h+=row(rLbl,'<span class="tag-wait">'+fmt(x.cost)+'</span>');
   });
  }
  h+='</div>';
@@ -3942,7 +3944,8 @@ function show(b,R){
      crp.affordableList.forEach(function(x){
       var isMax=(x.to>=x.r.levels);
       var targetTxt=isMax?('למקסימום ('+x.to+')'):('לרמה '+x.to);
-      h+=row('<span class="tier-pill">T'+x.r.tier+'</span><b>'+esc(x.r.name)+'</b> <small>('+x.from+' ← '+targetTxt+')</small>','<span class="tag-ok">'+fmt(x.cost)+'</span>');
+      var rLbl='<span class="tier-pill">T'+x.r.tier+'</span><b>'+esc(x.r.name)+'</b> <small>('+x.from+' → '+targetTxt+')</small>';
+      h+=row(rLbl,'<span class="tag-ok">'+fmt(x.cost)+'</span>');
      });
     }else{
      h+='<p class="c-res-sum">אין מספיק מזומן לשדרוג הבא כרגע.</p>';
@@ -3951,7 +3954,8 @@ function show(b,R){
      h+='<div style="margin-top:6px"><small><b>הבאים בתור (כשיצטבר מזומן):</b></small></div>';
      crp.nextList.forEach(function(x){
       var targetTxt=(x.to>=x.r.levels)?('למקסימום ('+x.to+')'):('לרמה '+x.to);
-      h+=row('<span class="tier-pill">T'+x.r.tier+'</span>'+esc(x.r.name)+' <small>('+x.from+' ← '+targetTxt+')</small>','<span class="tag-wait">'+fmt(x.cost)+'</span>');
+      var rLbl='<span class="tier-pill">T'+x.r.tier+'</span>'+esc(x.r.name)+' <small>('+x.from+' → '+targetTxt+')</small>';
+      h+=row(rLbl,'<span class="tag-wait">'+fmt(x.cost)+'</span>');
      });
     }
     h+='</div>';
@@ -4028,7 +4032,7 @@ function show(b,R){
   var stAll=P.E.buy.steps;
   h+='<p><small>סה"כ '+P.E.buy.totalLevels+' שדרוגים בודדים ב-'+fmt(P.E.buy.totalSum)+' GE (יישארו '+fmt(P.E.buy.remGE)+' GE):</small></p>';
   var renderEpStep=function(x,i){
-   var lbl='<span class="step-num">'+(i+1)+'</span><b>'+esc(x.r.name)+'</b> <small>('+x.from+' ← '+x.to+' / '+x.r.levels+')</small>';
+   var lbl='<span class="step-num">'+(i+1)+'</span><b>'+esc(x.r.name)+'</b> <small>('+x.from+' → '+x.to+' / '+x.r.levels+')</small>';
    return row(lbl,'<span class="tag-ok">'+fmt(x.price)+' GE</span>');
   };
   stAll.slice(0,25).forEach(function(x,i){h+=renderEpStep(x,i)});
