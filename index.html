@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 69</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 70</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -154,7 +154,18 @@ details summary::-webkit-details-marker{display:none}
 <label style="flex:1;font-size:.82rem">מצב ריצה<select id="run"><option value="auto">אוטומטי (חכם)</option><option value="mid">באמצע ריצה</option><option value="start">תחילת ריצה</option><option value="ready">מוכן ל-Prestige</option></select></label>
 </div>
 <div class="row">
-<label style="flex:1;font-size:.82rem">הקשר ארטיפקטים (מה אתה עובד עליו כרגע)<select id="artFocus"><option value="auto">אוטומטי (לפי החוזה/חווה הפעילה)</option><option value="contract">עבודה על חוזה (Contract)</option><option value="home_passive">חווה ראשית — פאסיבי (ללא ריצת תרנגולות)</option><option value="home_active">חווה ראשית — ריצת תרנגולות פעילה</option></select></label>
+<label style="flex:1;font-size:.82rem">הקשר ארטיפקטים<select id="artFocus">
+<option value="auto">אוטומטי (חוזה/חווה)</option>
+<option value="contract">עבודה על חוזה (Contract)</option>
+<option value="home_passive">חווה ראשית — פאסיבי</option>
+<option value="home_active">חווה ראשית — ריצה פעילה</option></select></label>
+<label style="flex:1;font-size:.82rem">אחוז ביצים לתדלוק<select id="fuelPct">
+<option value="auto">אוטומטי (מהמשחק / 90% בתדלוק)</option>
+<option value="0">ללא תדלוק (0%)</option>
+<option value="0.1">10% לתדלוק</option>
+<option value="0.5">50% לתדלוק</option>
+<option value="0.9">90% לתדלוק</option>
+<option value="1">100% לתדלוק</option></select></label>
 </div>
 <div class="row">
 <label style="flex:1;font-size:.82rem">ספינת יעד<select id="shipTarget">
@@ -1234,12 +1245,29 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier,events){
    }
   }
  }
- var maxVehSlots=Math.min(17, 4 + extraFleet);
- var unusedVehSlots=Math.max(0,maxVehSlots - vehs.filter(function(x){return x>=0}).length);
-
- var rawPct=totalShipCap>0?(totalLayRate/totalShipCap)*100:0;
- var shipUtilPct=Math.min(100,rawPct);
- var shipBottleneck=(pop>1000 && totalShipCap>0 && rawPct>=90);
+ var maxVehSlots=Math.min(17, 4 + extraFleet),unusedVehSlots=Math.max(0,maxVehSlots - vehs.filter(function(x){return x>=0}).length);
+ var isHomeOrVirt=(!sim.farmType || sim.farmType==='HOME' || isVirt),adb=isVirt?((b.virtue&&b.virtue.afx)||{}):(b.artifactsDb||{});
+ var fShip=(adb.missionInfos||[]).filter(function(m){return m&&m.status==='FUELING'})[0]||null,shipTaking=false;
+ if(fShip){
+  var smF=SHIP_META[fShip.ship],dkF=(fShip.durationType==='LONG'?'EXTENDED':(fShip.durationType==='STANDARD'?'STANDARD':'SHORT'));
+  var reqF=(smF&&smF.fuels&&smF.fuels[dkF]&&smF.fuels[dkF][sim.eggType])||0,gotF=0;
+  (fShip.fuel||[]).forEach(function(fe){if(fe&&fe.egg===sim.eggType)gotF=Number(fe.amount||0)});
+  shipTaking=(reqF>0)?(gotF<reqF-1):true;
+ }
+ var eIdxF=EGG_ORDER.indexOf(sim.eggType||''),tFuels=adb.tankFuels||[],tLims=adb.tankLimits||[];
+ var tLvlF=Number(adb.tankLevel||(b.artifactsDb&&b.artifactsDb.tankLevel)||0);
+ var tCapF=TANK_CAPACITIES[Math.min(tLvlF,TANK_CAPACITIES.length-1)]||2e9;
+ var tTotF=tFuels.reduce(function(x,y){return x+(Number(y)||0)},0);
+ var rLimF=(eIdxF>=0&&tLims[eIdxF]!==undefined)?Number(tLims[eIdxF]):1,eLimF=(rLimF<=1.0001)?(rLimF*tCapF):rLimF;
+ var tankTaking=!!(adb.fuelingEnabled && eIdxF>=0 && tTotF<tCapF-1 && (Number(tFuels[eIdxF])||0)<eLimF-1);
+ var isActivelyFueling=!!(isHomeOrVirt && (shipTaking || tankTaking)),fSel=($('fuelPct')?$('fuelPct').value:'auto')||'auto';
+ var rawFP=(adb.fuelingPercent!==undefined)?Number(adb.fuelingPercent):null;
+ if(rawFP===null&&b.settings&&b.settings.fuelingPercent!==undefined)rawFP=Number(b.settings.fuelingPercent);
+ var protoF=(rawFP!==null&&isFinite(rawFP)&&rawFP>0)?(rawFP>1?Math.min(1,rawFP/100):Math.min(1,rawFP)):0.90;
+ var fuelFrac=!isHomeOrVirt?0:(fSel!=='auto'?Number(fSel):(isActivelyFueling?protoF:0));
+ var shippedLayRate=totalLayRate*(1-fuelFrac),fuelLayRate=totalLayRate*fuelFrac;
+ var rawLayVsShipPct=totalShipCap>0?(totalLayRate/totalShipCap)*100:0,rawPct=totalShipCap>0?(shippedLayRate/totalShipCap)*100:0;
+ var shipUtilPct=Math.min(100,rawPct),shipBottleneck=(pop>1000 && totalShipCap>0 && rawPct>=90);
 
  var curSE=Number(g.soulEggsD||g.soulEggs||0);
  var peCount=Number(g.eggsOfProphecy||0);
@@ -1252,7 +1280,7 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier,events){
 
  var baseEggVal=isVirt?1:(EGG_BASE_VAL[sim.eggType]||0.25);
  var valMult=resValMult * cm.eggVal;
- var effectiveShippedPerMin=Math.min(totalLayRate,totalShipCap);
+ var effectiveShippedPerMin=Math.min(shippedLayRate,totalShipCap);
 
  var activeHabs=Math.max(1,4-emptyHabSlots);
  var sharingLv=(elv['int_hatch_sharing']||0);
@@ -1351,7 +1379,9 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier,events){
  return {
   pop:pop,maxCap:maxCap,habPct:habPct,nearFull:habPct>=85,isFull:habPct>=97,
   emptyHabSlots:emptyHabSlots,unusedVehSlots:unusedVehSlots,
-  totalLayRate:totalLayRate,totalShipCap:totalShipCap,shipUtilPct:shipUtilPct,rawPct:rawPct,shipBottleneck:shipBottleneck,
+  totalLayRate:totalLayRate,shippedLayRate:shippedLayRate,fuelLayRate:fuelLayRate,fuelAllocPct:Math.round(fuelFrac*100),
+  isActivelyFueling:isActivelyFueling,shipTakingFuel:shipTaking,tankTakingFuel:tankTaking,rawProtoFuelPct:rawFP,
+  totalShipCap:totalShipCap,shipUtilPct:shipUtilPct,rawPct:rawPct,rawLayVsShipPct:rawLayVsShipPct,shipBottleneck:shipBottleneck,
   ebPercent:ebPercent,farmerRole:getFarmerRole(ebPercent),eotCount:eotCount,farmValue:farmValue,fvAt90Pct:fvAt90Pct,fvDebug:fvDebug,
   bonusPerSE:bonusPerSE,bonusPerPE:bonusPerPE,peCount:peCount,
   idleIncomePerMin:idleIncomePerMin,activeIncomePerMin:activeIncomePerMin,baseMaxRCB:baseMaxRCB,maxRCB:maxRCB,lunarMult:lunarMult,lunarBeatsActive:lunarBeatsActive,
@@ -3837,7 +3867,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v69',
+  version:'v70',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -3864,8 +3894,13 @@ function copyDiag(){
     population:Math.round(P.logi.pop),
     habCapacity:P.logi.maxCap,
     eggLayingRatePerSec:Number((P.logi.totalLayRate/60).toExponential(3)),
+    shippedLayRatePerSec:Number((P.logi.shippedLayRate/60).toExponential(3)),
     shippingCapacityPerSec:Number((P.logi.totalShipCap/60).toExponential(3)),
     shipUtilPct:Number(P.logi.rawPct.toFixed(2)),
+    rawLayVsShipPct:Number(P.logi.rawLayVsShipPct.toFixed(2)),
+    fuelAllocPct:P.logi.fuelAllocPct,
+    isActivelyFueling:P.logi.isActivelyFueling,
+    rawProtoFuelPct:P.logi.rawProtoFuelPct,
     ihrOnlinePerMin:Math.round(P.logi.ihrOnlinePerMin),
     ihrOfflinePerMin:Math.round(P.logi.ihrOfflinePerMin),
     maxSiloMins:P.logi.maxSiloMins,
@@ -4098,7 +4133,11 @@ function show(b,R){
   h+='<small>שווי חווה: '+fmt(P.eggProg.curFV)+' • גילוי: '+fmt(P.eggProg.reqDiscoverFV)+' • מעבר: '+fmt(P.eggProg.reqFV)+'</small></div>';
  }
  var shipBarCls=P.logi.shipBottleneck?'bad':(P.logi.shipUtilPct>75?'':'ok');
- h+=row('עומס משלוחים (הטלה מול משאיות)','<b>'+P.logi.rawPct.toFixed(0)+'%</b> ('+fmt(P.logi.totalLayRate/60)+'/שנ\' מתוך '+fmt(P.logi.totalShipCap/60)+'/שנ\')');
+ var shipLbl=P.logi.fuelAllocPct>0?'עומס משלוחים (בפועל למשאיות)':'עומס משלוחים (הטלה מול משאיות)';
+ var shipSub=P.logi.fuelAllocPct>0
+  ?('<b>'+P.logi.rawPct.toFixed(0)+'%</b> ('+P.logi.fuelAllocPct+'% לתדלוק • הטלה: '+P.logi.rawLayVsShipPct.toFixed(0)+'%)')
+  :('<b>'+P.logi.rawPct.toFixed(0)+'%</b> ('+fmt(P.logi.totalLayRate/60)+'/שנ\' מתוך '+fmt(P.logi.totalShipCap/60)+'/שנ\')');
+ h+=row(shipLbl,shipSub);
  h+='<div class="prog-bar"><div class="prog-fill '+shipBarCls+'" style="width:'+P.logi.shipUtilPct.toFixed(1)+'%"></div></div>';
  h+=row('דגירה פנימית (IHR)','<b>+'+fmt(P.logi.ihrOfflinePerMin)+'/דק\'</b> אופליין (מילוי לולים: '+fmtWait(P.logi.minsToFullHabs)+')');
  h+=row('ממגורות (Silos)','<b>'+P.logi.silosOwned+'/'+P.logi.maxPossibleSilos+'</b> (זמן אופליין מקסימלי: '+fmtWait(P.logi.maxSiloMins)+')');
@@ -4509,10 +4548,10 @@ $('btn-ref').onclick=function(){run($('eid').value,false)};
 $('btn-eid').onclick=function(){var b=$('eid-bar');b.style.display=(b.style.display==='none')?'flex':'none';$('eid').focus()};
 $('eid').onkeydown=function(e){if(e.key==='Enter')run($('eid').value,false)};
 function setArtFocus(val){if($('artFocus'))$('artFocus').value=val;sset('artFocus',val);if(last&&RES)show(last,RES)}
-['slots','run','shipTarget','artFocus'].forEach(function(id){$(id).onchange=function(){sset(id,$(id).value);if(last&&RES)show(last,RES)}});
+['slots','run','shipTarget','artFocus','fuelPct'].forEach(function(id){$(id).onchange=function(){sset(id,$(id).value);if(last&&RES)show(last,RES)}});
 ['ev-prestige','ev-epic','ev-common','ev-cap','ev-drones','ev-craft'].forEach(function(id){$(id).onchange=function(){manualEventOverrides[id]=true;if(last&&RES)show(last,RES)}});
 
-['slots','run','shipTarget','artFocus'].forEach(function(id){var v=sget(id);if(v)$(id).value=v});
+['slots','run','shipTarget','artFocus','fuelPct'].forEach(function(id){var v=sget(id);if(v)$(id).value=v});
 applyDefaultEventsIfUnset();
 var saved=sget('eid');if(saved){$('eid').value=saved;run(saved,false)}
 setInterval(function(){var e=sget('eid');if(e&&!document.hidden)run(e,true)},20000);
