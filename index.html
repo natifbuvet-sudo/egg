@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 68</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 69</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -180,6 +180,7 @@ details summary::-webkit-details-marker{display:none}
 <label class="chk-item"><input type="checkbox" id="ev-cap"> 2x קיבולת ספינות</label>
 <label class="chk-item"><input type="checkbox" id="ev-drones"> Generous Drones (GE)</label>
 <label class="chk-item"><input type="checkbox" id="ev-craft"> 30% הנחת Crafting</label>
+<label class="chk-item"><input type="checkbox" id="ev-cash"> 2x Cash Boost</label>
 </div>
 </div>
 </details>
@@ -606,6 +607,7 @@ function getActiveEvents(){
  var craftChecked=($('ev-craft')?$('ev-craft').checked:autoCraft);
  var droneChecked=($('ev-drones')?$('ev-drones').checked:false);
  var capChecked=($('ev-cap')?$('ev-cap').checked:false);
+ var cashChecked=($('ev-cash')?$('ev-cash').checked:false);
  var srvPrest=(liveServerEvents&&liveServerEvents.prestigeMultiplier>1)?liveServerEvents.prestigeMultiplier:0;
  return {
   prestigeMultiplier:sched.isEggDay?Math.max(8.0,srvPrest):(prestChecked?(srvPrest||2.0):1.0),
@@ -614,9 +616,11 @@ function getActiveEvents(){
   craftingDiscount:craftChecked?(liveServerEvents&&liveServerEvents.craftingDiscount>0?liveServerEvents.craftingDiscount:0.30):0.0,
   droneMultiplier:droneChecked?(liveServerEvents&&liveServerEvents.droneMultiplier>1?liveServerEvents.droneMultiplier:4.0):1.0,
   missionCapacityMultiplier:capChecked?(liveServerEvents&&liveServerEvents.missionCapacityMultiplier>1?liveServerEvents.missionCapacityMultiplier:2.0):1.0,
+  earningsMultiplier:cashChecked?(liveServerEvents&&liveServerEvents.earningsMultiplier>1?liveServerEvents.earningsMultiplier:2.0):1.0,
   fromServer:!!liveServerEvents,
   syncNote:liveEventsSyncNote,
   extraLabels:(liveServerEvents&&liveServerEvents.extraLabels)||[],
+  rawTypes:(liveServerEvents&&liveServerEvents.rawTypes)||[],
   autoDefaults:{prestige:autoPrestige,common:autoCommon,epic:autoEpic,craft:autoCraft}
  };
 }
@@ -767,7 +771,7 @@ async function fetchPeriodicals(eid,b){
    return null;
   }
   var now=Date.now()/1000;
-  var parsed={prestigeMultiplier:1,commonResearchDiscount:0,epicResearchDiscount:0,craftingDiscount:0,droneMultiplier:1,missionCapacityMultiplier:1,extraLabels:[]};
+  var parsed={prestigeMultiplier:1,commonResearchDiscount:0,epicResearchDiscount:0,craftingDiscount:0,droneMultiplier:1,missionCapacityMultiplier:1,earningsMultiplier:1,extraLabels:[],rawTypes:[]};
   resObj.events.events.forEach(function(ev){
    var remSec=(ev.secondsRemaining!==undefined)?Number(ev.secondsRemaining):null;
    if(remSec!==null && remSec<=0)return;
@@ -789,13 +793,15 @@ async function fetchPeriodicals(eid,b){
    else if(t.indexOf('fuel')>=0)parsed.extraLabels.push(m+'x תדלוק');
    else if(t.indexOf('boost-sale')>=0)parsed.extraLabels.push('-'+Math.round((discVal||0.2)*100)+'% בוסטים');
    else if(t.indexOf('boost-duration')>=0)parsed.extraLabels.push(m+'x משך בוסטים');
-   else if(t.indexOf('earnings')>=0)parsed.extraLabels.push(m+'x הכנסות');
+   else if(t.indexOf('earnings')>=0||(t.indexOf('cash')>=0&&t.indexOf('piggy')<0))parsed.earningsMultiplier=Math.max(parsed.earningsMultiplier,m>1?m:2.0);
    else if(t.indexOf('hab')>=0)parsed.extraLabels.push('-'+Math.round((discVal||0.5)*100)+'% לולים');
    else if(t.indexOf('vehicle')>=0)parsed.extraLabels.push('-'+Math.round((discVal||0.5)*100)+'% רכבים');
    else if(t.indexOf('gift')>=0)parsed.extraLabels.push(m+'x מתנות');
+   else if(t)parsed.extraLabels.push((m>1?m+'x ':'')+t);
+   if(t)parsed.rawTypes.push(t+':'+m);
   });
   liveServerEvents=parsed;
-  var syncMap={'ev-prestige':parsed.prestigeMultiplier>1,'ev-epic':parsed.epicResearchDiscount>0,'ev-common':parsed.commonResearchDiscount>0,'ev-cap':parsed.missionCapacityMultiplier>1,'ev-drones':parsed.droneMultiplier>1,'ev-craft':parsed.craftingDiscount>0};
+  var syncMap={'ev-prestige':parsed.prestigeMultiplier>1,'ev-epic':parsed.epicResearchDiscount>0,'ev-common':parsed.commonResearchDiscount>0,'ev-cap':parsed.missionCapacityMultiplier>1,'ev-drones':parsed.droneMultiplier>1,'ev-craft':parsed.craftingDiscount>0,'ev-cash':parsed.earningsMultiplier>1};
   Object.keys(syncMap).forEach(function(id){if($(id) && !manualEventOverrides[id])$(id).checked=syncMap[id]});
   if($('ev-source-note'))$('ev-source-note').innerHTML='<b>אירועים יומיים פעילים (סונכרנו אוטומטית משרתי המשחק!):</b>';
   return parsed;
@@ -1118,7 +1124,7 @@ function calcBaseMaxRCB(clv,elv,R){
  return Math.max(5,(5 + rcbAdd) * rcbMult);
 }
 
-function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier){
+function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier,events){
  var g=b.game||{};
  var isVirt=!!VIRT[sim.eggType];
  var isEnl=(sim.eggType==='ENLIGHTENMENT');
@@ -1335,7 +1341,8 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier){
  var maxRCB=Math.max(5,baseMaxRCB + (artInfo?artInfo.vialAdd:0) + (artInfo?artInfo.terraAdd:0));
  var lunarMult=2 * cm.away * (artInfo?artInfo.lunarTotemMult:1) * (artInfo?artInfo.lunarStoneMult:1);
 
- var baseIncomePerMin=effectiveShippedPerMin * baseEggVal * valMult * fvEbMult * artEarnMult;
+ var evCashMult=(events&&events.earningsMultiplier>1)?events.earningsMultiplier:1;
+ var baseIncomePerMin=effectiveShippedPerMin * baseEggVal * valMult * fvEbMult * artEarnMult * evCashMult;
  var potLunarMult=Math.max(lunarMult,2 * cm.away * ((artInfo&&artInfo.potentialLunarArtMult)||1));
  var idleIncomePerMin=baseIncomePerMin * lunarMult;
  var activeIncomePerMin=baseIncomePerMin * maxRCB;
@@ -1988,6 +1995,35 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   }
   return list;
  }
+ function getContractSets(excludeContractId){
+  var used={},farms=b.farms||[],closed={};
+  ((b.contracts&&b.contracts.contracts)||[]).forEach(function(ct){
+   var cid=(ct.contract&&ct.contract.identifier)||ct.contractIdentifier||'';
+   if(cid&&(ct.cancelled||ct.coopContributionFinalized))closed[cid]=true;
+  });
+  for(var fi=0;fi<farms.length;fi++){
+   var fm=farms[fi];
+   if(fm&&fm.farmType==='CONTRACT'&&fm.contractId&&fm.contractId!==excludeContractId&&!closed[fm.contractId]){
+    ((sets[fi]&&sets[fi].slots)||[]).forEach(function(sl){if(sl&&sl.occupied&&sl.itemId)used[sl.itemId]=(used[sl.itemId]||0)+1});
+   }
+  }
+  var avail={},skipped={};
+  inv.forEach(function(it){
+   var sp=(it.artifact&&it.artifact.spec)||{};if(!ART_INFO[sp.name])return;
+   var free=(it.quantity||0)-(used[it.itemId]||0),lvl=normLevel(sp.level),rar=normRarity(sp.rarity);
+   var sc=(TIER_RANK[lvl]||0)*10+(RARITY_RANK[rar]||0),lbl=formatArtLabel(sp);
+   if(free<=0){if(bestOwned[sp.name]&&bestOwned[sp.name].score===sc)skipped[sp.name]=lbl;return;}
+   if(!avail[sp.name]||sc>avail[sp.name].score){
+    var sL=formatStoneList((it.artifact&&it.artifact.stones)||[]);
+    var m=(sp.name==='QUANTUM_METRONOME')?getMetronomeMult(lvl,rar):(sp.name==='INTERSTELLAR_COMPASS')?getCompassMult(lvl,rar):(sp.name==='ORNATE_GUSSET')?getGussetMult(lvl,rar):(sp.name==='THE_CHALICE')?getChaliceMult(lvl,rar):1;
+    avail[sp.name]=Object.assign({},bestOwned[sp.name],{name:lbl+(sL.length?' ['+sL.join(', ')+']':''),baseName:lbl,score:sc,qty:free,slotCap:getSlotCapacity({rarity:rar}),mult:m});
+   }
+  });
+  var scProd=pickSet(['TACHYON_DEFLECTOR','QUANTUM_METRONOME','INTERSTELLAR_COMPASS','ORNATE_GUSSET','THE_CHALICE'],avail);
+  if(!avail['TACHYON_DEFLECTOR']&&avail['SHIP_IN_A_BOTTLE']&&scProd.length<maxArtSlots)scProd.unshift(avail['SHIP_IN_A_BOTTLE']);
+  var skipList=Object.keys(skipped).filter(function(k){return !avail[k]||avail[k].score<bestOwned[k].score}).map(function(k){return skipped[k]});
+  return {bestOwned:avail,setContract:scProd,setContractResearch:pickSet(contractResKeys,avail),setContractIHR:pickSet(['TACHYON_DEFLECTOR','THE_CHALICE','ORNATE_GUSSET','DILITHIUM_MONOCLE','QUANTUM_METRONOME'],avail),skippedInOtherContracts:skipList};
+ }
 
  var contractMetronomeMult=1, contractCompassMult=1;
  setContract.forEach(function(item){
@@ -2037,6 +2073,7 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   setContract:setContract,setContractResearch:setContractResearch,setContractIHR:setContractIHR,
   setResearch:setResearch,setDrones:setDrones,demoteList:demoteList,
   getSetEquippedForFarmIndex:getSetEquippedForFarmIndex,
+  getContractSets:getContractSets,
   craftTargets:craftTargets
  };
 }
@@ -2705,6 +2742,8 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
  var researchHint='';
  var stoneAdvice='';
  var cfMetrics=null;
+ var cSets=(art && art.getContractSets)?art.getContractSets(id):null;
+ if(art && cSets)art=Object.assign({},art,cSets);
  var nextStep='';
  var nextStepLevel='info';
  var defItem=(art && art.setContract)?art.setContract.filter(function(x){return x.rawName==='TACHYON_DEFLECTOR'})[0]:null;
@@ -2721,7 +2760,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
    tachyonStoneMult:1,
    quantumStoneMult:1
   }):null;
-  cLogi=calcFarmLogistics(b,cf,lvMap(cf.commonResearch),elv,contractArt,R,collegg,permitTier);
+  cLogi=calcFarmLogistics(b,cf,lvMap(cf.commonResearch),elv,contractArt,R,collegg,permitTier,getActiveEvents());
   var cfKeepOneWD=(cLogi.habPct<95),cEv=getActiveEvents(),isCRes=(cLogi.pop<5e7);
   cp=commonPlan(R,lvMap(cf.commonResearch),false,cfCash,elv,{
    shipBottleneck:cLogi.shipBottleneck,shipUtilPct:cLogi.shipUtilPct,unusedVehSlots:cLogi.unusedVehSlots,
@@ -3178,22 +3217,21 @@ function resolveArtifactContext(b,art,logi,macro,prestigeInfo,eggProg,hasActiveB
     if(farms[fi].farmType==='CONTRACT' && farms[fi].contractId===targetContract.id){cfIdx=fi;break}
    }
    var cEq=(cfIdx>0 && art.getSetEquippedForFarmIndex)?art.getSetEquippedForFarmIndex(cfIdx):[];
+   var cSets=art.getContractSets?art.getContractSets(targetContract.id):null;
+   var cArt=cSets?Object.assign({},art,cSets):art;
    var stage='CONTRACT_PROD';
    var stageLabel='תפוקת חוזה מקסימלית';
-   var cTargetSet=art.setContract.slice();
-   if(!art.bestOwned['TACHYON_DEFLECTOR'] && art.bestOwned['SHIP_IN_A_BOTTLE'] && cTargetSet.length<art.maxArtSlots){
-    cTargetSet.unshift(art.bestOwned['SHIP_IN_A_BOTTLE']);
-   }
+   var cTargetSet=cArt.setContract.slice();
    var cm=targetContract.cfMetrics;
    var crp=targetContract.researchPlan;
    if(cm && cm.pop<5e7 && ((crp && crp.affordableList.length>0) || cm.habPct<15)){
     stage='CONTRACT_RESEARCH';
     stageLabel='תחילת חוזה — מחקר והכנסות (ללא ריצה)';
-    cTargetSet=art.setContractResearch.length?art.setContractResearch:cTargetSet;
+    cTargetSet=cArt.setContractResearch.length?cArt.setContractResearch:cTargetSet;
    }else if(cm && (!crp || crp.affordableList.length===0) && cm.habPct<80){
     stage='CONTRACT_IHR';
     stageLabel='מילוי לולים בחוזה (IHR)';
-    cTargetSet=art.setContractIHR.length?art.setContractIHR:cTargetSet;
+    cTargetSet=cArt.setContractIHR.length?cArt.setContractIHR:cTargetSet;
    }
    var eqByRaw={};
    cEq.forEach(function(it){
@@ -3217,7 +3255,7 @@ function resolveArtifactContext(b,art,logi,macro,prestigeInfo,eggProg,hasActiveB
     farmLabel:'בחוזה '+targetContract.name,
     isOptimal:isOpt,
     gainBoostPct:0,
-    whyNote:'מותאם לשלב הנוכחי בחוזה ללא תלות בריצת תרנגולות.'
+    whyNote:'מותאם לשלב הנוכחי בחוזה ללא תלות בריצת תרנגולות.'+(cSets&&cSets.skippedInOtherContracts.length?' (דולגו ארטיפקטים שבשימוש בחוזה אחר: '+cSets.skippedInOtherContracts.join(', ')+')':'')
    };
   }
   var fallbackEq=art.equipped;
@@ -3327,7 +3365,7 @@ function plan(b,R){
  var clv=lvMap(sim.commonResearch);
  var collegg=analyzeColleggtibles(b);
  var art=analyzeArtifacts(b,permitTier,sim.eggType,peCount,elv,clv,R);
- var logi=calcFarmLogistics(b,sim,clv,elv,art,R,collegg,permitTier);
+ var logi=calcFarmLogistics(b,sim,clv,elv,art,R,collegg,permitTier,events);
  var stoneOpt=optimizeStones(art,logi);
  var macro=analyzeMacroAndEndgame(b,sim,logi,art,clv,collegg);
  var trophies=analyzeDiamondTrophies(b,logi.ebPercent);
@@ -3799,7 +3837,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v67',
+  version:'v69',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -3847,7 +3885,9 @@ function copyDiag(){
     epicResearchDiscount:P.events.epicResearchDiscount,
     craftingDiscount:P.events.craftingDiscount,
     droneMultiplier:P.events.droneMultiplier,
-    missionCapacityMultiplier:P.events.missionCapacityMultiplier
+    missionCapacityMultiplier:P.events.missionCapacityMultiplier,
+    earningsMultiplier:P.events.earningsMultiplier,
+    rawEventTypes:P.events.rawTypes
    }
   },
   decisionOutput:{
@@ -3902,7 +3942,7 @@ function copyDiag(){
    contractsSummary:{
     matchedInventoryArtifacts:P.art.setContract.map(function(x){return x.name}),
     activeRunning:P.CD.filter(function(d){return !d.waitingCoop}).map(function(d){
-     return {id:d.id,name:d.name,grade:d.grade,achieved:d.achieved,
+     return {id:d.id,name:d.name,grade:d.grade,achieved:d.achieved,skippedInOtherContracts:(d.boostPlan&&d.boostPlan.skippedInOtherContracts)||[],
       contractGoalMode:d.goalMode,manualOverride:d.manualGoalMode,
       paceForecast:d.paceForecast,pointsOnly:d.pointsOnly,nextStep:d.nextStep,
       matchedBoosts:d.boostPlan?d.boostPlan.combo:[],
@@ -3964,7 +4004,8 @@ function show(b,R){
   {id:'ev-epic',on:P.events.epicResearchDiscount>0,lbl:'-'+(Math.round(P.events.epicResearchDiscount*100)||35)+'% Epic'},
   {id:'ev-craft',on:P.events.craftingDiscount>0,lbl:'-'+(Math.round(P.events.craftingDiscount*100)||30)+'% Craft'},
   {id:'ev-drones',on:P.events.droneMultiplier>1,lbl:(P.events.droneMultiplier>1?P.events.droneMultiplier:4)+'x רחפנים'},
-  {id:'ev-cap',on:P.events.missionCapacityMultiplier>1,lbl:(P.events.missionCapacityMultiplier>1?P.events.missionCapacityMultiplier:2)+'x ספינות'}
+  {id:'ev-cap',on:P.events.missionCapacityMultiplier>1,lbl:(P.events.missionCapacityMultiplier>1?P.events.missionCapacityMultiplier:2)+'x ספינות'},
+  {id:'ev-cash',on:P.events.earningsMultiplier>1,lbl:(P.events.earningsMultiplier>1?P.events.earningsMultiplier:2)+'x Cash'}
  ];
  var pillsHtml=togglePills.map(function(p){
   return '<span class="event-pill'+(p.on?'':' off')+'" onclick="toggleEvent(\''+p.id+'\')" title="לחץ להפעלה/כיבוי אירוע">'+(p.on?'✓ ':'')+esc(p.lbl)+'</span>';
