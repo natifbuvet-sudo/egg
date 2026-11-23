@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 74</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 75</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -2461,9 +2461,12 @@ function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,r
   if(paceOk){
    stage='PASSIVE_REWARDS';
    tokensNeeded=0;
-   if(inv.best10xFree)combo.push({name:inv.best10xFree.name+' (0 טוקנים!)',useQty:1,tokens:0});
+   if(inv.best10xFree && inv.best10xFree.count>=2){
+    combo.push({id:inv.best10xFree.id,name:inv.best10xFree.name+' (0 טוקנים!)',useQty:1,tokens:0});
+   }
+   var keepLast10x=(inv.best10xFree&&inv.best10xFree.count===1)?(' (שומר '+inv.best10xFree.name+' אחרון לחוזה פעיל)'):'';
    summary='מצב פרסים (חיסכון בבוסטים): הקצב הנוכחי מספיק ללא בוסטים יקרים!';
-   detailNote='הרכב '+coopArtName+', רענן סילואים ואסוף Chicken Boxes — חבל לבזבז 1000x/GE.';
+   detailNote='הרכב '+coopArtName+', רענן סילואים ואסוף Chicken Boxes — חבל לבזבז 1000x/GE.'+keepLast10x;
   }else if(!pointsOnly && inv.spare100x){
    var c100=getBoostTokenCost(inv.spare100x.id),m100=inv.spare100x.power>=120?24000:4000;
    tokensNeeded=c100*2;estPopGain=Math.round(baseIhrPerMin*m100);
@@ -2508,7 +2511,7 @@ function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,r
    detailNote=prepArtNote+', '+exitFarmNote+', ולאחר מכן אסוף Chicken Boxes להשלמת הלולים.';
   }else if(inv.best10xFree){
    tokensNeeded=0;estPopGain=Math.round(baseIhrPerMin*(inv.best10xFree.power>=12?2400:100));
-   combo.push({name:inv.best10xFree.name+' (0 טוקנים!)',useQty:1,tokens:0});
+   combo.push({id:inv.best10xFree.id,name:inv.best10xFree.name+' (0 טוקנים!)',useQty:1,tokens:0});
    summary='מילוי הדרגתי (0 טוקנים • ~'+fmt(estPopGain)+'): '+inv.best10xFree.name+' + Chicken Boxes';
    detailNote='אין לך בוסטי 1000x/100x במלאי. הפעל '+inv.best10xFree.name+' בחינם, הישאר בחווה לאיסוף קופסאות מתנה (+3%/+12% אוכלוסייה) ושלח טוקנים עודפים למובילי הקבוצה.';
   }else{
@@ -3910,7 +3913,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v73',
+  version:'v75',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4383,14 +4386,19 @@ function show(b,R){
    if(d.rewardsText)metaPts.push('פרסים: '+esc(d.rewardsText));
    h+='<div class="c-meta-line">'+metaPts.join(' • ')+'</div>';
    var hasBoosts=d.boostPlan && d.boostPlan.combo && d.boostPlan.combo.length;
+   var hasSkipped=d.boostPlan && d.boostPlan.skippedInOtherContracts && d.boostPlan.skippedInOtherContracts.length;
    var hasRes=d.researchPlan && d.cfMetrics;
-   if(hasBoosts || d.stoneAdvice || hasRes){
+   if(hasBoosts || hasSkipped || d.stoneAdvice || hasRes){
     var affCnt=hasRes?d.researchPlan.affordableList.length:0;
     var foldTitle='בוסטים, אבנים ומחקר בחוזה'+(affCnt>0?' ('+affCnt+' שדרוגים מוכנים)':'');
     h+='<details class="c-fold"><summary class="c-fold-sum"><span>'+foldTitle+'</span><span>▼</span></summary>';
     if(hasBoosts){
      var bTags=d.boostPlan.combo.map(function(x){return '<span class="tag-ok">'+(x.useQty>1?x.useQty+'× ':'')+esc(x.name)+'</span>'}).join(' ');
      h+='<div class="c-meta-line" style="margin-top:6px"><b>בוסטים ('+d.boostPlan.maxBoostSlots+' סלוטים):</b> '+bTags+'</div>';
+    }
+    if(hasSkipped){
+     var skTxt=esc(d.boostPlan.skippedInOtherContracts.join(', '));
+     h+='<div class="c-meta-line" style="margin-top:4px"><small>(שוריינו לחוזה עדיף: '+skTxt+' — מופעלת חלופה חסכונית)</small></div>';
     }
     if(d.stoneAdvice)h+='<div class="c-meta-line"><b>אבנים:</b> '+esc(d.stoneAdvice)+'</div>';
     if(hasRes){
