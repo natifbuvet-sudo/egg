@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 76</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 77</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -1536,6 +1536,14 @@ function calcEggProgress(b,sim,logi,fuelInfo){
 
  var isFuelEggForShip=(fuelInfo.reqFuels.indexOf(curEgg)>=0);
  var shouldFillTankFirst=(fuelInfo.hasFuelTank && isFuelEggForShip && !fuelInfo.hasFuelInTank && fuelInfo.tankFreeSpace>=1e8);
+ var estActEggMins=Infinity,estIdleEggMins=Infinity;
+ if(nextEgg && reqUpgradeFV>0 && !canUpgradeEgg && curFV>0){
+  var reqPop=logi.pop*Math.pow(reqUpgradeFV/curFV,1/0.6),fvGap=Math.max(0,reqUpgradeFV-curFV);
+  var popMins=(willCrossNextEggAt90 && logi.ihrOfflinePerMin>0)?Math.max(1,(reqPop-logi.pop)/logi.ihrOfflinePerMin):Infinity;
+  var actR=curFV*0.08*Math.max(0.15,Math.min(5,(logi.activeIncomePerMin||0)/Math.max(1,curFV*0.01)));
+  var idlR=curFV*0.08*Math.max(0.05,Math.min(5,(logi.idleIncomePerMin||0)/Math.max(1,curFV*0.01)));
+  estActEggMins=Math.min(popMins,fvGap/Math.max(1,actR));estIdleEggMins=Math.min(popMins,fvGap/Math.max(1,idlR));
+ }
 
  return {
   curEgg:curEgg,curName:EGG_HE[curEgg]||curEgg,
@@ -1544,7 +1552,7 @@ function calcEggProgress(b,sim,logi,fuelInfo){
   canUpgradeEgg:canUpgradeEgg,alreadyDiscovered:alreadyDiscovered,
   peakPrestigeEgg:peakPrestigeEgg,peakPrestigeName:peakPrestigeName,
   belowPeakEgg:belowPeakEgg,willCrossNextEggAt90:willCrossNextEggAt90,
-  shouldFillTankFirst:shouldFillTankFirst
+  shouldFillTankFirst:shouldFillTankFirst,estActEggMins:estActEggMins,estIdleEggMins:estIdleEggMins
  };
 }
 
@@ -1666,7 +1674,17 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg,macro,events,hasActiveBoost,e
   curSE:curSE,unclaimedSE:unclaimedSE,totalAfterPrestige:totalAfterPrestige,
   unlocksTankOnPrestige:unlocksTankOnPrestige,unlocksPadOnPrestige:unlocksPadOnPrestige,
   prestigeCash:prestigeCash,gainPct:gainPct,
-  status:status,title:title,reason:reason,isWeekend:isWeekend,
+  status:status,title:title,reason:reason,isWeekend:isWeekend,msSim:(function(){
+   var legs=macro.msLegs||1,tPop=macro.msTargetPop||4.2e9,pScale=Math.max(1,tPop/Math.max(1e6,hab.pop||1e6));
+   var bMult=25000*(events.prestigeMultiplier||1)*3.5;
+   var seExp=(curSE<1e12)?0.15:(curSE<1e21)?0.16:(curSE<1e30)?0.17:(curSE<1e39)?0.18:(curSE<1e48)?0.19:(curSE<1e54)?0.20:0.21;
+   var actC=(hab.activeIncomePerMin||0)*pScale*bMult*(art?art.optimalActiveSEMult:1);
+   var lunC=(hab.idleIncomePerMin||0)*pScale*bMult*(art?art.optimalLunarSEMult:1);
+   var actSE=Math.floor(prestigeBonusMult*Math.pow(1e-6*Math.max(1,actC),seExp));
+   var lunSE=Math.floor(prestigeBonusMult*Math.pow(1e-6*Math.max(1,lunC),seExp));
+   var bestSE=Math.max(actSE,lunSE);
+   return {legs:legs,targetPop:tPop,actLegSE:actSE,lunLegSE:lunSE,bestLegSE:bestSE,totalSetSE:bestSE*legs,preferLunar:(lunSE>actSE)};
+  })(),
   withinReach:withinReach,hitTimeWall:hitTimeWall,activeMinsToNext:activeMinsToNext,idleMinsToNext:idleMinsToNext,nextRes:nextRes
  };
 }
@@ -2980,17 +2998,20 @@ function detectBestShip(b,isVirt,events,hasFuelTank,curSE,permitTier){
  var sel=$('shipTarget').value;
  var db=b.artifactsDb||{};
  var vafx=(b.virtue&&b.virtue.afx)||{};
- var seenMaxIdx=0;
- var launchCounts={};
+ var seenMaxIdx=0,launchCounts={},shipXP={};
 
  function recordShip(s,countToHistory){
   var sk=s||'CHICKEN_ONE';
   var i=SHIP_ORDER.indexOf(sk);
   if(i>seenMaxIdx)seenMaxIdx=i;
-  if(countToHistory)launchCounts[sk]=(launchCounts[sk]||0)+1;
+  if(countToHistory){
+   launchCounts[sk]=(launchCounts[sk]||0)+1;
+   var dur=arguments[2];
+   shipXP[sk]=(shipXP[sk]||0)+((dur==='EXTENDED'||dur===2)?1.8:((dur==='STANDARD'||dur===1)?1.4:1.0));
+  }
  }
- (db.missionInfos||[]).forEach(function(m){recordShip(m.ship,true)});
- (db.missionArchive||[]).forEach(function(m){recordShip(m.ship,true)});
+ (db.missionInfos||[]).forEach(function(m){recordShip(m.ship,true,m.durationType)});
+ (db.missionArchive||[]).forEach(function(m){recordShip(m.ship,true,m.durationType)});
  if(vafx.lastFueledShip)recordShip(vafx.lastFueledShip,false);
  if(db.lastFueledShip)recordShip(db.lastFueledShip,false);
 
@@ -3055,7 +3076,17 @@ function detectBestShip(b,isVirt,events,hasFuelTank,curSE,permitTier){
   target:target,tIdx:tIdx,isTargetUnlocked:isTargetUnlocked,
   highestUnlockedShip:highestUnlockedShip,unlockedIdx:unlockedIdx,
   cappedReason:cappedReason,
-  curShipLaunches:curShipLaunches,
+  curShipLaunches:curShipLaunches,starInfo:(function(){
+   var ST={CHICKEN_ONE:[10,25],CHICKEN_NINE:[15,35,65],CHICKEN_HEAVY:[20,45,80,125],BCR:[25,60,110,175],
+    QUINTILLION_CHICKEN:[30,75,135,215,315],CORVETTE:[40,100,180,285,420],GALENGG:[50,125,225,355,520,725],
+    DEFIHENT:[60,150,270,425,620,860],VOYEGGER:[75,185,330,520,760,1050,1400],
+    HENERPRISE:[100,250,450,700,1000,1350,1750,2200],ATREGGIES:[100,250,450,700,1000,1350,1750,2200]};
+   var arr=ST[target]||[10,25],xp=Number((shipXP[target]||0).toFixed(1)),stars=0;
+   arr.forEach(function(th){if(xp>=th)stars++});
+   var nxt=(stars<arr.length)?arr[stars]:arr[arr.length-1],xpL=preferExtended?1.8:1.0;
+   return {curXP:xp,curStars:stars,maxStars:arr.length,nextStarXP:nxt,
+    remStarLaunches:nxt>xp?Math.ceil((nxt-xp)/xpL):0,remMaxLaunches:Math.max(0,Math.ceil((arr[arr.length-1]-xp)/xpL))};
+  })(),
   nextShip:nextShip,nextMeta:nextMeta,missingLaunches:missingLaunches,missingSE:missingSE,
   preferExtended:preferExtended,durKey:durKey,missionDur:missionDur,
   fundCost:tMeta.fundCost
@@ -3880,6 +3911,7 @@ function copyDiag(){
   hasFuelTank:P.fuelInfo.hasFuelTank,
   highestUnlockedShip:P.fuelInfo.shipProg.highestUnlockedShip,
   targetShip:P.fuelInfo.target,
+  starInfo:P.fuelInfo.shipProg.starInfo,
   duration:P.fuelInfo.shipProg.missionDur,
   fundCost:P.fuelInfo.fundCost,
   canAffordFund:P.fuelInfo.canAffordFund,
@@ -3916,7 +3948,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v76',
+  version:'v77',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4183,7 +4215,11 @@ function show(b,R){
   h+='<div class="status-banner '+(P.eggProg.canUpgradeEgg?'do':'hold')+'">';
   h+='<b>ביצה נוכחית: '+esc(P.eggProg.curName)+' ← הבאה: '+esc(P.eggProg.nextName)+' ('+P.eggProg.pct.toFixed(0)+'%)</b>';
   h+='<div class="prog-bar"><div class="prog-fill '+eggBarCls+'" style="width:'+P.eggProg.pct.toFixed(1)+'%"></div></div>';
-  h+='<small>שווי חווה: '+fmt(P.eggProg.curFV)+' • גילוי: '+fmt(P.eggProg.reqDiscoverFV)+' • מעבר: '+fmt(P.eggProg.reqFV)+'</small></div>';
+  var cTag=(P.events.earningsMultiplier>1)?(' (כולל '+P.events.earningsMultiplier+'x Cash)'):'';
+  var idlS=isFinite(P.eggProg.estIdleEggMins)?(' / ~'+fmtWait(P.eggProg.estIdleEggMins)+' אופליין'):'';
+  var eEta=(!P.eggProg.canUpgradeEgg && isFinite(P.eggProg.estActEggMins))?
+   ('<br>זמן משוער למעבר: <b>~'+fmtWait(P.eggProg.estActEggMins)+'</b> אקטיבי'+idlS+cTag):'';
+  h+='<small>שווי חווה: '+fmt(P.eggProg.curFV)+' • גילוי: '+fmt(P.eggProg.reqDiscoverFV)+' • מעבר: '+fmt(P.eggProg.reqFV)+eEta+'</small></div>';
  }
  var shipBarCls=P.logi.shipBottleneck?'bad':(P.logi.shipUtilPct>75?'':'ok');
  var shipLbl=P.logi.fuelAllocPct>0?'עומס משלוחים (בפועל למשאיות)':'עומס משלוחים (הטלה מול משאיות)';
@@ -4238,6 +4274,10 @@ function show(b,R){
   h+='<div style="margin-top:5px"><b>הפעל עכשיו:</b> '+P.boostInfo.recCombo.map(function(x){return '<span class="tag-ok">'+(x.useQty>1?x.useQty+'× ':'')+esc(x.name)+'</span>'}).join(' ')+'</div>';
  }
  h+='</div>';
+ if(P.prestigeInfo.msSim && P.prestigeInfo.msSim.bestLegSE>0 && !P.macro.isEnl && !P.macro.isVirt){
+  var ms=P.prestigeInfo.msSim,mMode=ms.preferLunar?'Multi-Lunarstige':'Multistige';
+  h+=row('סימולטור '+mMode+' ('+ms.legs+' רגליים)','<b>+'+fmt(ms.bestLegSE)+' SE</b>/רגל (~+'+fmt(ms.totalSetSE)+' SE לסט)');
+ }
  if(P.boostInfo.active.length){
   h+='<div style="margin-top:6px"><small><b>בוסטים פעילים כעת ('+P.boostInfo.active.length+'/'+P.boostInfo.maxBoostSlots+'):</b></small></div>';
   P.boostInfo.active.forEach(function(ab){h+=row(esc(ab.name),'<span class="tag-ok">נותרו '+Math.ceil(ab.timeRemaining/60)+' דק\'</span>')});
@@ -4491,6 +4531,10 @@ function show(b,R){
  h+=row('ספינות פעילות / פנויות','<b>'+P.busy+'/'+P.shipSlots+'</b> ('+P.free+' פנויות)');
  var sp=P.fuelInfo.shipProg,targetUnlockedLbl=sp.isTargetUnlocked?'':' (נעולה)';
  h+=row('ספינת יעד נוכחית','<b>'+esc(shipName(P.fuelInfo.target))+targetUnlockedLbl+'</b> ('+esc(sp.missionDur)+' • '+fmt(P.fuelInfo.fundCost)+')');
+ if(sp.starInfo){
+  var si=sp.starInfo,stR=si.remStarLaunches>0?('נותרו '+si.remStarLaunches+' שיגורים לכוכב הבא'):'מקסימום כוכבים!';
+  h+=row('כוכבי '+esc(shipName(P.fuelInfo.target)),'<b>'+si.curStars+'/'+si.maxStars+' ★</b> ('+si.curXP+' XP • '+stR+')');
+ }
  if(sp.nextShip && sp.nextMeta){
   var reqL=sp.nextMeta.reqPrevLaunches||1,lPct=Math.min(100,(sp.curShipLaunches/reqL)*100);
   var etaTxt=(sp.missingLaunches>0 && sp.estUnlockSec>0)?(' (~'+hrs(sp.estUnlockSec)+' ב-Short)'):'';
