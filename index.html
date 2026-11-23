@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 72</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 73</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -181,6 +181,10 @@ details summary::-webkit-details-marker{display:none}
 <option value="VOYEGGER">Voyegger (Dilithium + Fusion + Graviton • 150N)</option>
 <option value="HENERPRISE">Henerprise (Dilithium + Antimatter + Dark Matter • 8.6d)</option>
 <option value="ATREGGIES">Atreggies Henliner (Tachyon + Dilithium + Antimatter + Dark Matter • 420d)</option>
+</select></label>
+<label style="flex:1;font-size:.82rem">מצב מיכל דלק<select id="tankFullOv">
+<option value="auto">אוטומטי (לפי הגיבוי)</option>
+<option value="full">מלא (עקוף 0 מהענן)</option>
 </select></label>
 </div>
 <div style="margin-top:6px"><small id="ev-source-note"><b>אירועים יומיים פעילים (מתעדכנים אוטומטית מהשרת או ידנית):</b></small>
@@ -1261,9 +1265,12 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier,events){
  var tCapF=TANK_CAPACITIES[Math.min(tLvlF,TANK_CAPACITIES.length-1)]||2e9;
  var tTotF=tFuels.reduce(function(x,y){return x+(Number(y)||0)},0);
  var rLimF=(eIdxF>=0&&tLims[eIdxF]!==undefined)?Number(tLims[eIdxF]):1,eLimF=(rLimF<=1.0001)?(rLimF*tCapF):rLimF;
- var curTankEggF=(eIdxF>=0&&tFuels[eIdxF]!==undefined)?Number(tFuels[eIdxF]):0,seF=Number(g.soulEggsD||g.soulEggs||0);
- var isFuelEggF=(eIdxF>=0 && SHIP_ORDER.some(function(sk){var fm=SHIP_META[sk]&&SHIP_META[sk].fuels;return fm&&((fm.SHORT&&fm.SHORT[sim.eggType])||(fm.STANDARD&&fm.STANDARD[sim.eggType])||(fm.EXTENDED&&fm.EXTENDED[sim.eggType]))}));
- var tankOpenF=(isHomeOrVirt && eIdxF>=0 && tTotF<tCapF-1 && curTankEggF<eLimF-1);
+ var tankManualFull=(($('tankFullOv')?$('tankFullOv').value:'auto')==='full');
+ var curTankEggF=(eIdxF>=0&&tFuels[eIdxF]!==undefined)?Number(tFuels[eIdxF]):0;
+ var seF=Number(g.soulEggsD||g.soulEggs||0);
+ var isFuelEggF=(eIdxF>=0 && SHIP_ORDER.some(function(sk){var fm=SHIP_META[sk]&&SHIP_META[sk].fuels;
+  return fm&&((fm.SHORT&&fm.SHORT[sim.eggType])||(fm.STANDARD&&fm.STANDARD[sim.eggType])||(fm.EXTENDED&&fm.EXTENDED[sim.eggType]))}));
+ var tankOpenF=(!tankManualFull && isHomeOrVirt && eIdxF>=0 && tTotF<tCapF-1 && curTankEggF<eLimF-1);
  var tankTaking=!!(tankOpenF && (adb.fuelingEnabled || (seF>=100000 && isFuelEggF)));
  if(tankTaking)fuelRemEggs+=Math.max(0,Math.min(tCapF-tTotF,eLimF-curTankEggF));
  var isActivelyFueling=!!(isHomeOrVirt && (shipTaking || tankTaking)),fSel=($('fuelPct')?$('fuelPct').value:'auto')||'auto';
@@ -3049,9 +3056,14 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  var curSE=Number(g.soulEggsD||g.soulEggs||0);
  var db=b.artifactsDb||{};
  var vafx=(b.virtue&&b.virtue.afx)||{};
- var tank=isVirt?(vafx.tankFuels||[]):(db.tankFuels||[]);
+ var rawTank=isVirt?(vafx.tankFuels||[]):(db.tankFuels||[]);
  var tankLevel=isVirt?Number(vafx.tankLevel||db.tankLevel||0):Number(db.tankLevel||0);
- var tankTotal=tank.reduce(function(x,y){return x+(y||0)},0);
+ var rawTankTotal=rawTank.reduce(function(x,y){return x+(y||0)},0);
+ var tankManualFull=(($('tankFullOv')?$('tankFullOv').value:'auto')==='full');
+ if(tankManualFull && rawTankTotal>0){
+  tankManualFull=false;if($('tankFullOv'))$('tankFullOv').value='auto';sset('tankFullOv','auto');
+ }
+ var tank=rawTank.slice(),tankTotal=rawTankTotal;
  var hasAnyMissions=((db.missionInfos&&db.missionInfos.length>0)||(db.missionArchive&&db.missionArchive.length>0));
 
  var launchpadUnlocked=(curSE>=10000 || hasAnyMissions || isVirt);
@@ -3070,6 +3082,11 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  var curEggName=EGG_HE[curEgg]||curEgg;
 
  var tankCapacity=hasFuelTank?(TANK_CAPACITIES[Math.min(tankLevel,TANK_CAPACITIES.length-1)]||2e9):0;
+ if(tankManualFull && hasFuelTank && tankCapacity>0){
+  var oneF=reqFuels.reduce(function(s,f){return s+(costMap[f]||0)},0)||1;
+  reqFuels.forEach(function(f){var ei=EGG_ORDER.indexOf(f);if(ei>=0)tank[ei]=Math.floor(tankCapacity*((costMap[f]||0)/oneF));});
+  tankTotal=tankCapacity;
+ }
  var tankFreeSpace=hasFuelTank?Math.max(0,tankCapacity-tankTotal):0;
 
  var onFuelEgg=(reqFuels.indexOf(curEgg)>=0);
@@ -3191,7 +3208,7 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
   target:target,shipProg:shipProg,reqFuels:reqFuels,reqNames:reqNames,onFuelEgg:onFuelEgg,
   hasFuelInTank:hasAllFuelsInTank,canFuelNow:canFuelNow,canAffordFund:canAffordFund,fundCost:fundCost,
   canLaunchNow:canLaunchNow,affordableFallback:affordableFallback,
-  tankTotal:tankTotal,tankCapacity:tankCapacity,tankFreeSpace:tankFreeSpace,tankLevel:tankLevel,
+  tankTotal:tankTotal,tankCapacity:tankCapacity,tankFreeSpace:tankFreeSpace,tankLevel:tankLevel,tankManualFull:tankManualFull,
   minLaunchesInTank:minLaunchesInTank,missingDetails:missingDetails,
   curEggName:curEggName
  };
@@ -3463,7 +3480,8 @@ function plan(b,R){
    var fastPath=macro.skipPath||(eggProg.nextName+' → Universe');
    a.push([8,'דלג מהר ל-Universe (בוסט פעיל!): '+fastPath,'שווי החווה מספיק! קפוץ מיד ל-'+eggProg.nextName+' והמשך בדילוג מהיר ל-Universe בלי לבזבז שניות בוסט.']);
   }else if(eggProg.shouldFillTankFirst){
-   a.push([10,'מלא מיכל דלק ('+eggProg.curName+') לפני שתעבור ל-'+eggProg.nextName,'הביצה הבאה פתוחה! מלא קודם את מיכל הדלק לספינות ואז שדרג ביצה.']);
+   a.push([10,'מלא מיכל דלק ('+eggProg.curName+') לפני שתעבור ל-'+eggProg.nextName,
+    'הביצה הבאה פתוחה! מלא קודם את מיכל הדלק לספינות ואז שדרג ביצה.','tank_full']);
   }else{
    a.push([11,'שדרג לביצה הבאה: '+eggProg.nextName,'שווי החווה ('+fmt(eggProg.curFV)+') עבר את הסף ('+fmt(eggProg.reqFV)+')! מעבר ביצה יכפיל את ההכנסות שלך.']);
   }
@@ -3852,6 +3870,7 @@ function copyDiag(){
  }else{
   shipRec.tankLevel=P.fuelInfo.tankLevel;
   shipRec.tankUsed=fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity);
+  shipRec.tankManualFull=P.fuelInfo.tankManualFull;
   shipRec.launchesAvailableInTank=P.fuelInfo.minLaunchesInTank;
   shipRec.fuelBreakdown=P.fuelInfo.fuelBreakdown.map(function(fb){
    return {egg:fb.egg,stored:fmt(fb.stored),required:fmt(fb.reqAmt),missing:fmt(fb.missingAmt)};
@@ -3872,7 +3891,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v72',
+  version:'v73',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4082,6 +4101,8 @@ function show(b,R){
  if(top[3]==='artifacts')h+='<button class="hero-btn" onclick="jumpTo(\'sec-artifacts\')">לארטיפקטים ↓</button>';
  if(top[3]==='boosts')h+='<button class="hero-btn" onclick="jumpTo(\'sec-boosts\')">לבוסטים ו-Prestige ↓</button>';
  if(top[3]==='epic')h+='<button class="hero-btn" onclick="jumpTo(\'sec-epic\')">לספינות ודלק ↓</button>';
+ if(top[3]==='tank_full')h+='<button class="hero-btn" onclick="$(\'tankFullOv\').value=\'full\';$(\'tankFullOv\').onchange()">'
+  +'✓ המיכל כבר מלא — המשך ל-'+esc(P.eggProg.nextName)+'</button>';
  h+='</div>';
 
  if(a.length>1){
@@ -4457,7 +4478,10 @@ function show(b,R){
   h+='<div class="status-banner hold"><b>תדלוק ישיר (ללא מיכל דלק):</b><small>מיכל הדלק נפתח ב-100,000 SE (חסרים '+fmt(Math.max(0,100000-P.fuelInfo.curSE))+' SE). בינתיים מתדלקים ישירות מביצת Rocket Fuel.</small></div>';
  }else{
   var tankPct=P.fuelInfo.tankCapacity>0?Math.min(100,(P.fuelInfo.tankTotal/P.fuelInfo.tankCapacity)*100):0;
-  h+=row('מיכל דלק (רמה '+P.fuelInfo.tankLevel+')','<b>'+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+'</b> ('+tankPct.toFixed(0)+'%)');
+  var tfBtn=P.fuelInfo.tankManualFull
+   ?' <button class="icon-btn" style="font-size:.72rem;padding:2px 7px" onclick="$(\'tankFullOv\').value=\'auto\';$(\'tankFullOv\').onchange()">ידני ✓ (אפס)</button>'
+   :(tankPct<99?' <button class="icon-btn" style="font-size:.72rem;padding:2px 7px" onclick="$(\'tankFullOv\').value=\'full\';$(\'tankFullOv\').onchange()">סמן כמלא ✓</button>':'');
+  h+=row('מיכל דלק (רמה '+P.fuelInfo.tankLevel+')','<b>'+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+'</b> ('+tankPct.toFixed(0)+'%)'+tfBtn);
   var minL=P.fuelInfo.minLaunchesInTank||0,minFb=null;
   P.fuelInfo.fuelBreakdown.forEach(function(fb){
    if(!minFb||fb.launches<minFb.launches)minFb=fb;
@@ -4566,10 +4590,10 @@ $('btn-ref').onclick=function(){run($('eid').value,false)};
 $('btn-eid').onclick=function(){var b=$('eid-bar');b.style.display=(b.style.display==='none')?'flex':'none';$('eid').focus()};
 $('eid').onkeydown=function(e){if(e.key==='Enter')run($('eid').value,false)};
 function setArtFocus(val){if($('artFocus'))$('artFocus').value=val;sset('artFocus',val);if(last&&RES)show(last,RES)}
-['slots','run','shipTarget','artFocus','fuelPct'].forEach(function(id){$(id).onchange=function(){sset(id,$(id).value);if(last&&RES)show(last,RES)}});
+['slots','run','shipTarget','artFocus','fuelPct','tankFullOv'].forEach(function(id){$(id).onchange=function(){sset(id,$(id).value);if(last&&RES)show(last,RES)}});
 ['ev-prestige','ev-epic','ev-common','ev-cap','ev-drones','ev-craft'].forEach(function(id){$(id).onchange=function(){manualEventOverrides[id]=true;if(last&&RES)show(last,RES)}});
 
-['slots','run','shipTarget','artFocus','fuelPct'].forEach(function(id){var v=sget(id);if(v)$(id).value=v});
+['slots','run','shipTarget','artFocus','fuelPct','tankFullOv'].forEach(function(id){var v=sget(id);if(v)$(id).value=v});
 applyDefaultEventsIfUnset();
 var saved=sget('eid');if(saved){$('eid').value=saved;run(saved,false)}
 setInterval(function(){var e=sget('eid');if(e&&!document.hidden)run(e,true)},20000);
