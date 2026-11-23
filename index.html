@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 70</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 71</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -1247,25 +1247,27 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier,events){
  }
  var maxVehSlots=Math.min(17, 4 + extraFleet),unusedVehSlots=Math.max(0,maxVehSlots - vehs.filter(function(x){return x>=0}).length);
  var isHomeOrVirt=(!sim.farmType || sim.farmType==='HOME' || isVirt),adb=isVirt?((b.virtue&&b.virtue.afx)||{}):(b.artifactsDb||{});
- var fShip=(adb.missionInfos||[]).filter(function(m){return m&&m.status==='FUELING'})[0]||null,shipTaking=false;
+ var fShip=(adb.missionInfos||[]).filter(function(m){return m && (!m.status || m.status===0 || m.status==='FUELING')})[0]||null,shipTaking=false,fuelRemEggs=0;
  if(fShip){
-  var smF=SHIP_META[fShip.ship],dkF=(fShip.durationType==='LONG'?'EXTENDED':(fShip.durationType==='STANDARD'?'STANDARD':'SHORT'));
+  var sKeyF=fShip.ship||'CHICKEN_ONE',smF=SHIP_META[sKeyF];
+  var dkF=(fShip.durationType==='LONG'||fShip.durationType===2)?'EXTENDED':((fShip.durationType==='STANDARD'||fShip.durationType===1)?'STANDARD':'SHORT');
   var reqF=(smF&&smF.fuels&&smF.fuels[dkF]&&smF.fuels[dkF][sim.eggType])||0,gotF=0;
-  (fShip.fuel||[]).forEach(function(fe){if(fe&&fe.egg===sim.eggType)gotF=Number(fe.amount||0)});
-  shipTaking=(reqF>0)?(gotF<reqF-1):true;
+  (fShip.fuel||[]).forEach(function(fe){if(fe&&(fe.egg===sim.eggType||(fe.egg===undefined&&sim.eggType==='EDIBLE')))gotF=Number(fe.amount||0)});
+  if(reqF>0 && gotF<reqF-1){shipTaking=true;fuelRemEggs+=(reqF-gotF);}
+  else if(!smF){shipTaking=true;}
  }
  var eIdxF=EGG_ORDER.indexOf(sim.eggType||''),tFuels=adb.tankFuels||[],tLims=adb.tankLimits||[];
  var tLvlF=Number(adb.tankLevel||(b.artifactsDb&&b.artifactsDb.tankLevel)||0);
  var tCapF=TANK_CAPACITIES[Math.min(tLvlF,TANK_CAPACITIES.length-1)]||2e9;
  var tTotF=tFuels.reduce(function(x,y){return x+(Number(y)||0)},0);
  var rLimF=(eIdxF>=0&&tLims[eIdxF]!==undefined)?Number(tLims[eIdxF]):1,eLimF=(rLimF<=1.0001)?(rLimF*tCapF):rLimF;
- var tankTaking=!!(adb.fuelingEnabled && eIdxF>=0 && tTotF<tCapF-1 && (Number(tFuels[eIdxF])||0)<eLimF-1);
+ var curTankEggF=(eIdxF>=0&&tFuels[eIdxF]!==undefined)?Number(tFuels[eIdxF]):0;
+ var tankTaking=!!(adb.fuelingEnabled && eIdxF>=0 && tTotF<tCapF-1 && curTankEggF<eLimF-1);
+ if(tankTaking)fuelRemEggs+=Math.max(0,Math.min(tCapF-tTotF,eLimF-curTankEggF));
  var isActivelyFueling=!!(isHomeOrVirt && (shipTaking || tankTaking)),fSel=($('fuelPct')?$('fuelPct').value:'auto')||'auto';
- var rawFP=(adb.fuelingPercent!==undefined)?Number(adb.fuelingPercent):null;
- if(rawFP===null&&b.settings&&b.settings.fuelingPercent!==undefined)rawFP=Number(b.settings.fuelingPercent);
- var protoF=(rawFP!==null&&isFinite(rawFP)&&rawFP>0)?(rawFP>1?Math.min(1,rawFP/100):Math.min(1,rawFP)):0.90;
- var fuelFrac=!isHomeOrVirt?0:(fSel!=='auto'?Number(fSel):(isActivelyFueling?protoF:0));
+ var fuelFrac=!isHomeOrVirt?0:(fSel!=='auto'?Number(fSel):(isActivelyFueling?0.90:0));
  var shippedLayRate=totalLayRate*(1-fuelFrac),fuelLayRate=totalLayRate*fuelFrac;
+ var fuelEtaMins=(fuelRemEggs>0 && fuelLayRate>0)?(fuelRemEggs/fuelLayRate):0;
  var rawLayVsShipPct=totalShipCap>0?(totalLayRate/totalShipCap)*100:0,rawPct=totalShipCap>0?(shippedLayRate/totalShipCap)*100:0;
  var shipUtilPct=Math.min(100,rawPct),shipBottleneck=(pop>1000 && totalShipCap>0 && rawPct>=90);
 
@@ -1380,7 +1382,7 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier,events){
   pop:pop,maxCap:maxCap,habPct:habPct,nearFull:habPct>=85,isFull:habPct>=97,
   emptyHabSlots:emptyHabSlots,unusedVehSlots:unusedVehSlots,
   totalLayRate:totalLayRate,shippedLayRate:shippedLayRate,fuelLayRate:fuelLayRate,fuelAllocPct:Math.round(fuelFrac*100),
-  isActivelyFueling:isActivelyFueling,shipTakingFuel:shipTaking,tankTakingFuel:tankTaking,rawProtoFuelPct:rawFP,
+  fuelRemEggs:fuelRemEggs,fuelEtaMins:fuelEtaMins,isActivelyFueling:isActivelyFueling,shipTakingFuel:shipTaking,tankTakingFuel:tankTaking,
   totalShipCap:totalShipCap,shipUtilPct:shipUtilPct,rawPct:rawPct,rawLayVsShipPct:rawLayVsShipPct,shipBottleneck:shipBottleneck,
   ebPercent:ebPercent,farmerRole:getFarmerRole(ebPercent),eotCount:eotCount,farmValue:farmValue,fvAt90Pct:fvAt90Pct,fvDebug:fvDebug,
   bonusPerSE:bonusPerSE,bonusPerPE:bonusPerPE,peCount:peCount,
@@ -2957,9 +2959,10 @@ function detectBestShip(b,isVirt,events,hasFuelTank,curSE,permitTier){
  var launchCounts={};
 
  function recordShip(s,countToHistory){
-  var i=SHIP_ORDER.indexOf(s);
+  var sk=s||'CHICKEN_ONE';
+  var i=SHIP_ORDER.indexOf(sk);
   if(i>seenMaxIdx)seenMaxIdx=i;
-  if(s && countToHistory)launchCounts[s]=(launchCounts[s]||0)+1;
+  if(countToHistory)launchCounts[sk]=(launchCounts[sk]||0)+1;
  }
  (db.missionInfos||[]).forEach(function(m){recordShip(m.ship,true)});
  (db.missionArchive||[]).forEach(function(m){recordShip(m.ship,true)});
@@ -3435,9 +3438,9 @@ function plan(b,R){
  (db.missionInfos||[]).forEach(function(m){var s=m.status,end=(m.startTimeDerived||0)+(m.durationSeconds||0),left=end-now,txt;
   if(s==='RETURNED'||s==='ANALYZING'){ready++;busy2++;txt='חזרה - לאסוף'}
   else if(s==='EXPLORING'){busy2++;if(left<=0){ready++;txt='חזרה - לאסוף'}else{var h=Math.floor(left/3600),mi=Math.floor((left%3600)/60);txt='עוד '+h+' ש\' ו-'+mi+' ד\''}}
-  else if(s==='FUELING'||s==='PREPARE_TO_LAUNCH'){busy2++;txt=s==='FUELING'?'בתדלוק':'מוכנה לשיגור'}else return;
-  var dLbl=m.durationType==='LONG'?'Extended':(m.durationType==='STANDARD'?'Standard':'Short');
-  ships.push([shipName(m.ship)+' ('+dLbl+')',txt])});
+  else if(!s||s===0||s==='FUELING'||s==='PREPARE_TO_LAUNCH'){busy2++;txt=(!s||s===0||s==='FUELING')?'בתדלוק':'מוכנה לשיגור'}else return;
+  var dLbl=(m.durationType==='LONG'||m.durationType===2)?'Extended':((m.durationType==='STANDARD'||m.durationType===1)?'Standard':'Short');
+  ships.push([shipName(m.ship||'CHICKEN_ONE')+' ('+dLbl+')',txt])});
  var free=Math.max(0,shipSlots-busy2);
 
  if((g.unclaimedEggsOfProphecy||0)>0||(g.uncliamedGoldenEggs||0)>0)a.push([5,'אסוף ביצים שממתינות בחווה','Prophecy או Golden Eggs מוכנות לאיסוף.']);
@@ -3867,7 +3870,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v70',
+  version:'v71',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -3899,8 +3902,10 @@ function copyDiag(){
     shipUtilPct:Number(P.logi.rawPct.toFixed(2)),
     rawLayVsShipPct:Number(P.logi.rawLayVsShipPct.toFixed(2)),
     fuelAllocPct:P.logi.fuelAllocPct,
+    fuelEtaMins:P.logi.fuelEtaMins>0?Number(P.logi.fuelEtaMins.toFixed(1)):0,
     isActivelyFueling:P.logi.isActivelyFueling,
-    rawProtoFuelPct:P.logi.rawProtoFuelPct,
+    shipTakingFuel:P.logi.shipTakingFuel,
+    tankTakingFuel:P.logi.tankTakingFuel,
     ihrOnlinePerMin:Math.round(P.logi.ihrOnlinePerMin),
     ihrOfflinePerMin:Math.round(P.logi.ihrOfflinePerMin),
     maxSiloMins:P.logi.maxSiloMins,
@@ -4134,11 +4139,22 @@ function show(b,R){
  }
  var shipBarCls=P.logi.shipBottleneck?'bad':(P.logi.shipUtilPct>75?'':'ok');
  var shipLbl=P.logi.fuelAllocPct>0?'עומס משלוחים (בפועל למשאיות)':'עומס משלוחים (הטלה מול משאיות)';
+ var etaFuelTxt=(P.logi.fuelEtaMins>0)?(' • סיום תדלוק: ~'+fmtWait(P.logi.fuelEtaMins)):'';
  var shipSub=P.logi.fuelAllocPct>0
-  ?('<b>'+P.logi.rawPct.toFixed(0)+'%</b> ('+P.logi.fuelAllocPct+'% לתדלוק • הטלה: '+P.logi.rawLayVsShipPct.toFixed(0)+'%)')
+  ?('<b>'+P.logi.rawPct.toFixed(0)+'%</b> ('+P.logi.fuelAllocPct+'% לתדלוק'+etaFuelTxt+' • הטלה: '+P.logi.rawLayVsShipPct.toFixed(0)+'%)')
   :('<b>'+P.logi.rawPct.toFixed(0)+'%</b> ('+fmt(P.logi.totalLayRate/60)+'/שנ\' מתוך '+fmt(P.logi.totalShipCap/60)+'/שנ\')');
  h+=row(shipLbl,shipSub);
  h+='<div class="prog-bar"><div class="prog-fill '+shipBarCls+'" style="width:'+P.logi.shipUtilPct.toFixed(1)+'%"></div></div>';
+ if(P.logi.isActivelyFueling||P.logi.fuelAllocPct>0){
+  var fpCur=($('fuelPct')?$('fuelPct').value:'auto')||'auto';
+  h+='<div class="row" style="margin:5px 0"><label style="flex:1;font-size:.78rem">תדלוק פעיל ('+(P.logi.shipTakingFuel?'ספינה':'מיכל דלק')+') — אחוז ביצים לתדלוק<select onchange="$(\'fuelPct\').value=this.value;$(\'fuelPct\').onchange()" style="padding:4px 7px;font-size:.78rem">';
+  h+='<option value="auto"'+(fpCur==='auto'?' selected':'')+'>אוטומטי (90% לתדלוק)</option>';
+  h+='<option value="1"'+(fpCur==='1'?' selected':'')+'>100% לתדלוק</option>';
+  h+='<option value="0.9"'+(fpCur==='0.9'?' selected':'')+'>90% לתדלוק</option>';
+  h+='<option value="0.5"'+(fpCur==='0.5'?' selected':'')+'>50% לתדלוק</option>';
+  h+='<option value="0.1"'+(fpCur==='0.1'?' selected':'')+'>10% לתדלוק</option>';
+  h+='<option value="0"'+(fpCur==='0'?' selected':'')+'>0% (כבוי)</option></select></label></div>';
+ }
  h+=row('דגירה פנימית (IHR)','<b>+'+fmt(P.logi.ihrOfflinePerMin)+'/דק\'</b> אופליין (מילוי לולים: '+fmtWait(P.logi.minsToFullHabs)+')');
  h+=row('ממגורות (Silos)','<b>'+P.logi.silosOwned+'/'+P.logi.maxPossibleSilos+'</b> (זמן אופליין מקסימלי: '+fmtWait(P.logi.maxSiloMins)+')');
  if(P.collegg.unlocked.length>0){
