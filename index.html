@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 77</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 78</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -168,7 +168,7 @@ details summary::-webkit-details-marker{display:none}
 <option value="1">100% לתדלוק</option></select></label>
 </div>
 <div class="row">
-<label style="flex:1;font-size:.82rem">ספינת יעד<select id="shipTarget">
+<label style="flex:1;font-size:.82rem">ספינה לשיגור<select id="shipTarget">
 <option value="auto">אוטומטי (המתקדמת ביותר שזמינה)</option>
 <option value="CHICKEN_ONE">Chicken One (Rocket Fuel • 7.2B)</option>
 <option value="CHICKEN_NINE">Chicken Nine (Rocket Fuel • 130T)</option>
@@ -3007,10 +3007,11 @@ function detectBestShip(b,isVirt,events,hasFuelTank,curSE,permitTier){
   if(countToHistory){
    launchCounts[sk]=(launchCounts[sk]||0)+1;
    var dur=arguments[2];
-   shipXP[sk]=(shipXP[sk]||0)+((dur==='EXTENDED'||dur===2)?1.8:((dur==='STANDARD'||dur===1)?1.4:1.0));
+   var xpAdd=(dur==='EPIC'||dur==='EXTENDED'||dur===2)?1.8:((dur==='LONG'||dur==='STANDARD'||dur===1)?1.4:1.0);
+   shipXP[sk]=(shipXP[sk]||0)+xpAdd;
   }
  }
- (db.missionInfos||[]).forEach(function(m){recordShip(m.ship,true,m.durationType)});
+ (db.missionInfos||[]).forEach(function(m){var lnd=(m.status&&m.status!==0&&m.status!=='FUELING');recordShip(m.ship,lnd,m.durationType)});
  (db.missionArchive||[]).forEach(function(m){recordShip(m.ship,true,m.durationType)});
  if(vafx.lastFueledShip)recordShip(vafx.lastFueledShip,false);
  if(db.lastFueledShip)recordShip(db.lastFueledShip,false);
@@ -3083,8 +3084,13 @@ function detectBestShip(b,isVirt,events,hasFuelTank,curSE,permitTier){
     HENERPRISE:[100,250,450,700,1000,1350,1750,2200],ATREGGIES:[100,250,450,700,1000,1350,1750,2200]};
    var arr=ST[target]||[10,25],xp=Number((shipXP[target]||0).toFixed(1)),stars=0;
    arr.forEach(function(th){if(xp>=th)stars++});
-   var nxt=(stars<arr.length)?arr[stars]:arr[arr.length-1],xpL=preferExtended?1.8:1.0;
-   return {curXP:xp,curStars:stars,maxStars:arr.length,nextStarXP:nxt,
+   var nxt=(stars<arr.length)?arr[stars]:arr[arr.length-1],xpL=preferExtended?1.8:1.0,fleet=[];
+   for(var si=0;si<=unlockedIdx;si++){
+    var fk=SHIP_ORDER[si],fa=ST[fk]||[10,25],fx=Number((shipXP[fk]||0).toFixed(1)),fs=0;
+    fa.forEach(function(th){if(fx>=th)fs++});
+    fleet.push({ship:fk,launches:launchCounts[fk]||0,xp:fx,stars:fs,maxStars:fa.length});
+   }
+   return {curXP:xp,curStars:stars,maxStars:arr.length,nextStarXP:nxt,fleet:fleet,
     remStarLaunches:nxt>xp?Math.ceil((nxt-xp)/xpL):0,remMaxLaunches:Math.max(0,Math.ceil((arr[arr.length-1]-xp)/xpL))};
   })(),
   nextShip:nextShip,nextMeta:nextMeta,missingLaunches:missingLaunches,missingSE:missingSE,
@@ -3568,13 +3574,18 @@ function plan(b,R){
  if(!fuelInfo.launchpadUnlocked){
   a.push([72,'פתיחת ספינות: צבור 10,000 SE לפתיחת כן השיגור','חסרים '+fmt(Math.max(0,10000-fuelInfo.curSE))+' Soul Eggs (והגעה לביצת Rocket Fuel עם 100K ביצים/דקה) כדי להתחיל לשגר ספינות.']);
  }else if(free>0 && !directFuelBeforeReset){
-  var durLabel=fuelInfo.shipProg.missionDur;
+  var durLabel=fuelInfo.shipProg.missionDur,spH=fuelInfo.shipProg;
+  var onlyNeedsSE=(spH.nextShip && spH.missingLaunches===0 && spH.missingSE>0);
   var unlockGoalTxt='';
-  if(fuelInfo.shipProg.nextShip && fuelInfo.shipProg.nextMeta){
-   var parts=[];
-   if(fuelInfo.shipProg.missingLaunches>0)parts.push('עוד '+fuelInfo.shipProg.missingLaunches+' שיגורים');
-   if(fuelInfo.shipProg.missingSE>0)parts.push(fmt(fuelInfo.shipProg.missingSE)+' SE');
-   unlockGoalTxt=parts.length?(' • לפתיחת '+shipName(fuelInfo.shipProg.nextShip)+' חסרים: '+parts.join(' + ')):'';
+  if(spH.nextShip && spH.nextMeta){
+   var nxtN=shipName(spH.nextShip),reqL=spH.nextMeta.reqPrevLaunches;
+   if(onlyNeedsSE)unlockGoalTxt=' • שיגורי '+shipName(spH.highestUnlockedShip)+' הושלמו ('+spH.curShipLaunches+'/'+reqL+' ✓) — לפתיחת '+nxtN+' חסרים רק '+fmt(spH.missingSE)+' SE';
+   else{
+    var parts=[];
+    if(spH.missingLaunches>0)parts.push('עוד '+spH.missingLaunches+' שיגורים');
+    if(spH.missingSE>0)parts.push(fmt(spH.missingSE)+' SE');
+    unlockGoalTxt=parts.length?(' • לפתיחת '+nxtN+' חסרים: '+parts.join(' + ')):'';
+   }
   }
   if(!fuelInfo.shipProg.isTargetUnlocked){
    a.push([65,'ספינת '+shipName(fuelInfo.target)+' טרם נפתחה',fuelInfo.missingDetails[0]+'. שנה ספינת יעד לאוטומטי או שגר '+shipName(fuelInfo.shipProg.highestUnlockedShip)+'.']);
@@ -3593,9 +3604,12 @@ function plan(b,R){
     a.push([66,'ספינה פנויה ('+shipName(fuelInfo.target)+') — ממתינה לתדלוק',fuelInfo.missingDetails[0]||'התקדם לביצת Rocket Fuel לתדלוק ישיר (מיכל דלק נפתח ב-100K SE).']);
    }
   }else if(fuelInfo.canLaunchNow){
-   var shipPrio=(events.missionCapacityMultiplier>1)?14:22;
+   var shipPrio=(events.missionCapacityMultiplier>1)?14:(onlyNeedsSE?38:22);
    var tankCyclesTxt=fuelInfo.minLaunchesInTank>0?(' • מספיק ל-'+fuelInfo.minLaunchesInTank+' שיגורים במיכל'):'';
-   a.push([shipPrio,'שגר ספינת '+shipName(fuelInfo.target)+' ('+durLabel+' • '+fmt(fuelInfo.fundCost)+')','דלק זמין: '+fuelInfo.reqNames+tankCyclesTxt+unlockGoalTxt+'.','epic']);
+   var shipTitle=onlyNeedsSE
+    ?('שגר '+shipName(fuelInfo.target)+' (לכוכבים/חפצים) • היעד הבא: '+shipName(spH.nextShip))
+    :('שגר ספינת '+shipName(fuelInfo.target)+' ('+durLabel+' • '+fmt(fuelInfo.fundCost)+')');
+   a.push([shipPrio,shipTitle,'דלק זמין: '+fuelInfo.reqNames+tankCyclesTxt+unlockGoalTxt+'.','epic']);
   }else{
    a.push([68,'ספינה פנויה ('+shipName(fuelInfo.target)+' '+durLabel+') — חסר דלק במיכל','חסר: '+fuelInfo.missingDetails.join(' • ')+' (כרגע על '+fuelInfo.curEggName+').','epic']);
   }
@@ -3948,7 +3962,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v77',
+  version:'v78',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4529,20 +4543,24 @@ function show(b,R){
 
  h+='<div id="sec-epic" class="card"><h3>מחקר אפיק ודלק ספינות</h3>';
  h+=row('ספינות פעילות / פנויות','<b>'+P.busy+'/'+P.shipSlots+'</b> ('+P.free+' פנויות)');
- var sp=P.fuelInfo.shipProg,targetUnlockedLbl=sp.isTargetUnlocked?'':' (נעולה)';
- h+=row('ספינת יעד נוכחית','<b>'+esc(shipName(P.fuelInfo.target))+targetUnlockedLbl+'</b> ('+esc(sp.missionDur)+' • '+fmt(P.fuelInfo.fundCost)+')');
+ var sp=P.fuelInfo.shipProg,targetUnlockedLbl=sp.isTargetUnlocked?' (נעולה)':' (פתוחה ✓)';
+ h+=row('ספינה פעילה לשיגור','<b>'+esc(shipName(P.fuelInfo.target))+targetUnlockedLbl+'</b> ('+esc(sp.missionDur)+' • '+fmt(P.fuelInfo.fundCost)+')');
  if(sp.starInfo){
   var si=sp.starInfo,stR=si.remStarLaunches>0?('נותרו '+si.remStarLaunches+' שיגורים לכוכב הבא'):'מקסימום כוכבים!';
   h+=row('כוכבי '+esc(shipName(P.fuelInfo.target)),'<b>'+si.curStars+'/'+si.maxStars+' ★</b> ('+si.curXP+' XP • '+stR+')');
+  if(si.fleet && si.fleet.length>1){
+   var flTxt=si.fleet.map(function(f){return esc(shipName(f.ship))+': '+f.stars+'/'+f.maxStars+'★ ('+f.xp+' XP)'}).join(' • ');
+   h+='<div style="font-size:.78rem;color:var(--muted);margin:-2px 0 6px">'+flTxt+'</div>';
+  }
  }
  if(sp.nextShip && sp.nextMeta){
   var reqL=sp.nextMeta.reqPrevLaunches||1,lPct=Math.min(100,(sp.curShipLaunches/reqL)*100);
   var etaTxt=(sp.missingLaunches>0 && sp.estUnlockSec>0)?(' (~'+hrs(sp.estUnlockSec)+' ב-Short)'):'';
-  var seTxt=sp.missingSE>0?(' • חסרים '+fmt(sp.missingSE)+' SE'):'';
+  var seTxt=sp.missingSE>0?(' • חסרים רק <b>'+fmt(sp.missingSE)+' SE</b> (יעד: '+fmt(sp.nextMeta.reqSE)+' SE)'):'';
   h+='<div class="status-banner '+(sp.missingLaunches===0&&sp.missingSE===0?'do':'hold')+'" style="margin-top:6px">';
-  h+='<b>התקדמות ספינות ('+(sp.unlockedIdx+1)+'/'+SHIP_ORDER.length+') ← '+esc(shipName(sp.nextShip))+':</b>';
+  h+='<b>הספינה הבאה לפתיחה ('+(sp.unlockedIdx+2)+'/'+SHIP_ORDER.length+'): '+esc(shipName(sp.nextShip))+'</b>';
   h+='<div class="prog-bar"><div class="prog-fill '+(lPct>=100?'ok':'')+'" style="width:'+lPct.toFixed(1)+'%"></div></div>';
-  h+='<small>שיגורי '+esc(shipName(sp.highestUnlockedShip))+': <b>'+sp.curShipLaunches+'/'+reqL+'</b>'+(sp.missingLaunches>0?' (נותרו '+sp.missingLaunches+etaTxt+')':' (הושלם!)')+seTxt+'.</small></div>';
+  h+='<small>שיגורי '+esc(shipName(sp.highestUnlockedShip))+': <b>'+sp.curShipLaunches+'/'+reqL+'</b>'+(sp.missingLaunches>0?' (נותרו '+sp.missingLaunches+etaTxt+')':' (הושלם ✓)')+seTxt+'.</small></div>';
  }else if(sp.unlockedIdx>=SHIP_ORDER.length-1){
   h+='<div class="status-banner do" style="margin-top:6px"><b>צי ספינות מלא (11/11):</b><small>פתחת את Atreggies Henliner — הספינה המתקדמת במשחק!</small></div>';
  }
