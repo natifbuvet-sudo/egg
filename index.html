@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 67</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 68</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -671,6 +671,29 @@ var msg=Req.create({rinfo:rinfo73,eiUserId:cleanEid,deviceId:'wasmegg',clientVer
  return o.backup;
 }
 
+async function inflateBytes(buf){
+ var modes=['deflate','deflate-raw'];
+ for(var i=0;i<modes.length;i++){
+  try{
+   var ds=new DecompressionStream(modes[i]),w=ds.writable.getWriter();
+   w.write(buf);w.close();
+   return new Uint8Array(await new Response(ds.readable).arrayBuffer());
+  }catch(e){}
+ }
+ return buf;
+}
+async function decodeAuthMsg(R,MsgType,b64Txt){
+ var raw=atob(b64Txt.trim()),u=new Uint8Array(raw.length);
+ for(var j=0;j<raw.length;j++)u[j]=raw.charCodeAt(j);
+ try{
+  var Auth=R.lookupType('ei.AuthenticatedMessage'),am=Auth.decode(u);
+  if(am&&am.message&&am.message.length){
+   var p=am.compressed?await inflateBytes(am.message):am.message;
+   return MsgType.toObject(MsgType.decode(p),{longs:Number,enums:String,defaults:false});
+  }
+ }catch(e){}
+ return MsgType.toObject(MsgType.decode(u),{longs:Number,enums:String,defaults:false});
+}
 var liveCoopStatuses={};
 async function fetchCoopStatuses(eid,b){
  try{
@@ -691,12 +714,15 @@ async function fetchCoopStatuses(eid,b){
     try{
      var r=await postTo(eps[k],b64,false);if(!r.ok)r=await postTo(eps[k],b64,true);if(!r.ok)continue;
      var txt=(await r.text()).trim();if(!txt||txt.indexOf('<')===0)continue;
-     var raw=atob(txt),u=new Uint8Array(raw.length);for(var j=0;j<raw.length;j++)u[j]=raw.charCodeAt(j);
-     var dec=Res.toObject(Res.decode(u),{longs:Number,enums:String,defaults:false});
+     var dec=await decodeAuthMsg(R,Res,txt);
      if(dec&&(dec.totalAmount!==undefined||Array.isArray(dec.contributors))){
-      var rate=0;(dec.contributors||[]).forEach(function(m){rate+=Number(m.contributionRate||0)});
+      var rate=0,myTokens=null;(dec.contributors||[]).forEach(function(m){
+       rate+=Number(m.contributionRate||0);
+       if(cleanEid&&(m.userId===cleanEid||m.uuid===cleanEid))myTokens=Number(m.boostTokens||0);
+      });
       liveCoopStatuses[cid+':'+coop]={totalAmount:Number(dec.totalAmount||0),totalRate:rate,
-       memberCount:(dec.contributors||[]).length,secondsRemaining:Number(dec.secondsRemaining||0),allGoalsAchieved:!!dec.allGoalsAchieved};
+       memberCount:(dec.contributors||[]).length,secondsRemaining:Number(dec.secondsRemaining||0),
+       allGoalsAchieved:!!dec.allGoalsAchieved,myBoostTokens:myTokens};
       break;
      }
     }catch(e){}
@@ -729,9 +755,7 @@ async function fetchPeriodicals(eid,b){
     if(!r.ok){notes.push(endpoints[k]+':http_'+r.status);continue;}
     var txt=(await r.text()).trim();
     if(!txt || txt.indexOf('<')===0){notes.push(endpoints[k]+':html_or_empty');continue;}
-    var raw=atob(txt);
-    var u=new Uint8Array(raw.length);for(var j=0;j<raw.length;j++)u[j]=raw.charCodeAt(j);
-    var decoded=Res.toObject(Res.decode(u),{longs:Number,enums:String,defaults:false});
+    var decoded=await decodeAuthMsg(R,Res,txt);
     if(decoded && decoded.events && Array.isArray(decoded.events.events)){resObj=decoded;liveEventsSyncNote='ok ('+endpoints[k]+')';break}
     else{notes.push(endpoints[k]+':no_events_field');}
    }catch(inner){notes.push(endpoints[k]+':err_'+(inner&&inner.message?inner.message:'decode'));}
@@ -2274,7 +2298,7 @@ function setContractGoalMode(id,val){
  if(last&&RES)show(last,RES);
 }
 
-function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,runCapActive){
+function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,runCapActive,walletTokens){
  var inv=getContractInventorySummary(b,permitTier);
  var calmLv=(elv&&elv['int_hatch_calm'])||0;
  var calmMult=1 + 0.10*calmLv;
@@ -2420,10 +2444,39 @@ function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,r
   detailNote='הרכב '+prodSetStr+', בצע '+runCapActive+' ריצות תרנגולות ושלח טוקנים מיותרים לחברים.';
  }
 
+ var wTok=(typeof walletTokens==='number'&&!isNaN(walletTokens))?walletTokens:null;
+ var totTok=(wTok!==null)?(wTok+unclaimedTokens):unclaimedTokens;
+ var missWallet=(wTok!==null)?Math.max(0,tokensNeeded-wTok):null;
+ var missTotal=(wTok!==null)?Math.max(0,tokensNeeded-totTok):null;
+ var canBoostNow=false,tokenStatus='NONE',tokenAlertText='';
+ if(combo.length>0 && (stage==='FILL_HABS'||stage==='RESEARCH')){
+  if(tokensNeeded<=0){
+   canBoostNow=true;tokenStatus='FREE';
+   tokenAlertText='מוכן להפעלה עכשיו (0 טוקנים נדרשים!)';
+  }else if(wTok!==null && missWallet===0){
+   canBoostNow=true;tokenStatus='READY';
+   tokenAlertText='מוכן להפעלה עכשיו! ('+wTok+'/'+tokensNeeded+' טוקנים בארנק)';
+  }else if(wTok!==null && missTotal===0){
+   tokenStatus='COLLECT_FIRST';
+   tokenAlertText='אסוף '+unclaimedTokens+' טוקנים בחווה להפעלה עכשיו ('+wTok+' בארנק + '+unclaimedTokens+' לאיסוף ≥ '+tokensNeeded+')';
+  }else if(wTok!==null){
+   tokenStatus='MISSING';
+   tokenAlertText='חסרים '+missTotal+' טוקנים להפעלה (יש '+wTok+' בארנק'+(unclaimedTokens>0?' + '+unclaimedTokens+' לאיסוף':'')+' מתוך '+tokensNeeded+')';
+  }else{
+   tokenStatus='UNKNOWN_WALLET';
+   tokenAlertText='נדרשים '+tokensNeeded+' טוקנים (יתרת ארנק לא זמינה'+(unclaimedTokens>0?', '+unclaimedTokens+' לאיסוף בחווה':'')+')';
+  }
+ }
+
  return {
   stage:stage,
   combo:combo,
   tokensNeeded:tokensNeeded,
+  walletTokens:wTok,
+  missingTokens:missTotal,
+  canBoostNow:canBoostNow,
+  tokenStatus:tokenStatus,
+  tokenAlertText:tokenAlertText,
   estPopGain:estPopGain,
   isPriorityContract:isPriorityContract,
   maxBoostSlots:inv.maxBoostSlots,
@@ -2612,7 +2665,8 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
   var estCsMult=csRaw.allGoalsAchieved?1.5:(etaSec>0?(1+Math.max(0,1-frac)):1);
   var onTrack=csRaw.allGoalsAchieved||remEggs<=0||(etaSec>0&&etaSec<=remSec);
   liveCoop={totalAmount:coopTot,finalGoal:finalGoal,pctDone:pctDone,totalRate:csRaw.totalRate,
-   memberCount:csRaw.memberCount,etaSec:etaSec,estCsMult:estCsMult,onTrack:onTrack,allGoalsAchieved:csRaw.allGoalsAchieved};
+   memberCount:csRaw.memberCount,etaSec:etaSec,estCsMult:estCsMult,onTrack:onTrack,
+   allGoalsAchieved:csRaw.allGoalsAchieved,myBoostTokens:csRaw.myBoostTokens};
  }
  var graceEnd=c.coopGracePeriodEndTime||0;
  var sharedEnd=c.coopSharedEndTime||0;
@@ -2723,7 +2777,8 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
  var paceForecast={finalTarget:finalTarget,fairShareTarget:Math.round(fairShare),
   soloProjected:Math.round(soloProj),onTrackWithoutBoosts:onTrackNoBoost};
  var collWithPace=Object.assign({},coll,{paceForecast:paceForecast});
- var boostPlan=(!waitingCoop)?planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,collWithPace,pointsOnly,runCapActive):null;
+ var walletTokens=(csRaw&&typeof csRaw.myBoostTokens==='number')?csRaw.myBoostTokens:null;
+ var boostPlan=(!waitingCoop)?planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,collWithPace,pointsOnly,runCapActive,walletTokens):null;
  var setSwapAdvice='';
  if(cf && !waitingCoop && cLogi){
   var bStg=boostPlan?boostPlan.stage:'';
@@ -2790,8 +2845,9 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
   nextStep='שדרג '+cp.totalLevelsBought+' רמות מחקר בחוזה ('+cp.affordableList.length+' מחקרים • עלות '+fmt(cp.totalSpent)+')'+(boostPlan && boostPlan.stage==='RESEARCH'?' • '+boostPlan.summary:'');
   nextStepLevel='do';
  }else if(boostPlan && boostPlan.stage==='FILL_HABS'){
-  nextStep=boostPlan.summary+' — '+boostPlan.detailNote;
-  nextStepLevel='do';
+  var tokPref=boostPlan.tokenAlertText?(boostPlan.tokenAlertText+' • '):'';
+  nextStep=tokPref+boostPlan.summary+' — '+boostPlan.detailNote;
+  nextStepLevel=boostPlan.canBoostNow?'do':'info';
  }else if(boostPlan && boostPlan.stage==='SUPPORT_ROLE'){
   nextStep=boostPlan.summary+' — '+boostPlan.detailNote;
   nextStepLevel='info';
@@ -3852,7 +3908,10 @@ function copyDiag(){
       matchedBoosts:d.boostPlan?d.boostPlan.combo:[],
       boostStage:d.boostPlan?d.boostPlan.stage:null,
       contractBoostPlan:d.boostPlan?{combo:d.boostPlan.combo,tokens:d.boostPlan.tokensNeeded,
-       estPopGain:d.boostPlan.estPopGain||0,isPriorityContract:!!d.boostPlan.isPriorityContract}:null,
+       walletTokens:d.boostPlan.walletTokens,unclaimedTokens:d.boostPlan.unclaimedTokens,
+       missingTokens:d.boostPlan.missingTokens,canBoostNow:!!d.boostPlan.canBoostNow,
+       tokenStatus:d.boostPlan.tokenStatus,estPopGain:d.boostPlan.estPopGain||0,
+       isPriorityContract:!!d.boostPlan.isPriorityContract}:null,
       stoneSetAdvice:d.stoneAdvice||null,
       liveCoop:d.liveCoop?{members:d.liveCoop.memberCount,pctDone:Number(d.liveCoop.pctDone.toFixed(1)),
        etaSec:Math.round(d.liveCoop.etaSec),estCsMult:Number(d.liveCoop.estCsMult.toFixed(2)),onTrack:d.liveCoop.onTrack}:null};
@@ -4157,6 +4216,7 @@ function show(b,R){
    h+='<option value="rewards"'+(d.manualGoalMode==='rewards'?' selected':'')+'>פרסים בלבד (Rewards-only / חיסכון)</option>';
    h+='</select></div>';
    var tokCnt=d.boostPlan?d.boostPlan.unclaimedTokens:0;
+   var wTokCnt=(d.boostPlan&&typeof d.boostPlan.walletTokens==='number')?d.boostPlan.walletTokens:null;
    h+='<div class="c-chips">';
    h+='<span class="c-chip">יעדים: <b>'+d.achieved+'/3</b></span>';
    if(d.cfMetrics){
@@ -4164,7 +4224,8 @@ function show(b,R){
     h+='<span class="c-chip">לולים: <b>'+m.habPct.toFixed(0)+'%</b> ('+fmt(m.pop)+'/'+fmt(m.maxCap)+')</span>';
     h+='<span class="c-chip'+(m.shipBottleneck?' bad':'')+'">משלוחים: <b>'+m.shipUtilPct.toFixed(0)+'%</b></span>';
    }
-   h+='<span class="c-chip'+(tokCnt>0?' ok':'')+'">טוקנים: <b>'+tokCnt+'</b></span>';
+   if(wTokCnt!==null)h+='<span class="c-chip'+(wTokCnt>0?' ok':'')+'">בארנק: <b>'+wTokCnt+'</b> טוקנים</span>';
+   h+='<span class="c-chip'+(tokCnt>0?' ok':'')+'">לאיסוף: <b>'+tokCnt+'</b> טוקנים</span>';
    if(d.liveCoop)h+='<span class="c-chip'+(d.liveCoop.onTrack?' ok':' bad')+'">קבוצה: <b>'+d.liveCoop.pctDone.toFixed(0)+'%</b></span>';
    if(d.timeLeft>0)h+='<span class="c-chip">נותרו '+hrs(d.timeLeft)+'</span>';
    h+='</div>';
@@ -4175,6 +4236,10 @@ function show(b,R){
     h+='<div class="c-meta-line"><b>קו-אופ חי ('+lc.memberCount+' שחקנים):</b> '+fmt(lc.totalAmount)+(lc.finalGoal>0?' / '+fmt(lc.finalGoal):'')+' • '+etaTxt+csTxt+'</div>';
    }
    h+='<div class="c-next '+d.nextStepLevel+'"><b>מה לעשות עכשיו:</b> '+esc(d.nextStep)+'</div>';
+   if(d.boostPlan && d.boostPlan.tokenAlertText){
+    var tCls=(d.boostPlan.canBoostNow||d.boostPlan.tokenStatus==='COLLECT_FIRST')?'do':'hold';
+    h+='<div class="status-banner '+tCls+'" style="margin:5px 0"><b>מצב טוקנים לבוסט ('+d.boostPlan.tokensNeeded+' נדרשים):</b><small>'+esc(d.boostPlan.tokenAlertText)+'</small></div>';
+   }
    var metaPts=[d.coop?('קו-אופ: '+esc(d.coop)):'ללא קו-אופ'];
    if(d.cfMetrics)metaPts.push('מזומן: '+fmt(d.cfMetrics.cash));
    if(d.rewardsText)metaPts.push('פרסים: '+esc(d.rewardsText));
