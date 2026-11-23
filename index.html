@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 75</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 76</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -538,6 +538,7 @@ function getEggIncPacificSchedule(){
  return {
   evDay:evDay,
   isEggDay:isEggDay,
+  isMondayCash:(evDay===1),
   isFridayResearch:(evDay===5),
   isWeekendPrestige:(evDay===6 || isEggDay),
   isSundayEpic:(evDay===0 && sunWks%2===0),
@@ -620,9 +621,10 @@ function getActiveEvents(){
  var commChecked=($('ev-common')?$('ev-common').checked:autoCommon);
  var epicChecked=($('ev-epic')?$('ev-epic').checked:autoEpic);
  var craftChecked=($('ev-craft')?$('ev-craft').checked:autoCraft);
+ var autoCash=sched.isMondayCash;
  var droneChecked=($('ev-drones')?$('ev-drones').checked:false);
  var capChecked=($('ev-cap')?$('ev-cap').checked:false);
- var cashChecked=($('ev-cash')?$('ev-cash').checked:false);
+ var cashChecked=($('ev-cash')?$('ev-cash').checked:autoCash);
  var srvPrest=(liveServerEvents&&liveServerEvents.prestigeMultiplier>1)?liveServerEvents.prestigeMultiplier:0;
  return {
   prestigeMultiplier:sched.isEggDay?Math.max(8.0,srvPrest):(prestChecked?(srvPrest||2.0):1.0),
@@ -636,7 +638,7 @@ function getActiveEvents(){
   syncNote:liveEventsSyncNote,
   extraLabels:(liveServerEvents&&liveServerEvents.extraLabels)||[],
   rawTypes:(liveServerEvents&&liveServerEvents.rawTypes)||[],
-  autoDefaults:{prestige:autoPrestige,common:autoCommon,epic:autoEpic,craft:autoCraft}
+  autoDefaults:{prestige:autoPrestige,common:autoCommon,epic:autoEpic,craft:autoCraft,cash:autoCash}
  };
 }
 
@@ -646,6 +648,7 @@ function applyDefaultEventsIfUnset(){
  if($('ev-common') && !manualEventOverrides['ev-common'])$('ev-common').checked=defEv.common;
  if($('ev-epic') && !manualEventOverrides['ev-epic'])$('ev-epic').checked=defEv.epic;
  if($('ev-craft') && !manualEventOverrides['ev-craft'])$('ev-craft').checked=defEv.craft;
+ if($('ev-cash') && !manualEventOverrides['ev-cash'])$('ev-cash').checked=defEv.cash;
 }
 
 function toggleEvent(id){
@@ -789,12 +792,11 @@ async function fetchPeriodicals(eid,b){
   var parsed={prestigeMultiplier:1,commonResearchDiscount:0,epicResearchDiscount:0,craftingDiscount:0,droneMultiplier:1,missionCapacityMultiplier:1,earningsMultiplier:1,extraLabels:[],rawTypes:[]};
   resObj.events.events.forEach(function(ev){
    var remSec=(ev.secondsRemaining!==undefined)?Number(ev.secondsRemaining):null;
-   if(remSec!==null && remSec<=0)return;
-   if(remSec===null){
-    var st=Number(ev.startTime||0);if(st>1e12)st/=1000;
-    var dur=Number(ev.duration||0);if(dur>1e12)dur/=1000;
-    if(st>0 && dur>0 && (st>now || st+dur<now))return;
-   }
+   var st=Number(ev.startTime||0);if(st>1e12)st/=1000;
+   var dur=Number(ev.duration||0);if(dur>1e12)dur/=1000;
+   var winOk=(st>0 && dur>0 && st<=now && st+dur>now);
+   if(remSec!==null && remSec<=0 && !winOk)return;
+   if(remSec===null && st>0 && dur>0 && !winOk)return;
    var t=String(ev.type||'').toLowerCase().replace(/_/g,'-');
    var m=Number(ev.multiplier||1);
    var discVal=(m>0 && m<1)?(1-m):((m>1 && m<100)?(m/100):0);
@@ -808,7 +810,8 @@ async function fetchPeriodicals(eid,b){
    else if(t.indexOf('fuel')>=0)parsed.extraLabels.push(m+'x תדלוק');
    else if(t.indexOf('boost-sale')>=0)parsed.extraLabels.push('-'+Math.round((discVal||0.2)*100)+'% בוסטים');
    else if(t.indexOf('boost-duration')>=0)parsed.extraLabels.push(m+'x משך בוסטים');
-   else if(t.indexOf('earnings')>=0||(t.indexOf('cash')>=0&&t.indexOf('piggy')<0))parsed.earningsMultiplier=Math.max(parsed.earningsMultiplier,m>1?m:2.0);
+   else if(t.indexOf('earnings')>=0||((t.indexOf('cash')>=0||/cash|earnings/i.test(ev.message||''))&&t.indexOf('piggy')<0))
+    parsed.earningsMultiplier=Math.max(parsed.earningsMultiplier,m>1?m:2.0);
    else if(t.indexOf('hab')>=0)parsed.extraLabels.push('-'+Math.round((discVal||0.5)*100)+'% לולים');
    else if(t.indexOf('vehicle')>=0)parsed.extraLabels.push('-'+Math.round((discVal||0.5)*100)+'% רכבים');
    else if(t.indexOf('gift')>=0)parsed.extraLabels.push(m+'x מתנות');
@@ -3913,7 +3916,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v75',
+  version:'v76',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4618,7 +4621,7 @@ $('btn-eid').onclick=function(){var b=$('eid-bar');b.style.display=(b.style.disp
 $('eid').onkeydown=function(e){if(e.key==='Enter')run($('eid').value,false)};
 function setArtFocus(val){if($('artFocus'))$('artFocus').value=val;sset('artFocus',val);if(last&&RES)show(last,RES)}
 ['slots','run','shipTarget','artFocus','fuelPct','tankFullOv'].forEach(function(id){$(id).onchange=function(){sset(id,$(id).value);if(last&&RES)show(last,RES)}});
-['ev-prestige','ev-epic','ev-common','ev-cap','ev-drones','ev-craft'].forEach(function(id){$(id).onchange=function(){manualEventOverrides[id]=true;if(last&&RES)show(last,RES)}});
+['ev-prestige','ev-epic','ev-common','ev-cap','ev-drones','ev-craft','ev-cash'].forEach(function(id){$(id).onchange=function(){manualEventOverrides[id]=true;if(last&&RES)show(last,RES)}});
 
 ['slots','run','shipTarget','artFocus','fuelPct','tankFullOv'].forEach(function(id){var v=sget(id);if(v)$(id).value=v});
 applyDefaultEventsIfUnset();
