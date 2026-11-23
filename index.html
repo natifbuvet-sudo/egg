@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 73</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 74</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -2329,16 +2329,16 @@ function checkColleggtibleStatus(k,b){
  return {isColleggtible:true,needs10B:(bestPop<1e10),bestPop:bestPop,customId:customId};
 }
 
-function getContractInventorySummary(b,permitTier){
+function getContractInventorySummary(b,permitTier,boostPool){
  var g=(b&&b.game)||{};
  var maxBoostSlots=(permitTier===3)?5:2;
- var owned=[];
+ var owned=[],reservedNames=[];
  (g.boosts||[]).forEach(function(bo){
   var bid=bo.boostId||bo.id||'';
-  if(bid && (bo.count||0)>0){
-   var info=getBoostInfo(bid);
-   owned.push({id:bid,count:bo.count,name:info.name,cat:info.cat,power:info.power});
-  }
+  var rawCnt=bo.count||0,resCnt=(boostPool&&boostPool[bid])||0,remCnt=Math.max(0,rawCnt-resCnt);
+  var info=bid?getBoostInfo(bid):null;
+  if(bid && remCnt>0)owned.push({id:bid,count:remCnt,name:info.name,cat:info.cat,power:info.power});
+  else if(bid && rawCnt>0 && resCnt>0 && info)reservedNames.push(info.name);
  });
  function pick(cat,minPwr,maxPwr){
   var list=owned.filter(function(x){
@@ -2364,7 +2364,8 @@ var availGE=Math.max(0,(g.goldenEggsEarned||0)-(g.goldenEggsSpent||0));
   bestBeacon10x:pick('beacon',10,49),bestBeacon5x:pick('beacon',5,9),
   bestBeacon2x:pick('beacon',2,9),
   bestMirror:pick('mirror',1,10000),
-  bestFeed:pick('feed',1,1000)
+  bestFeed:pick('feed',1,1000),
+  reservedNames:reservedNames
  };
 }
 var contractGoalModes={};
@@ -2376,8 +2377,8 @@ function setContractGoalMode(id,val){
  if(last&&RES)show(last,RES);
 }
 
-function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,runCapActive,walletTokens){
- var inv=getContractInventorySummary(b,permitTier);
+function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,runCapActive,walletTokens,boostPool){
+ var inv=getContractInventorySummary(b,permitTier,boostPool);
  var calmLv=(elv&&elv['int_hatch_calm'])||0;
  var calmMult=1 + 0.10*calmLv;
  var hasDilithium=!!(art && art.potentialDilithiumMult>1.01);
@@ -2434,19 +2435,20 @@ function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,r
   detailNote='הרכב '+(bestCube?bestCube.name:'Puzzle Cube')+', החזק תרנגולות רצות וקנה מחקרי הטלה, משלוח ולולים לפני שהבוסט נגמר.';
  }else if(cLogi && cLogi.pop<5e7 && ((cp && cp.affordableList.length>0) || cLogi.habPct<15)){
   stage='RESEARCH';
+  var saveEarnBoosts=(!isPriorityContract && !pointsOnly && cLogi.habPct>=5);
   if(inv.best10xFree){
-   combo.push({name:inv.best10xFree.name+' (0 טוקנים!)',useQty:1,tokens:0});
+   combo.push({id:inv.best10xFree.id,name:inv.best10xFree.name+' (0 טוקנים!)',useQty:1,tokens:0});
   }
-  if(inv.bestMirror){
-   combo.push({name:inv.bestMirror.name+' (1–2 טוקנים אם יש שחקן חזק ממך)',useQty:1,tokens:1});
+  if(!saveEarnBoosts && inv.bestMirror){
+   combo.push({id:inv.bestMirror.id,name:inv.bestMirror.name+' (1–2 טוקנים אם יש שחקן חזק ממך)',useQty:1,tokens:1});
    tokensNeeded=1;
    var fCost=inv.bestFeed?getBoostTokenCost(inv.bestFeed.id):0;
-   if(inv.bestFeed)combo.push({name:inv.bestFeed.name,useQty:1,tokens:fCost});
+   if(inv.bestFeed)combo.push({id:inv.bestFeed.id,name:inv.bestFeed.name,useQty:1,tokens:fCost});
    summary='שלב פתיחה ומחקר: '+(inv.best10xFree?inv.best10xFree.name+' (חינם) + ':'')+inv.bestMirror.name+(inv.bestFeed?' + '+inv.bestFeed.name:'');
    detailNote='הרכב '+(bestCube?bestCube.name:'Puzzle Cube')+' + '+coopArtName+' וקנה מחקרים. אם אתה השחקן החזק בקבוצה (או אין טוקנים), השתמש ב-'+(inv.bestFeed?inv.bestFeed.name+' ('+fCost+' טוקנים)':'תרנגולות רצות ידנית')+'.';
-  }else if(inv.bestFeed){
+  }else if(!saveEarnBoosts && inv.bestFeed){
    var fCost2=getBoostTokenCost(inv.bestFeed.id);tokensNeeded=fCost2;
-   combo.push({name:inv.bestFeed.name,useQty:1,tokens:fCost2});
+   combo.push({id:inv.bestFeed.id,name:inv.bestFeed.name,useQty:1,tokens:fCost2});
    summary='שלב פתיחה ומחקר (ללא Soul Mirror במלאי): '+(inv.best10xFree?inv.best10xFree.name+' + ':'')+inv.bestFeed.name;
    detailNote='הרכב '+(bestCube?bestCube.name:'Puzzle Cube')+' + Vial of Martian Dust, החזק תרנגולות רצות וקנה מחקרים.';
   }else{
@@ -2465,32 +2467,33 @@ function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,r
   }else if(!pointsOnly && inv.spare100x){
    var c100=getBoostTokenCost(inv.spare100x.id),m100=inv.spare100x.power>=120?24000:4000;
    tokensNeeded=c100*2;estPopGain=Math.round(baseIhrPerMin*m100);
-   combo.push({name:inv.spare100x.name,useQty:2,tokens:tokensNeeded});
+   combo.push({id:inv.spare100x.id,name:inv.spare100x.name,useQty:2,tokens:tokensNeeded});
    summary='מילוי לולים חסכוני מעודף מלאי ('+tokensNeeded+' טוקנים • ~'+fmt(estPopGain)+'): 2× '+inv.spare100x.name;
    detailNote='במצב פרסים עדיף לנצל עודף '+inv.spare100x.name+' ולשמור 1000x. '+prepArtNote+'.';
   }else if(canSpend1000x && inv.bestSupreme1000x){
    tokensNeeded=getBoostTokenCost(inv.bestSupreme1000x.id);estPopGain=Math.round(baseIhrPerMin*60000);
-   combo.push({name:inv.bestSupreme1000x.name,useQty:1,tokens:tokensNeeded});
+   combo.push({id:inv.bestSupreme1000x.id,name:inv.bestSupreme1000x.name,useQty:1,tokens:tokensNeeded});
    summary='מילוי לולים Speedrun ('+tokensNeeded+' טוקנים • סלוט 1 • ~'+fmt(estPopGain)+'): '+inv.bestSupreme1000x.name;
    detailNote=prepArtNote+', ולאחר ההפעלה '+exitFarmNote+'.';
   }else if(canSpend1000x && inv.bestLegendary1000x && inv.bestBeacon10x){
    var cT=getBoostTokenCost(inv.bestLegendary1000x.id),cB=getBoostTokenCost(inv.bestBeacon10x.id);
    tokensNeeded=cT+cB;estPopGain=Math.round(baseIhrPerMin*100000);
-   combo.push({name:inv.bestLegendary1000x.name,useQty:1,tokens:cT},{name:inv.bestBeacon10x.name,useQty:1,tokens:cB});
+   combo.push({id:inv.bestLegendary1000x.id,name:inv.bestLegendary1000x.name,useQty:1,tokens:cT});
+   combo.push({id:inv.bestBeacon10x.id,name:inv.bestBeacon10x.name,useQty:1,tokens:cB});
    summary='מילוי לולים מקסימלי ('+tokensNeeded+' טוקנים • 2 סלוטים • ~'+fmt(estPopGain)+'): '+inv.bestLegendary1000x.name+' + '+inv.bestBeacon10x.name;
    detailNote=prepArtNote+', ולאחר ההפעלה '+exitFarmNote+'.';
   }else if(canSpend1000x && inv.bestLegendary1000x){
    var cT2=getBoostTokenCost(inv.bestLegendary1000x.id),hasB2=!!inv.bestBeacon2x;
    var cB2=hasB2?getBoostTokenCost(inv.bestBeacon2x.id):0;
    tokensNeeded=cT2+cB2;estPopGain=Math.round(baseIhrPerMin*(hasB2?20000:10000));
-   combo.push({name:inv.bestLegendary1000x.name,useQty:1,tokens:cT2});
-   if(hasB2)combo.push({name:inv.bestBeacon2x.name,useQty:1,tokens:cB2});
+   combo.push({id:inv.bestLegendary1000x.id,name:inv.bestLegendary1000x.name,useQty:1,tokens:cT2});
+   if(hasB2)combo.push({id:inv.bestBeacon2x.id,name:inv.bestBeacon2x.name,useQty:1,tokens:cB2});
    summary='מילוי לולים ('+tokensNeeded+' טוקנים • ~'+fmt(estPopGain)+'): '+inv.bestLegendary1000x.name+(hasB2?' + '+inv.bestBeacon2x.name:'');
    detailNote=prepArtNote+', ולאחר ההפעלה '+exitFarmNote+'.';
   }else if(inv.best100x && inv.best100x.count>=2){
    var c1=getBoostTokenCost(inv.best100x.id),m1=inv.best100x.power>=120?24000:4000;
    tokensNeeded=c1*2;estPopGain=Math.round(baseIhrPerMin*m1);
-   combo.push({name:inv.best100x.name,useQty:2,tokens:tokensNeeded});
+   combo.push({id:inv.best100x.id,name:inv.best100x.name,useQty:2,tokens:tokensNeeded});
    summary='מילוי לולים (2 סלוטים • '+tokensNeeded+' טוקנים • ~'+fmt(estPopGain)+'): 2× '+inv.best100x.name;
    detailNote=(!canSpend1000x&&inv.total1000xCount>0?'שומר 1000x לחוזה PE/עונתי. ':'')+prepArtNote+', ולאחר ההפעלה '+exitFarmNote+'.';
   }else if(inv.best100x){
@@ -2499,8 +2502,8 @@ function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,r
    var b2C=b2Q>0?b2Q*getBoostTokenCost(inv.bestBeacon2x.id):0;
    var mult100=b2Q===3?(is2h?27000:4500):(b2Q===1?(is2h?15000:2500):(is2h?12000:2000));
    tokensNeeded=c1s+b2C;estPopGain=Math.round(baseIhrPerMin*mult100);
-   combo.push({name:inv.best100x.name,useQty:1,tokens:c1s});
-   if(b2Q>0)combo.push({name:inv.bestBeacon2x.name,useQty:b2Q,tokens:b2C});
+   combo.push({id:inv.best100x.id,name:inv.best100x.name,useQty:1,tokens:c1s});
+   if(b2Q>0)combo.push({id:inv.bestBeacon2x.id,name:inv.bestBeacon2x.name,useQty:b2Q,tokens:b2C});
    summary='מילוי לולים ('+tokensNeeded+' טוקנים • ~'+fmt(estPopGain)+'): '+inv.best100x.name+(b2Q>0?' + '+(b2Q>1?b2Q+'× ':'')+inv.bestBeacon2x.name:'');
    detailNote=prepArtNote+', '+exitFarmNote+', ולאחר מכן אסוף Chicken Boxes להשלמת הלולים.';
   }else if(inv.best10xFree){
@@ -2546,9 +2549,16 @@ function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,r
   }
  }
 
+ if(boostPool && combo.length){
+  combo.forEach(function(it){if(it.id)boostPool[it.id]=(boostPool[it.id]||0)+(it.useQty||1)});
+ }
+ if(inv.reservedNames.length){
+  detailNote+=(detailNote?' ':'')+'(שוריינו לחוזה עדיף: '+inv.reservedNames.join(', ')+')';
+ }
  return {
   stage:stage,
   combo:combo,
+  skippedInOtherContracts:inv.reservedNames,
   tokensNeeded:tokensNeeded,
   walletTokens:wTok,
   missingTokens:missTotal,
@@ -2716,7 +2726,7 @@ function availableContractInfo(c,b,archivedMap,now,art){
  };
 }
 
-function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
+function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
  var k=c.contract||{},id=c.contractIdentifier||k.identifier||'';
  var name=k.name||cleanContractName(id);
  var arch=(archivedMap&&archivedMap[id])||null;
@@ -2858,7 +2868,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap){
   soloProjected:Math.round(soloProj),onTrackWithoutBoosts:onTrackNoBoost};
  var collWithPace=Object.assign({},coll,{paceForecast:paceForecast});
  var walletTokens=(csRaw&&typeof csRaw.myBoostTokens==='number')?csRaw.myBoostTokens:null;
- var boostPlan=(!waitingCoop)?planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,collWithPace,pointsOnly,runCapActive,walletTokens):null;
+ var boostPlan=(!waitingCoop)?planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,collWithPace,pointsOnly,runCapActive,walletTokens,boostPool):null;
  var setSwapAdvice='';
  if(cf && !waitingCoop && cLogi){
   var bStg=boostPlan?boostPlan.stage:'';
@@ -3612,7 +3622,16 @@ function plan(b,R){
   return 0;
  });
 
- var CD=act.map(function(c){return contractInfo(c,b,R,elv,art,now,collegg,archivedMap)});
+ var boostPool={},actRanked=act.slice().sort(function(x,y){
+  function sc(ct){
+   var k=ct.contract||{},id=ct.contractIdentifier||k.identifier||'';
+   var gm=contractGoalModes[id]||'auto',pts=(gm==='cs')||(gm==='auto'&&(ct.pointsReplay||(ct.numGoalsAchieved||0)>=3));
+   var r=analyzeContractRewards(ct,b),cl=checkColleggtibleStatus(k,b);
+   return (pts?8:0)+((cl.needs10B||r.hasPE)?4:0)+(k.seasonId?2:0);
+  }
+  return sc(y)-sc(x);
+ });
+ var CD=actRanked.map(function(c){return contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool)});
  var activeRunning=CD.filter(function(d){return !d.waitingCoop});
  var rewardContracts=activeRunning.filter(function(d){return !d.pointsOnly});
  var pointsContracts=activeRunning.filter(function(d){return d.pointsOnly});
