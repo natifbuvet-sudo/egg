@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 71</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 72</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -1261,8 +1261,10 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier,events){
  var tCapF=TANK_CAPACITIES[Math.min(tLvlF,TANK_CAPACITIES.length-1)]||2e9;
  var tTotF=tFuels.reduce(function(x,y){return x+(Number(y)||0)},0);
  var rLimF=(eIdxF>=0&&tLims[eIdxF]!==undefined)?Number(tLims[eIdxF]):1,eLimF=(rLimF<=1.0001)?(rLimF*tCapF):rLimF;
- var curTankEggF=(eIdxF>=0&&tFuels[eIdxF]!==undefined)?Number(tFuels[eIdxF]):0;
- var tankTaking=!!(adb.fuelingEnabled && eIdxF>=0 && tTotF<tCapF-1 && curTankEggF<eLimF-1);
+ var curTankEggF=(eIdxF>=0&&tFuels[eIdxF]!==undefined)?Number(tFuels[eIdxF]):0,seF=Number(g.soulEggsD||g.soulEggs||0);
+ var isFuelEggF=(eIdxF>=0 && SHIP_ORDER.some(function(sk){var fm=SHIP_META[sk]&&SHIP_META[sk].fuels;return fm&&((fm.SHORT&&fm.SHORT[sim.eggType])||(fm.STANDARD&&fm.STANDARD[sim.eggType])||(fm.EXTENDED&&fm.EXTENDED[sim.eggType]))}));
+ var tankOpenF=(isHomeOrVirt && eIdxF>=0 && tTotF<tCapF-1 && curTankEggF<eLimF-1);
+ var tankTaking=!!(tankOpenF && (adb.fuelingEnabled || (seF>=100000 && isFuelEggF)));
  if(tankTaking)fuelRemEggs+=Math.max(0,Math.min(tCapF-tTotF,eLimF-curTankEggF));
  var isActivelyFueling=!!(isHomeOrVirt && (shipTaking || tankTaking)),fSel=($('fuelPct')?$('fuelPct').value:'auto')||'auto';
  var fuelFrac=!isHomeOrVirt?0:(fSel!=='auto'?Number(fSel):(isActivelyFueling?0.90:0));
@@ -3870,7 +3872,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v71',
+  version:'v72',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4145,9 +4147,9 @@ function show(b,R){
   :('<b>'+P.logi.rawPct.toFixed(0)+'%</b> ('+fmt(P.logi.totalLayRate/60)+'/שנ\' מתוך '+fmt(P.logi.totalShipCap/60)+'/שנ\')');
  h+=row(shipLbl,shipSub);
  h+='<div class="prog-bar"><div class="prog-fill '+shipBarCls+'" style="width:'+P.logi.shipUtilPct.toFixed(1)+'%"></div></div>';
- if(P.logi.isActivelyFueling||P.logi.fuelAllocPct>0){
-  var fpCur=($('fuelPct')?$('fuelPct').value:'auto')||'auto';
-  h+='<div class="row" style="margin:5px 0"><label style="flex:1;font-size:.78rem">תדלוק פעיל ('+(P.logi.shipTakingFuel?'ספינה':'מיכל דלק')+') — אחוז ביצים לתדלוק<select onchange="$(\'fuelPct\').value=this.value;$(\'fuelPct\').onchange()" style="padding:4px 7px;font-size:.78rem">';
+ if(!P.macro.isVirt){
+  var fpCur=($('fuelPct')?$('fuelPct').value:'auto')||'auto',fModeLbl=P.logi.isActivelyFueling?(P.logi.shipTakingFuel?'תדלוק ספינה פעיל':'תדלוק מיכל דלק פעיל'):'הקצאת ביצים לתדלוק';
+  h+='<div class="row" style="margin:5px 0"><label style="flex:1;font-size:.78rem">'+fModeLbl+'<select onchange="$(\'fuelPct\').value=this.value;$(\'fuelPct\').onchange()" style="padding:4px 7px;font-size:.78rem">';
   h+='<option value="auto"'+(fpCur==='auto'?' selected':'')+'>אוטומטי (90% לתדלוק)</option>';
   h+='<option value="1"'+(fpCur==='1'?' selected':'')+'>100% לתדלוק</option>';
   h+='<option value="0.9"'+(fpCur==='0.9'?' selected':'')+'>90% לתדלוק</option>';
