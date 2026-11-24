@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 78</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 79</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -539,6 +539,7 @@ function getEggIncPacificSchedule(){
   evDay:evDay,
   isEggDay:isEggDay,
   isMondayCash:(evDay===1),
+  isTuesdayDrones:(evDay===2),
   isFridayResearch:(evDay===5),
   isWeekendPrestige:(evDay===6 || isEggDay),
   isSundayEpic:(evDay===0 && sunWks%2===0),
@@ -621,8 +622,8 @@ function getActiveEvents(){
  var commChecked=($('ev-common')?$('ev-common').checked:autoCommon);
  var epicChecked=($('ev-epic')?$('ev-epic').checked:autoEpic);
  var craftChecked=($('ev-craft')?$('ev-craft').checked:autoCraft);
- var autoCash=sched.isMondayCash;
- var droneChecked=($('ev-drones')?$('ev-drones').checked:false);
+ var autoCash=sched.isMondayCash,autoDrones=sched.isTuesdayDrones;
+ var droneChecked=($('ev-drones')?$('ev-drones').checked:autoDrones);
  var capChecked=($('ev-cap')?$('ev-cap').checked:false);
  var cashChecked=($('ev-cash')?$('ev-cash').checked:autoCash);
  var srvPrest=(liveServerEvents&&liveServerEvents.prestigeMultiplier>1)?liveServerEvents.prestigeMultiplier:0;
@@ -638,7 +639,7 @@ function getActiveEvents(){
   syncNote:liveEventsSyncNote,
   extraLabels:(liveServerEvents&&liveServerEvents.extraLabels)||[],
   rawTypes:(liveServerEvents&&liveServerEvents.rawTypes)||[],
-  autoDefaults:{prestige:autoPrestige,common:autoCommon,epic:autoEpic,craft:autoCraft,cash:autoCash}
+  autoDefaults:{prestige:autoPrestige,common:autoCommon,epic:autoEpic,craft:autoCraft,cash:autoCash,drones:autoDrones}
  };
 }
 
@@ -649,6 +650,7 @@ function applyDefaultEventsIfUnset(){
  if($('ev-epic') && !manualEventOverrides['ev-epic'])$('ev-epic').checked=defEv.epic;
  if($('ev-craft') && !manualEventOverrides['ev-craft'])$('ev-craft').checked=defEv.craft;
  if($('ev-cash') && !manualEventOverrides['ev-cash'])$('ev-cash').checked=defEv.cash;
+ if($('ev-drones') && !manualEventOverrides['ev-drones'])$('ev-drones').checked=defEv.drones;
 }
 
 function toggleEvent(id){
@@ -1535,7 +1537,8 @@ function calcEggProgress(b,sim,logi,fuelInfo){
  var willCrossNextEggAt90=!!(nextEggIsPrestigeUpgrade && fvAt90Pct>=reqUpgradeFV);
 
  var isFuelEggForShip=(fuelInfo.reqFuels.indexOf(curEgg)>=0);
- var shouldFillTankFirst=(fuelInfo.hasFuelTank && isFuelEggForShip && !fuelInfo.hasFuelInTank && fuelInfo.tankFreeSpace>=1e8);
+ var holdFuelForSE=!!(fuelInfo.shipProg&&fuelInfo.shipProg.holdShipForSE);
+ var shouldFillTankFirst=(fuelInfo.hasFuelTank && isFuelEggForShip && !fuelInfo.hasFuelInTank && fuelInfo.tankFreeSpace>=1e8 && !holdFuelForSE);
  var estActEggMins=Infinity,estIdleEggMins=Infinity;
  if(nextEgg && reqUpgradeFV>0 && !canUpgradeEgg && curFV>0){
   var reqPop=logi.pop*Math.pow(reqUpgradeFV/curFV,1/0.6),fvGap=Math.max(0,reqUpgradeFV-curFV);
@@ -3068,6 +3071,7 @@ function detectBestShip(b,isVirt,events,hasFuelTank,curSE,permitTier){
  var estUnlockSec=missingLaunches*(SHIP_SHORT_SECS[curShipKey]||0);
 
  var isAutoShip=(!sel || sel==='auto');
+ var holdShipForSE=(isAutoShip && !!nextShip && missingLaunches===0 && missingSE>0 && unlockedIdx<9 && !(events && events.missionCapacityMultiplier>1));
  var preferExtended=(target==='ATREGGIES' || (!isAutoShip && target==='HENERPRISE') || (target==='HENERPRISE' && curSE<5e13));
  var durKey=preferExtended?'EXTENDED':'SHORT';
  var missionDur=preferExtended?'Extended':'Short';
@@ -3093,7 +3097,7 @@ function detectBestShip(b,isVirt,events,hasFuelTank,curSE,permitTier){
    return {curXP:xp,curStars:stars,maxStars:arr.length,nextStarXP:nxt,fleet:fleet,
     remStarLaunches:nxt>xp?Math.ceil((nxt-xp)/xpL):0,remMaxLaunches:Math.max(0,Math.ceil((arr[arr.length-1]-xp)/xpL))};
   })(),
-  nextShip:nextShip,nextMeta:nextMeta,missingLaunches:missingLaunches,missingSE:missingSE,
+  nextShip:nextShip,nextMeta:nextMeta,missingLaunches:missingLaunches,missingSE:missingSE,holdShipForSE:holdShipForSE,
   preferExtended:preferExtended,durKey:durKey,missionDur:missionDur,
   fundCost:tMeta.fundCost
  };
@@ -3573,7 +3577,7 @@ function plan(b,R){
 
  if(!fuelInfo.launchpadUnlocked){
   a.push([72,'פתיחת ספינות: צבור 10,000 SE לפתיחת כן השיגור','חסרים '+fmt(Math.max(0,10000-fuelInfo.curSE))+' Soul Eggs (והגעה לביצת Rocket Fuel עם 100K ביצים/דקה) כדי להתחיל לשגר ספינות.']);
- }else if(free>0 && !directFuelBeforeReset){
+ }else if(free>0 && !directFuelBeforeReset && !fuelInfo.shipProg.holdShipForSE){
   var durLabel=fuelInfo.shipProg.missionDur,spH=fuelInfo.shipProg;
   var onlyNeedsSE=(spH.nextShip && spH.missingLaunches===0 && spH.missingSE>0);
   var unlockGoalTxt='';
@@ -3962,7 +3966,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v78',
+  version:'v79',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4559,8 +4563,9 @@ function show(b,R){
   var seTxt=sp.missingSE>0?(' • חסרים רק <b>'+fmt(sp.missingSE)+' SE</b> (יעד: '+fmt(sp.nextMeta.reqSE)+' SE)'):'';
   h+='<div class="status-banner '+(sp.missingLaunches===0&&sp.missingSE===0?'do':'hold')+'" style="margin-top:6px">';
   h+='<b>הספינה הבאה לפתיחה ('+(sp.unlockedIdx+2)+'/'+SHIP_ORDER.length+'): '+esc(shipName(sp.nextShip))+'</b>';
+  var doneLbl=sp.holdShipForSE?' (הושלם ✓ — משהים שיגורים לחיסכון בדלק)':' (הושלם ✓)';
   h+='<div class="prog-bar"><div class="prog-fill '+(lPct>=100?'ok':'')+'" style="width:'+lPct.toFixed(1)+'%"></div></div>';
-  h+='<small>שיגורי '+esc(shipName(sp.highestUnlockedShip))+': <b>'+sp.curShipLaunches+'/'+reqL+'</b>'+(sp.missingLaunches>0?' (נותרו '+sp.missingLaunches+etaTxt+')':' (הושלם ✓)')+seTxt+'.</small></div>';
+  h+='<small>שיגורי '+esc(shipName(sp.highestUnlockedShip))+': <b>'+sp.curShipLaunches+'/'+reqL+'</b>'+(sp.missingLaunches>0?' (נותרו '+sp.missingLaunches+etaTxt+')':doneLbl)+seTxt+'.</small></div>';
  }else if(sp.unlockedIdx>=SHIP_ORDER.length-1){
   h+='<div class="status-banner do" style="margin-top:6px"><b>צי ספינות מלא (11/11):</b><small>פתחת את Atreggies Henliner — הספינה המתקדמת במשחק!</small></div>';
  }
