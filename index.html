@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 79</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 80</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -3271,7 +3271,14 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  };
 }
 
-function resolveArtifactContext(b,art,logi,macro,prestigeInfo,eggProg,hasActiveBoost,runMode,activeRunning,CD){
+function checkDroneSetEquipped(art){
+ if(!art||!art.setDrones||!art.setDrones.length)return false;
+ var eq={};
+ (art.equipped||[]).forEach(function(it){if(!eq[it.rawName]||(it.score||0)>eq[it.rawName].score)eq[it.rawName]=it;});
+ return art.setDrones.every(function(t){var cur=eq[t.rawName];return !!cur&&(cur.score||0)>=(t.score||0);});
+}
+
+function resolveArtifactContext(b,art,logi,macro,prestigeInfo,eggProg,hasActiveBoost,runMode,activeRunning,CD,events){
  var focusPref=($('artFocus')?$('artFocus').value:'auto')||'auto';
  var farms=b.farms||[];
 
@@ -3301,8 +3308,13 @@ function resolveArtifactContext(b,art,logi,macro,prestigeInfo,eggProg,hasActiveB
   mode=macro.isEnl?'enlightenment':'home_active';
  }else if(focusPref==='home_passive'){
   mode=macro.isEnl?'enlightenment':(logi.lunarBeatsActive?'home_lunar':'home_passive');
+ }else if(focusPref==='drones'){
+  mode='drones';
  }else{
-  if(macro.isEnl){
+  var droneEvOn=(events&&events.droneMultiplier>1&&art&&art.setDrones&&art.setDrones.length>0);
+  if(droneEvOn && (checkDroneSetEquipped(art) || (!hasActiveBoost && prestigeInfo.status!=='boost_then_prestige' && runMode!=='ready'))){
+   mode='drones';
+  }else if(macro.isEnl){
    mode='enlightenment';
   }else if(macro.isVirt){
    mode=(hasActiveBoost)?'home_active':'home_passive';
@@ -3390,6 +3402,17 @@ function resolveArtifactContext(b,art,logi,macro,prestigeInfo,eggProg,hasActiveB
    isOptimal:(art.setContract.length===0 || fbMissing.length===0),
    gainBoostPct:0,
    whyNote:'סט חוזים כללי ללא תלות בריצת תרנגולות.'
+  };
+ }
+
+ if(mode==='drones'){
+  var dMult=(events&&events.droneMultiplier>1)?events.droneMultiplier:4;
+  return {
+   focusPref:focusPref,mode:'drones',modeBadge:'אירוע Generous Drones ('+dMult+'x GE)',
+   contractId:null,contractName:'',contractStage:'',stageLabel:'ציד רחפנים',
+   targetSet:art.setDrones,equippedList:art.equipped,farmLabel:'בחווה',
+   isOptimal:checkDroneSetEquipped(art),gainBoostPct:0,
+   whyNote:'ממקסם פרסי GE ותדירות רחפנים בזמן אירוע Generous Drones.'
   };
  }
 
@@ -3544,9 +3567,10 @@ function plan(b,R){
   }
  }
 
- if(events.droneMultiplier>1){
-  var droneNames=art.setDrones.length?art.setDrones.map(function(x){return x.name}).join(' + '):'Aurelian Brooch + Neodymium Medallion + Beak of Midas';
-  a.push([13,'אירוע Generous Drones (4x GE): הרכב סט ציד רחפנים ('+droneNames+')','הזדמנות מעולה לצבור Golden Eggs מרחפנים! טיפ: על ביצת Enlightenment עם אבני Clarity יעילות הסט מזנקת מעל 100%.','artifacts']);
+ if(events.droneMultiplier>1 && !checkDroneSetEquipped(art)){
+  var dNames=art.setDrones.length?art.setDrones.map(function(x){return x.name}).join(' + '):'Aurelian Brooch + Neodymium Medallion + Beak of Midas';
+  var dTip='הזדמנות מעולה לצבור Golden Eggs מרחפנים! טיפ: על ביצת Enlightenment עם אבני Clarity יעילות הסט מזנקת מעל 100%.';
+  a.push([13,'אירוע Generous Drones ('+events.droneMultiplier+'x GE): הרכב סט ציד רחפנים ('+dNames+')',dTip,'artifacts']);
  }
 
  if(logi.shipBottleneck){
@@ -3692,11 +3716,11 @@ function plan(b,R){
  var pointsContracts=activeRunning.filter(function(d){return d.pointsOnly});
  var waitingContracts=CD.filter(function(d){return d.waitingCoop});
 
- var artCtx=resolveArtifactContext(b,art,logi,macro,prestigeInfo,eggProg,hasActiveBoost,runMode,activeRunning,CD);
+ var artCtx=resolveArtifactContext(b,art,logi,macro,prestigeInfo,eggProg,hasActiveBoost,runMode,activeRunning,CD,events);
  var isArtOptimal=artCtx.isOptimal;
  var targetArtNames=artCtx.targetSet.map(function(x){return x.name}).join(' + ');
  var eqTargetNames=artCtx.equippedList.map(function(x){return x.name}).join(' + ');
- if(targetArtNames && !isArtOptimal){
+ if(targetArtNames && !isArtOptimal && artCtx.mode!=='drones'){
   var artTitle='';
   if(artCtx.mode==='contract'){
    artTitle=artCtx.contractName
@@ -3966,7 +3990,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v79',
+  version:'v80',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4311,6 +4335,7 @@ function show(b,R){
  h+='<option value="contract"'+(ctx.focusPref==='contract'?' selected':'')+'>עבודה על חוזה (Contract)</option>';
  h+='<option value="home_passive"'+(ctx.focusPref==='home_passive'?' selected':'')+'>חווה ראשית — פאסיבי (ללא ריצת תרנגולות)</option>';
  h+='<option value="home_active"'+(ctx.focusPref==='home_active'?' selected':'')+'>חווה ראשית — ריצת תרנגולות פעילה</option>';
+ h+='<option value="drones"'+(ctx.focusPref==='drones'?' selected':'')+'>ציד רחפנים (Generous Drones GE)</option>';
  h+='</select></label></div>';
  h+='<div class="status-banner '+(ctx.isOptimal?'hold':'do')+'"><b>'+(ctx.isOptimal?'✓ הסט המומלץ כבר מורכב':'המלצת ארטיפקטים פעילה')+' ('+esc(ctx.modeBadge)+'):</b>';
  h+='<small><b>מומלץ:</b> '+ctxTargetStr+'<br><b>מורכב '+esc(ctx.farmLabel)+' כרגע:</b> '+ctxEqStr+'<br>'+esc(ctx.whyNote)+'</small></div>';
