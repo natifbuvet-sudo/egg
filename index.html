@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 80</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 81</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -2086,6 +2086,9 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   });
   var scProd=pickSet(['TACHYON_DEFLECTOR','QUANTUM_METRONOME','INTERSTELLAR_COMPASS','ORNATE_GUSSET','THE_CHALICE'],avail);
   if(!avail['TACHYON_DEFLECTOR']&&avail['SHIP_IN_A_BOTTLE']&&scProd.length<maxArtSlots)scProd.unshift(avail['SHIP_IN_A_BOTTLE']);
+  if(!scProd.length&&Object.keys(avail).length){
+   scProd=Object.keys(avail).map(function(k){return avail[k]}).sort(function(a,b){return (b.score||0)-(a.score||0)}).slice(0,maxArtSlots);
+  }
   var skipList=Object.keys(skipped).filter(function(k){return !avail[k]||avail[k].score<bestOwned[k].score}).map(function(k){return skipped[k]});
   return {bestOwned:avail,setContract:scProd,setContractResearch:pickSet(contractResKeys,avail),setContractIHR:pickSet(['TACHYON_DEFLECTOR','THE_CHALICE','ORNATE_GUSSET','DILITHIUM_MONOCLE','QUANTUM_METRONOME'],avail),skippedInOtherContracts:skipList};
  }
@@ -2625,7 +2628,8 @@ function buildPointsPlaybook(opts,art,boostPlan){
 
  var bestDef=(art&&art.setContract)?art.setContract.filter(function(x){return x.rawName==='TACHYON_DEFLECTOR'})[0]:null;
  var bestSiab=(art&&art.bestOwned)?art.bestOwned['SHIP_IN_A_BOTTLE']:null;
- var defLabel=bestDef?bestDef.name:(bestSiab?(bestSiab.name+' (חלופה כשאין Deflector)'):'Tachyon Deflector / Ship in a Bottle');
+ var cFb=(art&&art.setContract&&art.setContract[0])?art.setContract[0].name:'הארטיפקט הטוב ביותר במלאי';
+ var defLabel=bestDef?bestDef.name:(bestSiab?(bestSiab.name+' (חלופה מהמלאי)'):cFb);
  var siabLabel=bestSiab?bestSiab.name:'Ship in a Bottle';
 
  var reasons=[];
@@ -2827,7 +2831,8 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
  var defItem=(art && art.setContract)?art.setContract.filter(function(x){return x.rawName==='TACHYON_DEFLECTOR'})[0]:null;
  var siabItem=(art && art.bestOwned)?art.bestOwned['SHIP_IN_A_BOTTLE']:null;
  var fallbackArt=(art && art.setContract && art.setContract.length)?art.setContract[0].name:'הארטיפקטים מהמלאי';
- var defLabel=defItem?defItem.name:(siabItem?(siabItem.name+' (חלופה מהמלאי)'):fallbackArt);
+ var anyC=(art&&art.setContract&&art.setContract[0])?art.setContract[0].name:'';
+ var defLabel=defItem?defItem.name:(siabItem?(siabItem.name+' (חלופה מהמלאי)'):(anyC||'ללא Deflector במלאי'));
  var cfAlerts=[];
 
  if(cf && !waitingCoop){
@@ -3990,7 +3995,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v80',
+  version:'v81',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4570,6 +4575,11 @@ function show(b,R){
  }
  h+='</div>';
 
+ if(P.fuelInfo.hasFuelTank){
+  var tfList=EGG_ORDER.map(function(eg,idx){var amt=(P.fuelInfo.tank&&P.fuelInfo.tank[idx])||0;
+   return amt>0?(esc(EGG_HE[eg]||eg)+': <b>'+fmt(amt)+'</b>'):null;}).filter(Boolean);
+  h+='<div class="card"><h3>מלאי דלק במיכל</h3>'+(tfList.length?row('ביצים שמורות במיכל',tfList.join(' • ')):'<small>המיכל ריק.</small>')+'</div>';
+ }
  h+='<div id="sec-epic" class="card"><h3>מחקר אפיק ודלק ספינות</h3>';
  h+=row('ספינות פעילות / פנויות','<b>'+P.busy+'/'+P.shipSlots+'</b> ('+P.free+' פנויות)');
  var sp=P.fuelInfo.shipProg,targetUnlockedLbl=sp.isTargetUnlocked?' (נעולה)':' (פתוחה ✓)';
