@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 82</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 83</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -196,6 +196,7 @@ details summary::-webkit-details-marker{display:none}
 <label class="chk-item"><input type="checkbox" id="ev-drones"> Generous Drones (GE)</label>
 <label class="chk-item"><input type="checkbox" id="ev-craft"> 30% הנחת Crafting</label>
 <label class="chk-item"><input type="checkbox" id="ev-cash"> 2x Cash Boost</label>
+<label class="chk-item"><input type="checkbox" id="ev-boost-dur"> 2x זמני בוסטים</label>
 </div>
 </div>
 </details>
@@ -636,6 +637,7 @@ function getActiveEvents(){
   droneMultiplier:droneChecked?(liveServerEvents&&liveServerEvents.droneMultiplier>1?liveServerEvents.droneMultiplier:4.0):1.0,
   missionCapacityMultiplier:capChecked?(liveServerEvents&&liveServerEvents.missionCapacityMultiplier>1?liveServerEvents.missionCapacityMultiplier:2.0):1.0,
   earningsMultiplier:cashChecked?(liveServerEvents&&liveServerEvents.earningsMultiplier>1?liveServerEvents.earningsMultiplier:2.0):1.0,
+  boostDurationMultiplier:($('ev-boost-dur')&&$('ev-boost-dur').checked)?2.0:1.0,
   fromServer:!!liveServerEvents,
   syncNote:liveEventsSyncNote,
   extraLabels:(liveServerEvents&&liveServerEvents.extraLabels)||[],
@@ -3120,6 +3122,8 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  var db=b.artifactsDb||{};
  var vafx=(b.virtue&&b.virtue.afx)||{};
  var rawTank=isVirt?(vafx.tankFuels||[]):(db.tankFuels||[]);
+ var manEggEl=$('manualTankEgg'),manAmtEl=$('manualTankAmt');
+ var manEgg=manEggEl?manEggEl.value:'',manAmt=manAmtEl?(Number(String(manAmtEl.value).replace(/,/g,''))||0):0;
  var tankLevel=isVirt?Number(vafx.tankLevel||db.tankLevel||0):Number(db.tankLevel||0);
  var hasTankData=Array.isArray(rawTank)&&rawTank.some(function(v){return Number(v)>0;});
  var rawTankTotal=rawTank.reduce(function(x,y){return x+(Number(y)||0)},0);
@@ -3127,7 +3131,9 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  if(tankManualFull && rawTankTotal>0){
   tankManualFull=false;if($('tankFullOv'))$('tankFullOv').value='auto';sset('tankFullOv','auto');
  }
- var tank=rawTank.slice(),tankTotal=rawTankTotal;
+ var tank=rawTank.slice();
+ if(manEgg && manAmt>0){var mIdx=EGG_ORDER.indexOf(manEgg);if(mIdx>=0)tank[mIdx]=manAmt;}
+ var tankTotal=tank.reduce(function(x,y){return x+(Number(y)||0)},0);
  var hasAnyMissions=((db.missionInfos&&db.missionInfos.length>0)||(db.missionArchive&&db.missionArchive.length>0));
 
  var launchpadUnlocked=(curSE>=10000 || hasAnyMissions || isVirt);
@@ -4002,7 +4008,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v82',
+  version:'v83',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4621,6 +4627,7 @@ function show(b,R){
    ?' <button class="icon-btn" style="font-size:.72rem;padding:2px 7px" onclick="$(\'tankFullOv\').value=\'auto\';$(\'tankFullOv\').onchange()">ידני ✓ (אפס)</button>'
    :(tankPct<99?' <button class="icon-btn" style="font-size:.72rem;padding:2px 7px" onclick="$(\'tankFullOv\').value=\'full\';$(\'tankFullOv\').onchange()">סמן כמלא ✓</button>':'');
   h+=row('מיכל דלק (רמה '+P.fuelInfo.tankLevel+')','<b>'+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+'</b> ('+tankPct.toFixed(0)+'%)'+tfBtn);
+  h+='<div class="row" style="margin:5px 0"><label style="flex:1;font-size:.78rem">עדכון ידני לביצה במיכל<select id="manualTankEgg" style="margin-top:3px"><option value="">-- בחר ביצה --</option>'+EGG_ORDER.map(function(eg){return '<option value="'+eg+'">'+(EGG_HE[eg]||eg)+'</option>';}).join('')+'</select></label><label style="flex:1;font-size:.78rem">כמות נוכחית במיכל<input id="manualTankAmt" type="number" min="0" step="any" placeholder="למשל 50000000000" style="width:100%;margin-top:3px"></label></div>';
   if(!P.fuelInfo.hasTankData){
    h+='<div class="status-banner hold" style="margin-top:6px"><b>אין נתוני מיכל עדכניים מהגיבוי:</b><small>הזן ידנית <b>מצב מיכל דלק</b> או הוסף ביצי דלק מהמשחק כדי לחשב במדויק.</small></div>';
   }
