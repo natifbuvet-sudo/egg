@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 85</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 86</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -503,6 +503,19 @@ function getBoostInfo(id){
 
 var SUF=['','K','M','B','T','q','Q','s','S','o','N','d','U','D','Td','qd','Qd','sd','Sd','Od','Nd','V','uV','dV','tV','qV','QV','sV','SV','OV','NV','Tg'];
 function fmt(n){n=Number(n)||0;if(!isFinite(n))return '∞';if(n<0)n=0;var i=0;while(n>=1000&&i<SUF.length-1){n/=1000;i++}return (i?n.toFixed(2):Math.round(n))+SUF[i]}
+function parseShortNum(v){
+ if(typeof v==='number')return isFinite(v)&&v>=0?v:0;
+ var s=String(v||'').trim().replace(/,/g,'').replace(/\s+/g,'');
+ if(!s)return 0;
+ if(/^[0-9]*\.?[0-9]+([eE][+-]?[0-9]+)?$/.test(s))return Math.max(0,Number(s)||0);
+ var m=s.match(/^([0-9]*\.?[0-9]+)([a-zA-Z]+)$/);
+ if(!m)return 0;
+ var num=Number(m[1]),suf=m[2];
+ if(!isFinite(num)||num<0)return 0;
+ var idx=SUF.indexOf(suf);
+ if(idx<0){var low=suf.toLowerCase(),map={k:1,m:2,b:3,t:4,q:5,s:7,o:9,n:10,d:11,u:12};idx=map[low]!==undefined?map[low]:-1;}
+ return idx>=0?num*Math.pow(1000,idx):0;
+}
 function fmtWait(mins){
  if(!isFinite(mins)||mins<=0)return 'מיידי';
  if(mins<1)return 'פחות מדקה';
@@ -3135,7 +3148,7 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  var savedMan=null;try{savedMan=JSON.parse(sget('manualTankState')||'null');}catch(e){}
  var manEggEl=$('manualTankEgg'),manAmtEl=$('manualTankAmt');
  var manEgg=(manEggEl&&manEggEl.value)?manEggEl.value:(savedMan&&savedMan.egg||'');
- var manAmt=(manAmtEl&&manAmtEl.value!=='')?(Number(String(manAmtEl.value).replace(/,/g,''))||0):(savedMan?Number(savedMan.amt||0):0);
+ var manAmt=(manAmtEl&&manAmtEl.value!=='')?parseShortNum(manAmtEl.value):(savedMan?parseShortNum(savedMan.amt):0);
  var tankLevel=isVirt?Number(vafx.tankLevel||db.tankLevel||0):Number(db.tankLevel||0);
  var hasTankData=Array.isArray(rawTank)&&rawTank.some(function(v){return Number(v)>0;});
  var rawTankTotal=rawTank.reduce(function(x,y){return x+(Number(y)||0)},0);
@@ -3287,7 +3300,8 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
   var idl=(costMap[eg]||0)*dmLaunches,st=tank[EGG_ORDER.indexOf(eg)]||0;
   return {egg:eg,name:EGG_HE[eg],ideal:idl,toAdd:Math.max(0,idl-st),excess:Math.max(0,st-idl)};
  }):null;
- var tankPlan={maxLaunchesInCap:dmLaunches||maxLaunchesInCap,oneLaunchFuel:dmLaunches?7e12:oneLaunchFuel,unrelatedFuel:unrelatedFuel,splits:dmSplits||tankSplits,sitEgg:dmLaunches?'DARK_MATTER':null};
+ var actSplits=dmSplits||tankSplits,planEggs=actSplits.map(function(sp){return {egg:sp.egg,name:sp.name,ideal:sp.ideal,toAdd:sp.toAdd,excess:sp.excess,delta:sp.excess-sp.toAdd};});
+ var tankPlan={maxLaunchesInCap:dmLaunches||maxLaunchesInCap,oneLaunchFuel:dmLaunches?7e12:oneLaunchFuel,unrelatedFuel:unrelatedFuel,splits:actSplits,eggs:planEggs,sitEgg:dmLaunches?'DARK_MATTER':null};
 
  return {
   curSE:curSE,launchpadUnlocked:launchpadUnlocked,hasFuelTank:hasFuelTank,hasTankData:hasTankData,fuelBreakdown:fuelBreakdown,fuelActionPlan:fuelActionPlan,tankPlan:tankPlan,
@@ -4355,7 +4369,8 @@ function show(b,R){
  }
  if(P.boostInfo.active.length){
   h+='<div style="margin-top:6px"><small><b>בוסטים פעילים כעת ('+P.boostInfo.active.length+'/'+P.boostInfo.maxBoostSlots+'):</b></small></div>';
-  P.boostInfo.active.forEach(function(ab){h+=row(esc(ab.name),'<span class="tag-ok">נותרו '+Math.ceil(ab.timeRemaining/60)+' דק\'</span>')});
+  var bDurM=P.events.boostDurationMultiplier||1;
+ P.boostInfo.active.forEach(function(ab){var remM=Math.ceil((ab.timeRemaining*(bDurM>1?bDurM:1))/60),extLbl=bDurM>1?' <span class="stone-pill">×'+bDurM+' משך</span>':'';h+=row(esc(ab.name)+extLbl,'<span class="tag-ok">נותרו '+remM+' דק\'</span>')});
  }
  h+='</div>';
 
@@ -4643,8 +4658,10 @@ function show(b,R){
    :(tankPct<99?' <button class="icon-btn" style="font-size:.72rem;padding:2px 7px" onclick="$(\'tankFullOv\').value=\'full\';$(\'tankFullOv\').onchange()">סמן כמלא ✓</button>':'');
   h+=row('מיכל דלק (רמה '+P.fuelInfo.tankLevel+')','<b>'+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+'</b> ('+tankPct.toFixed(0)+'%)'+tfBtn);
   var curMan={egg:'',amt:''};try{var sm=JSON.parse(sget('manualTankState')||'null');if(sm){curMan.egg=sm.egg||'';curMan.amt=sm.amt||'';}}catch(e){}
+  var tQ=(window._tankQ||'').trim().toLowerCase(),filtEggs=EGG_ORDER.filter(function(eg){var nm=(EGG_HE[eg]||eg).toLowerCase();return !tQ||nm.indexOf(tQ)>=0||eg.toLowerCase().indexOf(tQ)>=0;});
+  if(curMan.egg&&filtEggs.indexOf(curMan.egg)<0)filtEggs.unshift(curMan.egg);
   var onManChg="var eg=$('manualTankEgg').value,am=$('manualTankAmt').value;sset('manualTankState',JSON.stringify({egg:eg,amt:am}));if(last&&RES)show(last,RES);";
-  h+='<div class="row" style="margin:5px 0"><label style="flex:1;font-size:.78rem">עדכון ידני לביצה במיכל<select id="manualTankEgg" onchange="'+onManChg+'" style="margin-top:3px"><option value="">-- בחר ביצה --</option>'+EGG_ORDER.map(function(eg){return '<option value="'+eg+'"'+(curMan.egg===eg?' selected':'')+'>'+(EGG_HE[eg]||eg)+'</option>';}).join('')+'</select></label><label style="flex:1;font-size:.78rem">כמות נוכחית במיכל<input id="manualTankAmt" type="number" min="0" step="any" value="'+esc(curMan.amt)+'" onchange="'+onManChg+'" placeholder="למשל 50000000000" style="width:100%;margin-top:3px"></label></div>';
+  h+='<div class="row" style="margin:5px 0"><label style="flex:1;font-size:.78rem">חיפוש ביצה<input id="manualTankSearch" type="search" value="'+esc(window._tankQ||'')+'" oninput="window._tankQ=this.value;if(last&&RES)show(last,RES)" placeholder="הקלד ביצה..." style="margin-top:3px"></label><label style="flex:1;font-size:.78rem">ביצה למיכל<select id="manualTankEgg" onchange="'+onManChg+'" style="margin-top:3px"><option value="">-- בחר ביצה --</option>'+filtEggs.map(function(eg){return '<option value="'+eg+'"'+(curMan.egg===eg?' selected':'')+'>'+(EGG_HE[eg]||eg)+'</option>';}).join('')+'</select></label><label style="flex:1;font-size:.78rem">כמות (למשל 1.7B)<input id="manualTankAmt" type="text" value="'+esc(curMan.amt)+'" onchange="'+onManChg+'" placeholder="1.7B / 500M / 2.5T" style="margin-top:3px"></label></div>';
   var shipFuelGap=Math.max(0,(P.fuelInfo.tankPlan&&P.fuelInfo.tankPlan.oneLaunchFuel||0)-P.fuelInfo.tankTotal);
   h+=row('סיכום מיכל מול שיגור','חסר לשיגור מלא: <b>'+fmt(shipFuelGap)+'</b> • קיבולת: <b>'+fmt(P.fuelInfo.tankCapacity)+'</b>');
   if(!P.fuelInfo.hasTankData){
@@ -4672,8 +4689,8 @@ function show(b,R){
   h+='<div class="status-banner '+(tp.maxLaunchesInCap>0?'do':'hold')+'" style="margin-top:6px">';
   if(tp.maxLaunchesInCap>0){
    h+='<b>תוכנית מילוי אופטימלית למיכל ('+tp.maxLaunchesInCap+' שיגורים מלאים):</b>';
-   tp.splits.forEach(function(sp){
-    var stTxt=sp.toAdd>0?('להוסיף +'+fmt(sp.toAdd)):(sp.excess>0?('עודף '+fmt(sp.excess)):'מלא ✓');
+   (tp.eggs||tp.splits).forEach(function(sp){
+    var stTxt=sp.toAdd>0?('חוסר -'+fmt(sp.toAdd)):(sp.excess>0?('עודף +'+fmt(sp.excess)):'מלא ✓');
     h+='<div style="font-size:.78rem;margin-top:2px">• '+esc(sp.name)+': יעד <b>'+fmt(sp.ideal)+'</b> ('+stTxt+')</div>';
    });
    if(tp.unrelatedFuel>0)h+='<small style="display:block;margin-top:3px">שים לב: יש במיכל '+fmt(tp.unrelatedFuel)+' דלק מביצים לא קשורות שתופס נפח.</small>';
