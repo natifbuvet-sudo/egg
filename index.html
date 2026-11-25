@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 89</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 90</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -526,8 +526,15 @@ function fmtWait(mins){
 }
 function esc(s){return String(s).split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;').split('"').join('&quot;')}
 function $(id){return document.getElementById(id)}
-function sget(k){try{return localStorage.getItem(k)}catch(e){return null}}
-function sset(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function sget(k){
+ try{var v=localStorage.getItem(k);if(v)return v;
+ var m=document.cookie.match(new RegExp('(?:^|; )'+k+'=([^;]*)'));
+ return m?decodeURIComponent(m[1]):null}catch(e){return null}
+}
+function sset(k,v){
+ try{localStorage.setItem(k,v)}catch(e){}
+ try{document.cookie=k+'='+encodeURIComponent(v)+';max-age=31536000;path=/;SameSite=Lax'}catch(e){}
+}
 var root=null,RES=null,last=null,liveServerEvents=null,liveEventsSyncNote='not_run',manualEventOverrides={},busy=false;
 
 function getEggIncPacificSchedule(){
@@ -1281,6 +1288,9 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier,events){
   }
  }
  var maxVehSlots=Math.min(17, 4 + extraFleet),unusedVehSlots=Math.max(0,maxVehSlots - vehs.filter(function(x){return x>=0}).length);
+ var effShipCap=totalShipCap*((events&&events.missionCapacityMultiplier>1)?events.missionCapacityMultiplier:1);
+ var layToShipPct=effShipCap>0?(totalLayRate/effShipCap)*100:0;
+ var overLayingRatio=effShipCap>0?(totalLayRate/effShipCap):0;
  var effShipCap=totalShipCap*((events&&events.missionCapacityMultiplier>1)?events.missionCapacityMultiplier:1);
  var layToShipPct=effShipCap>0?(totalLayRate/effShipCap)*100:0;
  var overLayingRatio=effShipCap>0?(totalLayRate/effShipCap):0;
@@ -4181,6 +4191,7 @@ function copyDiag(){
     ihrPopulation:P.art.setIHR.map(function(x){return x.name}),
     coopContract:P.art.setContract.map(function(x){return x.name})
    },
+   shipThroughputAudit:{layToShipPct:Number(P.logi.layToShipPct.toFixed(2)),overLayingRatio:Number(P.logi.overLayingRatio.toFixed(3))},
    shipThroughputAudit:{layToShipPct:Number(P.logi.layToShipPct.toFixed(2)),overLayingRatio:Number(P.logi.overLayingRatio.toFixed(3))}
   }
  };
@@ -4332,6 +4343,8 @@ function show(b,R){
   h+='<option value="0.1"'+(fpCur==='0.1'?' selected':'')+'>10% לתדלוק</option>';
   h+='<option value="0"'+(fpCur==='0'?' selected':'')+'>0% (כבוי)</option></select></label></div>';
  }
+ var l2sSub=fmt(P.logi.totalLayRate/60)+'/שנ\' מול '+fmt(P.logi.effShipCap/60)+'/שנ\';
+ h+=row('יחס הטלה מול ספינות','<b>'+P.logi.layToShipPct.toFixed(0)+'%</b> ('+l2sSub+')');
  var l2sSub=fmt(P.logi.totalLayRate/60)+'/שנ\' מול '+fmt(P.logi.effShipCap/60)+'/שנ\';
  h+=row('יחס הטלה מול ספינות','<b>'+P.logi.layToShipPct.toFixed(0)+'%</b> ('+l2sSub+')');
  h+=row('דגירה פנימית (IHR)','<b>+'+fmt(P.logi.ihrOfflinePerMin)+'/דק\'</b> אופליין (מילוי לולים: '+fmtWait(P.logi.minsToFullHabs)+')');
@@ -4771,7 +4784,7 @@ async function run(eid,isAuto){
  busy=true;
  if(!isAuto){$('out').innerHTML='<p class="note">טוען נתונים מהשרת...</p>';$('sync').textContent=''}
  try{
-  if(!isAuto)sset('eid',eid);
+  sset('eid',eid);
   $('eid').value=eid;
   $('eid-bar').style.display='none';
   var res=await Promise.all([load(eid),getRes(),fetchPeriodicals(eid,last)]);
