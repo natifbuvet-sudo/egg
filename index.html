@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 87</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 89</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -1281,6 +1281,9 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier,events){
   }
  }
  var maxVehSlots=Math.min(17, 4 + extraFleet),unusedVehSlots=Math.max(0,maxVehSlots - vehs.filter(function(x){return x>=0}).length);
+ var effShipCap=totalShipCap*((events&&events.missionCapacityMultiplier>1)?events.missionCapacityMultiplier:1);
+ var layToShipPct=effShipCap>0?(totalLayRate/effShipCap)*100:0;
+ var overLayingRatio=effShipCap>0?(totalLayRate/effShipCap):0;
  var isHomeOrVirt=(!sim.farmType || sim.farmType==='HOME' || isVirt),adb=isVirt?((b.virtue&&b.virtue.afx)||{}):(b.artifactsDb||{});
  var fShip=(adb.missionInfos||[]).filter(function(m){return m && (!m.status || m.status===0 || m.status==='FUELING')})[0]||null,shipTaking=false,fuelRemEggs=0;
  if(fShip){
@@ -4177,7 +4180,8 @@ function copyDiag(){
     lunarPrestige:P.art.setLunar.map(function(x){return x.name}),
     ihrPopulation:P.art.setIHR.map(function(x){return x.name}),
     coopContract:P.art.setContract.map(function(x){return x.name})
-   }
+   },
+   shipThroughputAudit:{layToShipPct:Number(P.logi.layToShipPct.toFixed(2)),overLayingRatio:Number(P.logi.overLayingRatio.toFixed(3))}
   }
  };
  var txt=JSON.stringify(diag,null,2);
@@ -4328,6 +4332,8 @@ function show(b,R){
   h+='<option value="0.1"'+(fpCur==='0.1'?' selected':'')+'>10% לתדלוק</option>';
   h+='<option value="0"'+(fpCur==='0'?' selected':'')+'>0% (כבוי)</option></select></label></div>';
  }
+ var l2sSub=fmt(P.logi.totalLayRate/60)+'/שנ\' מול '+fmt(P.logi.effShipCap/60)+'/שנ\';
+ h+=row('יחס הטלה מול ספינות','<b>'+P.logi.layToShipPct.toFixed(0)+'%</b> ('+l2sSub+')');
  h+=row('דגירה פנימית (IHR)','<b>+'+fmt(P.logi.ihrOfflinePerMin)+'/דק\'</b> אופליין (מילוי לולים: '+fmtWait(P.logi.minsToFullHabs)+')');
  h+=row('ממגורות (Silos)','<b>'+P.logi.silosOwned+'/'+P.logi.maxPossibleSilos+'</b> (זמן אופליין מקסימלי: '+fmtWait(P.logi.maxSiloMins)+')');
  if(P.collegg.unlocked.length>0){
