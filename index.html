@@ -140,13 +140,13 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 91</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 92</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
 </div>
 </header>
-<div class="row" id="eid-bar"><input id="eid" placeholder="ה-EID שלך (מתחיל ב-EI)" autocomplete="off" aria-label="EID"><button id="go">טען</button></div>
+<div class="row" id="eid-bar"><input id="eid" placeholder="ה-EID שלך (מתחיל ב-EI)" autocomplete="off" aria-label="EID"><button id="go" type="button">טען</button><button id="p1" type="button">1</button><button id="p2" type="button">2</button><button id="p3" type="button">3</button></div>
 <div id="out"></div><p class="note" id="sync"></p>
 <details class="card"><summary class="sum-head"><span>הגדרות ואירועים פעילים</span><small>▼</small></summary>
 <div class="row" style="margin-top:8px">
@@ -4050,7 +4050,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v83',
+  version:'v92',hasProfiles:[1,2,3].some(function(n){return !!sget('eid_'+n)}),
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4802,7 +4802,8 @@ async function run(eid,isAuto){
  }finally{busy=false}
 }
 
-$('go').onclick=function(){run($('eid').value,false)};
+$('go').onclick=function(){busy=false;run(($('eid').value||sget('eid')||'').trim(),false)};
+[1,2,3].forEach(function(n){$('p'+n).onclick=function(){busy=false;var v=(sget('eid_'+n)||$('eid').value||'').trim();if(!v)return;$('eid').value=v;sset('eid',v);run(v,false)};$('p'+n).ondblclick=function(){var v=($('eid').value||'').trim();if(v){sset('eid_'+n,v);$('sync').textContent='נשמר לפרופיל '+n}}});
 $('btn-ref').onclick=function(){run($('eid').value,false)};
 $('btn-eid').onclick=function(){var b=$('eid-bar');b.style.display=(b.style.display==='none')?'flex':'none';$('eid').focus()};
 $('eid').onkeydown=function(e){if(e.key==='Enter')run($('eid').value,false)};
