@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 84</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 85</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -545,7 +545,8 @@ function getEggIncPacificSchedule(){
   isFridayResearch:(evDay===5),
   isWeekendPrestige:(evDay===6 || isEggDay),
   isSundayEpic:(evDay===0 && sunWks%2===0),
-  isSundayCraft:(evDay===0 && sunWks%2===1)
+  isSundayCraft:(evDay===0 && sunWks%2===1),
+  isWednesdayBoostDur:(evDay===3)
  };
 }
 
@@ -628,7 +629,8 @@ function getActiveEvents(){
  var droneChecked=($('ev-drones')?$('ev-drones').checked:autoDrones);
  var capChecked=($('ev-cap')?$('ev-cap').checked:false);
  var cashChecked=($('ev-cash')?$('ev-cash').checked:autoCash);
- var bDurChecked=($('ev-boost-dur')?$('ev-boost-dur').checked:false);
+ var autoBoostDur=sched.isWednesdayBoostDur;
+ var bDurChecked=($('ev-boost-dur')?$('ev-boost-dur').checked:autoBoostDur);
  var srvPrest=(liveServerEvents&&liveServerEvents.prestigeMultiplier>1)?liveServerEvents.prestigeMultiplier:0;
  var srvBDur=(liveServerEvents&&liveServerEvents.boostDurationMultiplier>1)?liveServerEvents.boostDurationMultiplier:0;
  return {
@@ -644,7 +646,7 @@ function getActiveEvents(){
   syncNote:liveEventsSyncNote,
   extraLabels:(liveServerEvents&&liveServerEvents.extraLabels)||[],
   rawTypes:(liveServerEvents&&liveServerEvents.rawTypes)||[],
-  autoDefaults:{prestige:autoPrestige,common:autoCommon,epic:autoEpic,craft:autoCraft,cash:autoCash,drones:autoDrones}
+  autoDefaults:{prestige:autoPrestige,common:autoCommon,epic:autoEpic,craft:autoCraft,cash:autoCash,drones:autoDrones,boostDur:autoBoostDur}
  };
 }
 
@@ -656,6 +658,7 @@ function applyDefaultEventsIfUnset(){
  if($('ev-craft') && !manualEventOverrides['ev-craft'])$('ev-craft').checked=defEv.craft;
  if($('ev-cash') && !manualEventOverrides['ev-cash'])$('ev-cash').checked=defEv.cash;
  if($('ev-drones') && !manualEventOverrides['ev-drones'])$('ev-drones').checked=defEv.drones;
+ if($('ev-boost-dur') && !manualEventOverrides['ev-boost-dur'])$('ev-boost-dur').checked=defEv.boostDur;
 }
 
 function toggleEvent(id){
@@ -4074,6 +4077,7 @@ function copyDiag(){
     droneMultiplier:P.events.droneMultiplier,
     missionCapacityMultiplier:P.events.missionCapacityMultiplier,
     earningsMultiplier:P.events.earningsMultiplier,
+    autoBoostDurDefault:P.events.autoDefaults.boostDur,
     boostDurationMultiplier:P.events.boostDurationMultiplier,
     rawEventTypes:P.events.rawTypes
    }
