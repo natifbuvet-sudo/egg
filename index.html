@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 81</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 82</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -237,7 +237,8 @@ var SHIP_META={
  CHICKEN_ONE:{name:'Chicken One',reqPrevLaunches:0,reqSE:1,fundCost:7.2e9,fuels:{SHORT:{ROCKET_FUEL:1e5},STANDARD:{ROCKET_FUEL:1e6},EXTENDED:{ROCKET_FUEL:5e6}}},
  CHICKEN_NINE:{name:'Chicken Nine',reqPrevLaunches:4,reqSE:25000,fundCost:1.3e14,fuels:{SHORT:{ROCKET_FUEL:2e6},STANDARD:{ROCKET_FUEL:1e7},EXTENDED:{ROCKET_FUEL:2.5e7}}},
  CHICKEN_HEAVY:{name:'Chicken Heavy',reqPrevLaunches:6,reqSE:25000,fundCost:2.1e18,fuels:{SHORT:{ROCKET_FUEL:2e7},STANDARD:{ROCKET_FUEL:5e7},EXTENDED:{ROCKET_FUEL:1e8}}},
- BCR:{name:'BCR',reqPrevLaunches:12,reqSE:250000,fundCost:3.2e22,fuels:{SHORT:{ROCKET_FUEL:2.5e8,SUPER_MATERIAL:5e7},STANDARD:{ROCKET_FUEL:5e8,SUPER_MATERIAL:1e8},EXTENDED:{EDIBLE:5e6,ROCKET_FUEL:3e8,SUPER_MATERIAL:1e8}}},
+ BCR:{name:'BCR',reqPrevLaunches:12,reqSE:250000,fundCost:3.2e22,
+  fuels:{SHORT:{ROCKET_FUEL:2.5e8,FUSION:5e7},STANDARD:{ROCKET_FUEL:4e8,FUSION:7.5e7},EXTENDED:{SUPERFOOD:5e6,ROCKET_FUEL:3e8,FUSION:1e8}}},
  QUINTILLION_CHICKEN:{name:'Quintillion Chicken',reqPrevLaunches:15,reqSE:2.5e6,fundCost:3.9e24,fuels:{SHORT:{FUSION:5e9,GRAVITON:1e9},STANDARD:{FUSION:1e10,GRAVITON:2e9},EXTENDED:{FUSION:2e10,GRAVITON:5e9}}},
  CORVETTE:{name:'Cornish-Hen Corvette',reqPrevLaunches:18,reqSE:5e7,fundCost:3.6e26,fuels:{SHORT:{FUSION:1.5e10,GRAVITON:2e9},STANDARD:{FUSION:3e10,GRAVITON:5e9},EXTENDED:{FUSION:5e10,GRAVITON:1e10}}},
  GALENGG:{name:'Galeggtica',reqPrevLaunches:21,reqSE:1e9,fundCost:3.2e28,fuels:{SHORT:{FUSION:5e10,GRAVITON:1e10},STANDARD:{FUSION:1e11,GRAVITON:2.5e10},EXTENDED:{FUSION:2.5e11,GRAVITON:5e10}}},
@@ -3120,7 +3121,8 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  var vafx=(b.virtue&&b.virtue.afx)||{};
  var rawTank=isVirt?(vafx.tankFuels||[]):(db.tankFuels||[]);
  var tankLevel=isVirt?Number(vafx.tankLevel||db.tankLevel||0):Number(db.tankLevel||0);
- var rawTankTotal=rawTank.reduce(function(x,y){return x+(y||0)},0);
+ var hasTankData=Array.isArray(rawTank)&&rawTank.some(function(v){return Number(v)>0;});
+ var rawTankTotal=rawTank.reduce(function(x,y){return x+(Number(y)||0)},0);
  var tankManualFull=(($('tankFullOv')?$('tankFullOv').value:'auto')==='full');
  if(tankManualFull && rawTankTotal>0){
   tankManualFull=false;if($('tankFullOv'))$('tankFullOv').value='auto';sset('tankFullOv','auto');
@@ -3247,7 +3249,12 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
   var idx=EGG_ORDER.indexOf(f);
   var stored=(hasFuelTank && idx>=0)?(tank[idx]||0):0;
   var reqAmt=costMap[f]||1e6;
-  return {egg:f,name:EGG_HE[f]||f,stored:stored,reqAmt:reqAmt,missingAmt:Math.max(0,reqAmt-stored),launches:reqAmt>0?Math.floor(stored/reqAmt):0};
+  var onEgg=(curEgg===f);
+  return {egg:f,name:EGG_HE[f]||f,stored:stored,reqAmt:reqAmt,missingAmt:Math.max(0,reqAmt-stored),launches:reqAmt>0?Math.floor(stored/reqAmt):0,onEgg:onEgg};
+ });
+ var fuelActionPlan=fuelBreakdown.map(function(fb){
+  if(fb.missingAmt<=0)return fb.name+': מוכן ('+fb.launches+' שיגורים)';
+  return fb.onEgg?('מלא '+fb.name+' בחווה הנוכחית (חסר '+fmt(fb.missingAmt)+')'):('עבור ל-'+fb.name+' למילוי המיכל (חסר '+fmt(fb.missingAmt)+')');
  });
  var oneLaunchFuel=reqFuels.reduce(function(s,f){return s+(costMap[f]||0)},0);
  var maxLaunchesInCap=(hasFuelTank && oneLaunchFuel>0)?Math.floor(tankCapacity/oneLaunchFuel):0;
@@ -3265,7 +3272,7 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  var tankPlan={maxLaunchesInCap:dmLaunches||maxLaunchesInCap,oneLaunchFuel:dmLaunches?7e12:oneLaunchFuel,unrelatedFuel:unrelatedFuel,splits:dmSplits||tankSplits,sitEgg:dmLaunches?'DARK_MATTER':null};
 
  return {
-  curSE:curSE,launchpadUnlocked:launchpadUnlocked,hasFuelTank:hasFuelTank,fuelBreakdown:fuelBreakdown,tankPlan:tankPlan,
+  curSE:curSE,launchpadUnlocked:launchpadUnlocked,hasFuelTank:hasFuelTank,hasTankData:hasTankData,fuelBreakdown:fuelBreakdown,fuelActionPlan:fuelActionPlan,tankPlan:tankPlan,
   curEggIdx:curEggIdx,rfIdx:rfIdx,
   target:target,shipProg:shipProg,reqFuels:reqFuels,reqNames:reqNames,onFuelEgg:onFuelEgg,
   hasFuelInTank:hasAllFuelsInTank,canFuelNow:canFuelNow,canAffordFund:canAffordFund,fundCost:fundCost,
@@ -3995,7 +4002,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v81',
+  version:'v82',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4614,6 +4621,12 @@ function show(b,R){
    ?' <button class="icon-btn" style="font-size:.72rem;padding:2px 7px" onclick="$(\'tankFullOv\').value=\'auto\';$(\'tankFullOv\').onchange()">ידני ✓ (אפס)</button>'
    :(tankPct<99?' <button class="icon-btn" style="font-size:.72rem;padding:2px 7px" onclick="$(\'tankFullOv\').value=\'full\';$(\'tankFullOv\').onchange()">סמן כמלא ✓</button>':'');
   h+=row('מיכל דלק (רמה '+P.fuelInfo.tankLevel+')','<b>'+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+'</b> ('+tankPct.toFixed(0)+'%)'+tfBtn);
+  if(!P.fuelInfo.hasTankData){
+   h+='<div class="status-banner hold" style="margin-top:6px"><b>אין נתוני מיכל עדכניים מהגיבוי:</b><small>הזן ידנית <b>מצב מיכל דלק</b> או הוסף ביצי דלק מהמשחק כדי לחשב במדויק.</small></div>';
+  }
+  if(P.fuelInfo.fuelActionPlan&&P.fuelInfo.fuelActionPlan.length){
+   h+=row('תוכנית פעולה לדלק','<small>'+esc(P.fuelInfo.fuelActionPlan.join(' • '))+'</small>');
+  }
   var minL=P.fuelInfo.minLaunchesInTank||0,minFb=null;
   P.fuelInfo.fuelBreakdown.forEach(function(fb){
    if(!minFb||fb.launches<minFb.launches)minFb=fb;
