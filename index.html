@@ -62,6 +62,12 @@ li.it span{color:var(--mut);font-size:.82rem;display:block;margin-top:2px}
 .stone-pill{display:inline-block;background:rgba(45,91,227,.14);color:var(--acc);font-size:.7rem;padding:1px 6px;border-radius:4px;margin-inline-start:4px;font-weight:600}
 .err{color:var(--bad);margin:6px 0;font-weight:600;font-size:.9rem}
 .warn{background:var(--s);border:1px solid var(--y);border-radius:8px;padding:7px 10px;margin:6px 0;font-size:.8rem}
+.backup-bar{background:var(--s);border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-bottom:8px;
+ display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;font-size:.78rem}
+.backup-bar.stale{border-color:var(--y)}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-inline-end:6px;vertical-align:middle}
+.live-dot.mid{background:var(--y)}
+.live-dot.stale{background:var(--bad)}
 
 .card{background:var(--s);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0;font-size:.88rem}
 .card h3{margin:0 0 8px;font-size:.95rem;display:flex;justify-content:space-between;align-items:center}
@@ -140,7 +146,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 88</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 89</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -4047,7 +4053,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v88',
+  version:'v89',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4215,8 +4221,13 @@ function renderPlaybookBox(pb,titlePrefix){
 function row(l,r){return '<div class="l"><span>'+l+'</span><span>'+r+'</span></div>'}
 function show(b,R){
  var P=plan(b,R),a=P.a,h='';
- var age=Math.round((Date.now()/1000-(b.approxTime||0))/60);
- if(age>3)h+='<div class="warn">גיבוי בן '+age+' דקות. לעדכון מיידי: פתח לרגע חוזה וחזור.</div>';
+ var ageSec=Math.max(0,Math.floor(Date.now()/1000-(b.approxTime||Date.now()/1000)));
+ var age=Math.round(ageSec/60);
+ h+='<div class="backup-bar'+(ageSec>180?' stale':'')+'" id="backup-bar"><span>';
+ h+='<span class="live-dot'+(ageSec>180?' stale':ageSec>=60?' mid':'')+'" id="backup-dot"></span>';
+ h+='<b id="backup-age">גיבוי אחרון: '+fmtBackupAge(ageSec)+'</b> ';
+ h+='<small id="backup-ts">('+fmtBackupTime(b.approxTime)+')</small></span><small id="next-poll"></small></div>';
+ h+='<div class="warn" id="backup-warn" style="display:'+(age>3?'block':'none')+'">גיבוי בן '+age+' דקות. לעדכון מיידי: פתח לרגע חוזה וחזור.</div>';
 
  var togglePills=[
   {id:'ev-common',on:P.events.commonResearchDiscount>0,lbl:'-'+(Math.round(P.events.commonResearchDiscount*100)||70)+'% מחקר'},
@@ -4793,9 +4804,10 @@ async function run(eid,isAuto){
   var res=await Promise.all([load(eid),getRes(),fetchPeriodicals(eid,last)]);
   last=res[0];RES=res[1];
   await fetchCoopStatuses(eid,last);
+  nextPollAt=Date.now()+20000;
   show(last,RES);
-  var t=new Date((last.approxTime||Date.now()/1000)*1000);
-  $('sync').textContent='עודכן: '+t.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+(liveServerEvents?' • אירועים מסונכרנים מהשרת':'');
+  updateBackupTimer();
+  $('sync').textContent='גיבוי: '+fmtBackupTime(last.approxTime)+(liveServerEvents?' • אירועים מסונכרנים מהשרת':'');
  }catch(e){
   if(!isAuto)$('out').innerHTML='<p class="err">'+esc(e.message)+'</p>';
  }finally{busy=false}
@@ -4805,12 +4817,42 @@ $('go').onclick=function(){run($('eid').value,false)};
 $('btn-ref').onclick=function(){run($('eid').value,false)};
 $('btn-eid').onclick=function(){var b=$('eid-bar');b.style.display=(b.style.display==='none')?'flex':'none';$('eid').focus()};
 $('eid').onkeydown=function(e){if(e.key==='Enter')run($('eid').value,false)};
+var nextPollAt=0;
+function fmtBackupTime(ts){
+ return new Date((ts||Date.now()/1000)*1000).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function fmtBackupAge(sec){
+ sec=Math.max(0,Math.floor(sec||0));
+ if(sec<1)return 'עכשיו';
+ if(sec===1)return 'לפני שנייה';
+ if(sec<60)return 'לפני '+sec+' שניות';
+ if(sec<3600){
+  var m=Math.floor(sec/60),s=sec%60,mt=m===1?'דקה':m+' דקות';
+  return s?'לפני '+mt+' ו-'+s+(s===1?' שנייה':' שניות'):'לפני '+mt;
+ }
+ var h=Math.floor(sec/3600),rm=Math.floor((sec%3600)/60),ht=h===1?'שעה':h===2?'שעתיים':h+' שעות';
+ return rm?'לפני '+ht+' ו-'+(rm===1?'דקה':rm+' דקות'):'לפני '+ht;
+}
 function setArtFocus(val){if($('artFocus'))$('artFocus').value=val;sset('artFocus',val);if(last&&RES)show(last,RES)}
 ['slots','run','shipTarget','artFocus','fuelPct','tankFullOv'].forEach(function(id){$(id).onchange=function(){sset(id,$(id).value);if(last&&RES)show(last,RES)}});
 ['ev-prestige','ev-epic','ev-common','ev-cap','ev-drones','ev-craft','ev-cash','ev-boost-dur','ev-gifts'].forEach(function(id){$(id).onchange=function(){manualEventOverrides[id]=true;if(last&&RES)show(last,RES)}});
 
 ['slots','run','shipTarget','artFocus','fuelPct','tankFullOv'].forEach(function(id){var v=sget(id);if(v)$(id).value=v});
 applyDefaultEventsIfUnset();
+function updateBackupTimer(){
+ if(!last)return;
+ var sec=Math.max(0,Math.floor(Date.now()/1000-(last.approxTime||Date.now()/1000)));
+ var age=Math.round(sec/60),bar=$('backup-bar'),dot=$('backup-dot'),el=$('backup-age'),w=$('backup-warn'),np=$('next-poll');
+ if(el)el.textContent='גיבוי אחרון: '+fmtBackupAge(sec);
+ if(bar)bar.className='backup-bar'+(sec>180?' stale':'');
+ if(dot)dot.className='live-dot'+(sec>180?' stale':sec>=60?' mid':'');
+ if(w){w.style.display=age>3?'block':'none';w.textContent='גיבוי בן '+age+' דקות. לעדכון מיידי: פתח לרגע חוזה וחזור.'}
+ if(np){
+  var rem=Math.max(0,Math.ceil((nextPollAt-Date.now())/1000));
+  np.textContent=busy?'בודק עדכון...':(nextPollAt?'בדיקה בעוד '+rem+' שנ׳':'');
+ }
+}
 var saved=sget('eid');if(saved){$('eid').value=saved;run(saved,false)}
-setInterval(function(){var e=sget('eid');if(e&&!document.hidden)run(e,true)},20000);
+setInterval(function(){var e=sget('eid');if(e&&!document.hidden){nextPollAt=Date.now()+20000;run(e,true)}},20000);
+setInterval(function(){if(!document.hidden)updateBackupTimer()},1000);
 </script></body></html>
