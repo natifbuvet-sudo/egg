@@ -135,6 +135,8 @@ details summary::-webkit-details-marker{display:none}
 .chk-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px;font-size:.8rem}
 .chk-item{display:flex;align-items:center;gap:6px;background:var(--bg);padding:5px 8px;border-radius:7px;border:1px solid var(--line);cursor:pointer}
 .chk-item input{width:auto;margin:0}
+.nav{border-bottom:1px solid var(--bd)}
+.hero-ctx{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:rgba(255,255,255,.22);font-size:.7rem;font-weight:700}
 </style>
 <script>
 (function(){
@@ -146,7 +148,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 92</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 93</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -179,7 +181,7 @@ details summary::-webkit-details-marker{display:none}
 <option value="CHICKEN_ONE">Chicken One (Rocket Fuel • 7.2B)</option>
 <option value="CHICKEN_NINE">Chicken Nine (Rocket Fuel • 130T)</option>
 <option value="CHICKEN_HEAVY">Chicken Heavy (Rocket Fuel • 2.1Q)</option>
-<option value="BCR">BCR (Rocket Fuel + Super Material • 32s)</option>
+<option value="BCR">BCR (Rocket Fuel + Super Material • 32s) [מתחילים]</option>
 <option value="QUINTILLION_CHICKEN">Quintillion Chicken (Fusion + Graviton • 3.9S)</option>
 <option value="CORVETTE">Cornish-Hen Corvette (Fusion + Graviton • 360S)</option>
 <option value="GALENGG">Galeggtica (Fusion + Graviton • 32o)</option>
@@ -2832,7 +2834,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
   var onTrack=csRaw.allGoalsAchieved||remEggs<=0||(etaSec>0&&etaSec<=remSec);
   liveCoop={totalAmount:coopTot,finalGoal:finalGoal,pctDone:pctDone,totalRate:csRaw.totalRate,
    memberCount:csRaw.memberCount,etaSec:etaSec,estCsMult:estCsMult,onTrack:onTrack,
-   allGoalsAchieved:csRaw.allGoalsAchieved,myBoostTokens:csRaw.myBoostTokens};
+   allGoalsAchieved:csRaw.allGoalsAchieved,myBoostTokens:csRaw.myBoostTokens,csDone:!!(csRaw.allGoalsAchieved||csRaw.clearedForExit||(csRaw.timeSinceLastStatusUpdate>0&&remSec<=0))};
  }
  var graceEnd=c.coopGracePeriodEndTime||0;
  var sharedEnd=c.coopSharedEndTime||0;
@@ -2840,7 +2842,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
  var coll=checkColleggtibleStatus(k,b);
  var permitTier=getPermitTier(b);
 
- var waitingCoop=(simEnd>0);
+ var waitingCoop=(simEnd>0)||!!(c.clearedForExit)||(liveCoop&&liveCoop.csDone);
  var manualGoalMode=contractGoalModes[id]||'auto';
  var autoGoalMode=((isReplay || achieved>=3) && !coll.needs10B)?'cs':'rewards';
  var goalMode=(manualGoalMode==='cs'||manualGoalMode==='rewards')?manualGoalMode:autoGoalMode;
@@ -2849,6 +2851,8 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
  var runCapActive=(maxCoop>1)?Math.min(maxCoop-1,20):20;
  var dur=Number(k.lengthSeconds||0);
  if(dur>1e12)dur/=1000;
+ var timeExpired=(!waitingCoop && c.timeAccepted>0 && dur>0 && (now-(c.timeAccepted||0))>dur+60);
+ if(timeExpired)waitingCoop=true;
  var prevCS=Number((arch && arch.evaluation && arch.evaluation.cxp) || (arch && arch.cxp) || 0);
 
  var statusType='rewards';
@@ -2857,7 +2861,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
 
  if(waitingCoop){
   statusType='waiting';
-  badgeText='ממתין לסגירת הקבוצה';
+  badgeText=timeExpired?'ממתין לסגירה (פג זמן)':'ממתין לסגירת הקבוצה';
   badgeClass='b-wait';
  }else if(pointsOnly){
   statusType='points';
@@ -4159,7 +4163,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v91',
+  version:'v93',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4375,7 +4379,8 @@ function show(b,R){
  h+='</div>';
 
  var top=a[0];
- h+='<div class="hero"><small>הצעד הבא עכשיו</small><h2>'+esc(top[1])+'</h2><p>'+esc(top[2])+'</p>';
+ var ctxLbl=P.isVirtue?'Path of Virtue':(P.isEnl?'Enlightenment':'חווה ראשית');
+ h+='<div class="hero"><small>הצעד הבא עכשיו <span class="hero-ctx">'+ctxLbl+'</span></small><h2>'+esc(top[1])+'</h2><p>'+esc(top[2])+'</p>';
  if(top[3]==='research')h+='<button class="hero-btn" onclick="jumpTo(\'sec-research\')">לרשימת המחקרים ↓</button>';
  if(top[3]==='contracts')h+='<button class="hero-btn" onclick="jumpTo(\'sec-contracts\')">לפירוט חוזים ↓</button>';
  if(top[3]==='artifacts')h+='<button class="hero-btn" onclick="jumpTo(\'sec-artifacts\')">לארטיפקטים ↓</button>';
