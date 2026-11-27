@@ -146,7 +146,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 91</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 92</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -258,6 +258,7 @@ var SHIP_META={
 var TANK_CAPACITIES=[2e9,2e11,1e13,1e14,2e14,3e14,4e14,5e14];
 
 var HAB_BASE=[250,500,1000,2000,5000,10000,20000,50000,100000,250000,500000,1000000,2000000,5000000,10000000,25000000,50000000,100000000,600000000];
+var HAB_COST=[0,50,150,450,1500,6000,25000,120000,600000,4e6,3e7,2.5e8,2.2e9,2e10,2e11,3e12,5e13,1.2e15,3e16];
 var VEH_BASE=[5000,15000,50000,100000,250000,500000,1000000,5000000,15000000,30000000,50000000,50000000];
 
 var TIER_MAP={INFERIOR:'T1',LESSER:'T2',NORMAL:'T3',GREATER:'T4'};
@@ -3819,8 +3820,16 @@ function plan(b,R){
   for(var hk=0;hk<hList.length;hk++){var h=hList[hk],ep=h.pop<h.gCap?Math.min(h.gCap,h.pop+addEach):h.pop;
    if(h.pop>h.noGCap||ep>h.noGCap){overHab={habIdx:h.idx+1,pop:Math.floor(Math.max(h.pop,ep)),noGCap:h.noGCap};break;}}
   var canUpHab=(habs.length<4)||(overHab?(habs[overHab.habIdx-1]>=0&&habs[overHab.habIdx-1]<18):habs.some(function(hh){return hh>=0&&hh<18;}));
-  var canUpRes=R.some(function(r){return r.type==='common'&&r.categories&&r.categories.indexOf('hab_capacity')>=0&&(cMap[r.id]||0)<(r.levels||r.max_level||0);});
-  return {locked:(effPop>noG||!!overHab),eqGus:eqGus,noGussetCap:noG,pop:effPop,overHab:overHab,canUpHab:canUpHab,canUpRes:canUpRes};
+  var canUpRes=R.some(function(r){return r.type==='common'&&r.categories&&r.categories.indexOf('hab_capacity')>=0
+   &&(cMap[r.id]||0)<(r.levels||r.max_level||0);});
+  var farmCash=Math.max(0,Number(farmObj.cashEarned||0)-Number(farmObj.cashSpent||0));
+  var hcMul=(1-0.05*(eMap['cheaper_contractors']||0))*((collegg&&collegg.mults&&collegg.mults.habCost)||1);
+  var curTier=overHab?habs[overHab.habIdx-1]:(habs.length<4?0:Math.min.apply(null,habs.filter(function(hh){return hh>=0;})));
+  var nxtTier=(canUpHab&&curTier>=0&&curTier<18)?(habs.length<4&&!overHab?Math.max(1,curTier):curTier+1):-1;
+  var nextHabCost=(nxtTier>=0&&nxtTier<HAB_COST.length)?(HAB_COST[nxtTier]*hcMul):null;
+  var canAffordHab=!!(canUpHab&&nextHabCost!==null&&farmCash>=nextHabCost);
+  return {locked:(effPop>noG||!!overHab),eqGus:eqGus,noGussetCap:noG,pop:effPop,overHab:overHab,
+   canUpHab:canUpHab,canAffordHab:canAffordHab,nextHabCost:nextHabCost,farmCash:farmCash,canUpRes:canUpRes};
  }
  var rawArtCtx=resolveArtifactContext(b,art,logi,macro,prestigeInfo,eggProg,hasActiveBoost,runMode,activeRunning,CD,events);
  var artCtx=rawArtCtx,isC=(rawArtCtx.mode==='contract'&&rawArtCtx.contractId);
@@ -3842,16 +3851,23 @@ function plan(b,R){
   var newT=(rawArtCtx.targetSet||[]).filter(function(x){return x.rawName!=='ORNATE_GUSSET'}).slice(0,Math.max(0,(art.maxArtSlots||4)-1)).concat([pinG]);
   var swapFree=newT.filter(function(t){if(t.rawName==='ORNATE_GUSSET')return false;var c=eqMap[t.rawName];return !(c&&(c.score||0)>=(t.score||0));});
   var allOk=!swapFree.length&&!(rawArtCtx.mode==='enlightenment'&&art.enlightenmentWarnings.length);
-  var needUnlock=!wantsG&&(gLock.canUpHab||gLock.canUpRes);
-  var unlockAct=needUnlock?(gLock.canUpHab?(gLock.overHab?'שדרג את לול #'+gLock.overHab.habIdx:'שדרג לולים')+(gLock.canUpRes?' / מחקרי קיבולת לולים':''):'שדרג מחקרי קיבולת לולים'):'';
+  var habReady=gLock.canUpHab&&gLock.canAffordHab;
+  var needUnlock=!wantsG&&(habReady||gLock.canUpRes);
+  var habLbl=gLock.overHab?('שדרג את לול #'+gLock.overHab.habIdx):'שדרג לולים';
+  var unlockAct=needUnlock?(habReady?(habLbl+(gLock.canUpRes?' / מחקרי קיבולת לולים':'')):'שדרג מחקרי קיבולת לולים'):'';
   var lockMsg=gLock.pop>gLock.noGussetCap
    ?('Ornate Gusset נעול בסלוט (אוכלוסייה '+fmt(gLock.pop)+' > קיבולת ללא Gusset: '+fmt(gLock.noGussetCap)+')')
    :('Ornate Gusset נעול בסלוט (לול #'+gLock.overHab.habIdx+' עם '+fmt(gLock.overHab.pop)+' > קיבולת ללא Gusset: '+fmt(gLock.overHab.noGCap)+')');
-  var keepNote=needUnlock?(unlockAct+' כדי להגדיל קיבולת בסיסית ולשחרר את הסלוט.'):'עדיף להישאר עם ה-Gusset כרגע.';
-  artCtx=Object.assign({},rawArtCtx,{targetSet:needUnlock?rawArtCtx.targetSet:newT,isOptimal:!needUnlock&&allOk,gainBoostPct:(!needUnlock&&allOk)?0:rawArtCtx.gainBoostPct,
-   gussetLocked:true,gussetLockReason:lockMsg,gussetUnlockAction:unlockAct||null,swapFree:swapFree,
-   gussetLockDetail:{pop:gLock.pop,noGussetCap:gLock.noGussetCap,overHab:gLock.overHab||null,canUpHab:gLock.canUpHab,canUpRes:gLock.canUpRes},
-   whyNote:(rawArtCtx.whyNote||'')+' 🔒 '+lockMsg+' — '+keepNote});
+  var habWait=(!habReady&&gLock.canUpHab&&gLock.nextHabCost!==null)
+   ?('שדרוג הלול הבא עולה '+fmt(gLock.nextHabCost)+' (יש '+fmt(gLock.farmCash)+') — השאר Gusset.'):'עדיף להישאר עם ה-Gusset כרגע.';
+  var keepNote=needUnlock?(unlockAct+' כדי להגדיל קיבולת בסיסית ולשחרר את הסלוט.'):habWait;
+  var gStoneHint=(isC&&lockTc&&lockTc.stoneAdvice)?lockTc.stoneAdvice:null;
+  var gDet={pop:gLock.pop,noGussetCap:gLock.noGussetCap,overHab:gLock.overHab||null,
+   canUpHab:gLock.canUpHab,canAffordHab:gLock.canAffordHab,nextHabCost:gLock.nextHabCost,farmCash:gLock.farmCash,canUpRes:gLock.canUpRes};
+  artCtx=Object.assign({},rawArtCtx,{targetSet:needUnlock?rawArtCtx.targetSet:newT,isOptimal:!needUnlock&&allOk,
+   gainBoostPct:(!needUnlock&&allOk)?0:rawArtCtx.gainBoostPct,gussetLocked:true,gussetLockReason:lockMsg,
+   gussetUnlockAction:unlockAct||null,swapFree:swapFree,gussetStoneHint:gStoneHint,gussetLockDetail:gDet,
+   whyNote:(rawArtCtx.whyNote||'')+' 🔒 '+lockMsg+' — '+keepNote+(gStoneHint?(' 💎 אבנים בסלוטים הפנויים: '+gStoneHint):'')});
  }
  var isArtOptimal=artCtx.isOptimal;
  var targetArtNames=artCtx.targetSet.map(function(x){return x.name}).join(' + ');
@@ -3879,7 +3895,12 @@ function plan(b,R){
  }
  if(art.canSocketNow && artCtx.mode!=='contract'){
   var sockNames=art.socketableStones.slice(0,3).map(function(s){return s.name+' ×'+s.qty}).join(', ');
-  a.push([22,'שבץ '+Math.min(art.equippedEmptySlots,art.socketableCount)+' אבנים פנויות בסלוטים הריקים','באפשרותך לשבץ מיד: '+sockNames+' ב-'+art.equippedEmptyDetails.join(', ')+'.','artifacts']);
+  a.push([22,'שבץ '+Math.min(art.equippedEmptySlots,art.socketableCount)+' אבנים פנויות בסלוטים הריקים',
+   'באפשרותך לשבץ מיד: '+sockNames+' ב-'+art.equippedEmptyDetails.join(', ')+'.','artifacts']);
+ }
+ if(artCtx.gussetLocked && artCtx.gussetStoneHint && isC && !cDoneLock && isArtOptimal && lockTc && lockTc.cfMetrics && lockTc.cfMetrics.pop>1e6){
+  a.push([22,'התאם אבנים (Stones) בסלוטים הפנויים בחוזה '+(artCtx.contractName||''),
+   'ה-Gusset נעול, אך ניתן לשפר תפוקה ביתר הסלוטים: '+artCtx.gussetStoneHint,'artifacts']);
  }
 
  var maxContractSlots=4;
@@ -4059,9 +4080,18 @@ function plan(b,R){
   else if(macro.shifts>=250)a.push([14,'אזהרת סף החלפות ב-Virtue ('+macro.shifts+'/250 Shifts)','עברת 250 החלפות — צבור לפחות +'+macro.minRecommendedEoTGain+' EoT לפני Shift.']);
   a=a.filter(function(it){var tg=it[3]||'',tx=String(it[1]||'');if(vEg==='CURIOSITY')return tg!=='epic'&&tg!=='artifacts'&&tx.indexOf('לול')<0&&tx.indexOf('משלוחים')<0&&tx.indexOf('ממגורה')<0&&tx.indexOf('ספינ')<0;if(vEg==='INTEGRITY')return tg!=='research'&&tg!=='epic'&&tg!=='artifacts'&&tx.indexOf('מחקר')<0&&tx.indexOf('משלוחים')<0&&tx.indexOf('ממגורה')<0&&tx.indexOf('ספינ')<0;if(vEg==='KINDNESS')return tg!=='research'&&tg!=='epic'&&tg!=='artifacts'&&tx.indexOf('מחקר')<0&&tx.indexOf('לול')<0&&tx.indexOf('ממגורה')<0&&tx.indexOf('ספינ')<0;if(vEg==='RESILIENCE')return tg!=='research'&&tg!=='epic'&&tg!=='artifacts'&&tx.indexOf('מחקר')<0&&tx.indexOf('לול')<0&&tx.indexOf('משלוחים')<0&&tx.indexOf('ספינ')<0;if(vEg==='HUMILITY')return tg!=='research'&&tx.indexOf('מחקר')<0&&tx.indexOf('לול')<0&&tx.indexOf('משלוחים')<0&&tx.indexOf('ממגורה')<0;return true;});
  }
+ var cNearFull=activeRunning.some(function(d){return d.cfMetrics&&d.cfMetrics.habPct>=95;});
+ var parallelMode='BALANCED';
+ if(logi.habPct>=95 && activeRunning.length>0 && !cNearFull){
+  parallelMode='CONTRACT_BOOST_HOME_FULL';
+  a.forEach(function(it){if(it[3]==='contracts'&&it[0]>=22&&it[0]<=35){it[0]-=6;it[2]+=' (תועדף: לולי הבית כמעט מלאים)';}});
+ }else if(cNearFull && logi.habPct<90){
+  parallelMode='HOME_FIRST_CONTRACT_FULL';
+  a.forEach(function(it){if(it[3]==='contracts'&&it[0]>=26&&it[0]<=35){it[0]+=4;}});
+ }
  a.sort(function(x,y){return x[0]-y[0]});
  if(!a.length)a.push([99,'הכל מסודר כרגע','חזור לבדוק בעוד כמה דקות.']);
- return {CD:CD,availContracts:availContracts,bestPointsRec:bestPointsRec,contractSlotInfo:contractSlotInfo,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,permitTier:permitTier,shipSlots:shipSlots,free:free,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,logi:logi,eggProg:eggProg,cash:cash,art:art,artCtx:artCtx,isArtOptimal:isArtOptimal,stoneOpt:stoneOpt,prestigeInfo:prestigeInfo,boostInfo:boostInfo,macro:macro,trophies:trophies,events:events,collegg:collegg,geSpecRec:geSpecRec,keepOneWD:keepOneWD};
+ return {CD:CD,availContracts:availContracts,bestPointsRec:bestPointsRec,contractSlotInfo:contractSlotInfo,parallelMode:parallelMode,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,permitTier:permitTier,shipSlots:shipSlots,free:free,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,logi:logi,eggProg:eggProg,cash:cash,art:art,artCtx:artCtx,isArtOptimal:isArtOptimal,stoneOpt:stoneOpt,prestigeInfo:prestigeInfo,boostInfo:boostInfo,macro:macro,trophies:trophies,events:events,collegg:collegg,geSpecRec:geSpecRec,keepOneWD:keepOneWD};
 }
 
 function detKey(d,seen){
@@ -4227,7 +4257,8 @@ function copyDiag(){
    shipRecommendation:shipRec,
    artifactLoadoutStatus:{
     isOptimal:P.isArtOptimal,gussetLocked:!!P.artCtx.gussetLocked,gussetLockReason:P.artCtx.gussetLockReason||null,
-    gussetLockDetail:P.artCtx.gussetLockDetail||null,
+    gussetLockDetail:P.artCtx.gussetLockDetail||null,gussetStoneHint:P.artCtx.gussetStoneHint||null,
+    parallelPriorityMode:P.parallelMode||'BALANCED',
     focusSetting:P.artCtx.focusPref,
     resolvedMode:P.artCtx.mode,
     contractId:P.artCtx.contractId,
