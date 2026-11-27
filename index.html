@@ -140,7 +140,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 87</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 88</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -197,6 +197,7 @@ details summary::-webkit-details-marker{display:none}
 <label class="chk-item"><input type="checkbox" id="ev-craft"> 30% הנחת Crafting</label>
 <label class="chk-item"><input type="checkbox" id="ev-cash"> 2x Cash Boost</label>
 <label class="chk-item"><input type="checkbox" id="ev-boost-dur"> 2x זמני בוסטים</label>
+<label class="chk-item"><input type="checkbox" id="ev-gifts"> Generous Gifts (2x מתנות)</label>
 </div>
 </div>
 </details>
@@ -644,8 +645,10 @@ function getActiveEvents(){
  var cashChecked=($('ev-cash')?$('ev-cash').checked:autoCash);
  var autoBoostDur=sched.isWednesdayBoostDur;
  var bDurChecked=($('ev-boost-dur')?$('ev-boost-dur').checked:autoBoostDur);
+ var giftChecked=($('ev-gifts')?$('ev-gifts').checked:false);
  var srvPrest=(liveServerEvents&&liveServerEvents.prestigeMultiplier>1)?liveServerEvents.prestigeMultiplier:0;
  var srvBDur=(liveServerEvents&&liveServerEvents.boostDurationMultiplier>1)?liveServerEvents.boostDurationMultiplier:0;
+ var srvGift=(liveServerEvents&&liveServerEvents.giftMultiplier>1)?liveServerEvents.giftMultiplier:0;
  return {
   prestigeMultiplier:sched.isEggDay?Math.max(8.0,srvPrest):(prestChecked?(srvPrest||2.0):1.0),
   commonResearchDiscount:commChecked?(liveServerEvents&&liveServerEvents.commonResearchDiscount>0?liveServerEvents.commonResearchDiscount:0.70):0.0,
@@ -655,6 +658,7 @@ function getActiveEvents(){
   missionCapacityMultiplier:capChecked?(liveServerEvents&&liveServerEvents.missionCapacityMultiplier>1?liveServerEvents.missionCapacityMultiplier:2.0):1.0,
   earningsMultiplier:cashChecked?(liveServerEvents&&liveServerEvents.earningsMultiplier>1?liveServerEvents.earningsMultiplier:2.0):1.0,
   boostDurationMultiplier:bDurChecked?(srvBDur||2.0):1.0,
+  giftMultiplier:giftChecked?(srvGift||2.0):1.0,
   fromServer:!!liveServerEvents,
   syncNote:liveEventsSyncNote,
   extraLabels:(liveServerEvents&&liveServerEvents.extraLabels)||[],
@@ -813,7 +817,7 @@ async function fetchPeriodicals(eid,b){
   }
   var now=Date.now()/1000;
   var parsed={prestigeMultiplier:1,commonResearchDiscount:0,epicResearchDiscount:0,craftingDiscount:0,droneMultiplier:1,
-  missionCapacityMultiplier:1,earningsMultiplier:1,boostDurationMultiplier:1,extraLabels:[],rawTypes:[]};
+  missionCapacityMultiplier:1,earningsMultiplier:1,boostDurationMultiplier:1,giftMultiplier:1,extraLabels:[],rawTypes:[]};
   resObj.events.events.forEach(function(ev){
    var remSec=(ev.secondsRemaining!==undefined)?Number(ev.secondsRemaining):null;
    var st=Number(ev.startTime||0);if(st>1e12)st/=1000;
@@ -833,21 +837,21 @@ async function fetchPeriodicals(eid,b){
    else if(t.indexOf('duration')>=0 && t.indexOf('boost')<0)parsed.extraLabels.push('-'+Math.round((discVal||0.5)*100)+'% זמן ספינות');
    else if(t.indexOf('fuel')>=0)parsed.extraLabels.push(m+'x תדלוק');
    else if(t.indexOf('boost-sale')>=0)parsed.extraLabels.push('-'+Math.round((discVal||0.2)*100)+'% בוסטים');
-   else if(t.indexOf('boost-duration')>=0||t.indexOf('boost-dur')>=0){
-  parsed.boostDurationMultiplier=Math.max(parsed.boostDurationMultiplier,m>1?m:2.0);
-  parsed.extraLabels.push((m>1?m:2)+'x משך בוסטים');}
+   else if(t.indexOf('boost-duration')>=0||t.indexOf('boost-dur')>=0)
+    parsed.boostDurationMultiplier=Math.max(parsed.boostDurationMultiplier,m>1?m:2.0);
    else if(t.indexOf('earnings')>=0||((t.indexOf('cash')>=0||/cash|earnings/i.test(ev.message||''))&&t.indexOf('piggy')<0))
     parsed.earningsMultiplier=Math.max(parsed.earningsMultiplier,m>1?m:2.0);
    else if(t.indexOf('hab')>=0)parsed.extraLabels.push('-'+Math.round((discVal||0.5)*100)+'% לולים');
    else if(t.indexOf('vehicle')>=0)parsed.extraLabels.push('-'+Math.round((discVal||0.5)*100)+'% רכבים');
-   else if(t.indexOf('gift')>=0)parsed.extraLabels.push(m+'x מתנות');
+   else if(t.indexOf('gift')>=0||/generous\s*gifts|random\s*gifts|video\s*gifts/i.test(ev.message||''))
+    parsed.giftMultiplier=Math.max(parsed.giftMultiplier,m>1?m:2.0);
    else if(t)parsed.extraLabels.push((m>1?m+'x ':'')+t);
    if(t)parsed.rawTypes.push(t+':'+m);
   });
   liveServerEvents=parsed;
   var syncMap={'ev-prestige':parsed.prestigeMultiplier>1,'ev-epic':parsed.epicResearchDiscount>0,'ev-common':parsed.commonResearchDiscount>0,
   'ev-cap':parsed.missionCapacityMultiplier>1,'ev-drones':parsed.droneMultiplier>1,'ev-craft':parsed.craftingDiscount>0,
-  'ev-cash':parsed.earningsMultiplier>1,'ev-boost-dur':parsed.boostDurationMultiplier>1};
+  'ev-cash':parsed.earningsMultiplier>1,'ev-boost-dur':parsed.boostDurationMultiplier>1,'ev-gifts':parsed.giftMultiplier>1};
   Object.keys(syncMap).forEach(function(id){if($(id) && !manualEventOverrides[id])$(id).checked=syncMap[id]});
   if($('ev-source-note'))$('ev-source-note').innerHTML='<b>אירועים יומיים פעילים (סונכרנו אוטומטית משרתי המשחק!):</b>';
   return parsed;
@@ -2691,7 +2695,8 @@ function availableContractInfo(c,b,archivedMap,now,art){
  var k=c.contract||{},id=c.contractIdentifier||k.identifier||'';
  var name=k.name||cleanContractName(id);
  var arch=archivedMap[id];
- var alreadyCompletedAll=(arch && (arch.numGoalsAchieved||0)>=3);
+ var totGoals=(getContractGoals(c,b).length)||3;
+ var alreadyCompletedAll=(arch && (arch.numGoalsAchieved||0)>=totGoals);
  var isReplay=!!c.pointsReplay || !!alreadyCompletedAll;
  var rew=analyzeContractRewards(c,b);
  var coll=checkColleggtibleStatus(k,b);
@@ -3160,6 +3165,7 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
   var mi=EGG_ORDER.indexOf(it.egg),av=parseShortNum(it.amt);
   if(mi>=0&&av>0)tank[mi]=av;});
  var tankTotal=tank.reduce(function(x,y){return x+(Number(y)||0)},0);
+ if(tankTotal>0)hasTankData=true;
  var hasAnyMissions=((db.missionInfos&&db.missionInfos.length>0)||(db.missionArchive&&db.missionArchive.length>0));
 
  var launchpadUnlocked=(curSE>=10000 || hasAnyMissions || isVirt);
@@ -3305,7 +3311,7 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  var tankPlan={maxLaunchesInCap:dmLaunches||maxLaunchesInCap,oneLaunchFuel:dmLaunches?7e12:oneLaunchFuel,unrelatedFuel:unrelatedFuel,splits:actSplits,eggs:planEggs,sitEgg:dmLaunches?'DARK_MATTER':null};
 
  return {
-  curSE:curSE,launchpadUnlocked:launchpadUnlocked,hasFuelTank:hasFuelTank,hasTankData:hasTankData,fuelBreakdown:fuelBreakdown,fuelActionPlan:fuelActionPlan,tankPlan:tankPlan,
+  curSE:curSE,launchpadUnlocked:launchpadUnlocked,hasFuelTank:hasFuelTank,hasTankData:hasTankData,tank:tank,fuelBreakdown:fuelBreakdown,fuelActionPlan:fuelActionPlan,tankPlan:tankPlan,
   curEggIdx:curEggIdx,rfIdx:rfIdx,
   target:target,shipProg:shipProg,reqFuels:reqFuels,reqNames:reqNames,onFuelEgg:onFuelEgg,
   hasFuelInTank:hasAllFuelsInTank,canFuelNow:canFuelNow,canAffordFund:canAffordFund,fundCost:fundCost,
@@ -3616,6 +3622,12 @@ function plan(b,R){
   var dNames=art.setDrones.length?art.setDrones.map(function(x){return x.name}).join(' + '):'Aurelian Brooch + Neodymium Medallion + Beak of Midas';
   var dTip='הזדמנות מעולה לצבור Golden Eggs מרחפנים! טיפ: על ביצת Enlightenment עם אבני Clarity יעילות הסט מזנקת מעל 100%.';
   a.push([13,'אירוע Generous Drones ('+events.droneMultiplier+'x GE): הרכב סט ציד רחפנים ('+dNames+')',dTip,'artifacts']);
+ }
+ if(events.giftMultiplier>1){
+  var gMul=events.giftMultiplier;
+  var hasC=rawContracts.some(function(c){return c.accepted&&!c.cancelled&&!c.coopContributionFinalized&&!(c.coopSimulationEndTime>0)});
+  a.push([hasC?24:26,'אירוע Generous Gifts ('+gMul+'x מתנות): אסוף קופסאות ומתנות וידאו',
+   hasC?'קופסאות בחוזה נותנות פי '+gMul+' אוכלוסייה (Chicken Boxes) ופי '+gMul+' טוקני בוסט ו-GE!':'קופסאות לבנות ומתנות וידאו נותנות פי '+gMul+' Golden Eggs ומזומן לפי שווי החווה.',hasC?'contracts':'']);
  }
 
  if(logi.shipBottleneck){
@@ -4035,7 +4047,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v83',
+  version:'v88',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4092,6 +4104,7 @@ function copyDiag(){
     droneMultiplier:P.events.droneMultiplier,
     missionCapacityMultiplier:P.events.missionCapacityMultiplier,
     earningsMultiplier:P.events.earningsMultiplier,
+    giftMultiplier:P.events.giftMultiplier,
     autoBoostDurDefault:P.events.autoDefaults.boostDur,
     boostDurationMultiplier:P.events.boostDurationMultiplier,
     rawEventTypes:P.events.rawTypes
@@ -4213,7 +4226,8 @@ function show(b,R){
   {id:'ev-drones',on:P.events.droneMultiplier>1,lbl:(P.events.droneMultiplier>1?P.events.droneMultiplier:4)+'x רחפנים'},
   {id:'ev-cap',on:P.events.missionCapacityMultiplier>1,lbl:(P.events.missionCapacityMultiplier>1?P.events.missionCapacityMultiplier:2)+'x ספינות'},
   {id:'ev-cash',on:P.events.earningsMultiplier>1,lbl:(P.events.earningsMultiplier>1?P.events.earningsMultiplier:2)+'x Cash'},
-  {id:'ev-boost-dur',on:P.events.boostDurationMultiplier>1,lbl:(P.events.boostDurationMultiplier>1?P.events.boostDurationMultiplier:2)+'x זמן בוסטים'}
+  {id:'ev-boost-dur',on:P.events.boostDurationMultiplier>1,lbl:(P.events.boostDurationMultiplier>1?P.events.boostDurationMultiplier:2)+'x זמן בוסטים'},
+  {id:'ev-gifts',on:P.events.giftMultiplier>1,lbl:(P.events.giftMultiplier>1?P.events.giftMultiplier:2)+'x מתנות'}
  ];
  var pillsHtml=togglePills.map(function(p){
   return '<span class="event-pill'+(p.on?'':' off')+'" onclick="toggleEvent(\''+p.id+'\')" title="לחץ להפעלה/כיבוי אירוע">'+(p.on?'✓ ':'')+esc(p.lbl)+'</span>';
@@ -4356,7 +4370,7 @@ function show(b,R){
  h+='</div>';
 
  h+='<div id="sec-boosts" class="card"><h3>בוסטים ו-Prestige</h3>';
- var pBannerCls=(P.prestigeInfo.status==='ready'||P.prestigeInfo.status==='upgrade_egg')?'do':'hold';
+ var pBannerCls=(P.prestigeInfo.status==='ready'||P.prestigeInfo.status==='upgrade_egg'||P.prestigeInfo.status==='boost_then_prestige')?'do':'hold';
  h+='<div class="status-banner '+pBannerCls+'"><b>'+esc(P.prestigeInfo.title)+'</b><small>'+esc(P.prestigeInfo.reason)+'</small></div>';
  var bBannerCls=P.boostInfo.shouldUseNow?'do':'hold';
  h+='<div class="status-banner '+bBannerCls+'"><b>'+esc(P.boostInfo.recTitle)+'</b><small>'+esc(P.boostInfo.recReason)+'</small>';
@@ -4626,7 +4640,7 @@ function show(b,R){
  }
  h+='<div id="sec-epic" class="card"><h3>מחקר אפיק ודלק ספינות</h3>';
  h+=row('ספינות פעילות / פנויות','<b>'+P.busy+'/'+P.shipSlots+'</b> ('+P.free+' פנויות)');
- var sp=P.fuelInfo.shipProg,targetUnlockedLbl=sp.isTargetUnlocked?' (נעולה)':' (פתוחה ✓)';
+ var sp=P.fuelInfo.shipProg,targetUnlockedLbl=sp.isTargetUnlocked?' (פתוחה ✓)':' (נעולה)';
  h+=row('ספינה פעילה לשיגור','<b>'+esc(shipName(P.fuelInfo.target))+targetUnlockedLbl+'</b> ('+esc(sp.missionDur)+' • '+fmt(P.fuelInfo.fundCost)+')');
  if(sp.starInfo){
   var si=sp.starInfo,stR=si.remStarLaunches>0?('נותרו '+si.remStarLaunches+' שיגורים לכוכב הבא'):'מקסימום כוכבים!';
@@ -4793,7 +4807,7 @@ $('btn-eid').onclick=function(){var b=$('eid-bar');b.style.display=(b.style.disp
 $('eid').onkeydown=function(e){if(e.key==='Enter')run($('eid').value,false)};
 function setArtFocus(val){if($('artFocus'))$('artFocus').value=val;sset('artFocus',val);if(last&&RES)show(last,RES)}
 ['slots','run','shipTarget','artFocus','fuelPct','tankFullOv'].forEach(function(id){$(id).onchange=function(){sset(id,$(id).value);if(last&&RES)show(last,RES)}});
-['ev-prestige','ev-epic','ev-common','ev-cap','ev-drones','ev-craft','ev-cash','ev-boost-dur'].forEach(function(id){$(id).onchange=function(){manualEventOverrides[id]=true;if(last&&RES)show(last,RES)}});
+['ev-prestige','ev-epic','ev-common','ev-cap','ev-drones','ev-craft','ev-cash','ev-boost-dur','ev-gifts'].forEach(function(id){$(id).onchange=function(){manualEventOverrides[id]=true;if(last&&RES)show(last,RES)}});
 
 ['slots','run','shipTarget','artFocus','fuelPct','tankFullOv'].forEach(function(id){var v=sget(id);if(v)$(id).value=v});
 applyDefaultEventsIfUnset();
