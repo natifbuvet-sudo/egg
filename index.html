@@ -135,7 +135,9 @@ details summary::-webkit-details-marker{display:none}
 .chk-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px;font-size:.8rem}
 .chk-item{display:flex;align-items:center;gap:6px;background:var(--bg);padding:5px 8px;border-radius:7px;border:1px solid var(--line);cursor:pointer}
 .chk-item input{width:auto;margin:0}
-.nav{border-bottom:1px solid var(--bd)}
+.nav{border-bottom:1px solid var(--line)}
+.card[id]{scroll-margin-top:46px}
+@media(prefers-color-scheme:dark){.hero{background:#232b42;color:#eceef5}}
 .hero-ctx{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:rgba(255,255,255,.22);font-size:.7rem;font-weight:700}
 </style>
 <script>
@@ -148,7 +150,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 93</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 94</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -181,7 +183,7 @@ details summary::-webkit-details-marker{display:none}
 <option value="CHICKEN_ONE">Chicken One (Rocket Fuel • 7.2B)</option>
 <option value="CHICKEN_NINE">Chicken Nine (Rocket Fuel • 130T)</option>
 <option value="CHICKEN_HEAVY">Chicken Heavy (Rocket Fuel • 2.1Q)</option>
-<option value="BCR">BCR (Rocket Fuel + Super Material • 32s) [מתחילים]</option>
+<option value="BCR">BCR (Rocket Fuel + Fusion • 32s) [מתחילים]</option>
 <option value="QUINTILLION_CHICKEN">Quintillion Chicken (Fusion + Graviton • 3.9S)</option>
 <option value="CORVETTE">Cornish-Hen Corvette (Fusion + Graviton • 360S)</option>
 <option value="GALENGG">Galeggtica (Fusion + Graviton • 32o)</option>
@@ -1556,7 +1558,7 @@ function analyzeMacroAndEndgame(b,sim,logi,art,clv,collegg){
  }
 
  return {
-  phase:phase,phaseTitle:phaseTitle,phaseTip:phaseTip,skipPath:skipPath,msTargetPop:getMultistigeTargetPop(eb),
+  phase:phase,phaseTitle:phaseTitle,phaseTip:phaseTip,skipPath:skipPath,msTargetPop:getMultistigeTargetPop(eb),msLegs:eb>=1e26?5:(eb>=1e22?4:(eb>=1e20?3:(eb>=1e19?2:1))),
   isEnl:isEnl,isVirt:isVirt,shifts:shifts,curEggEoT:curEggEoT,nextEoTN:nextEoTN,nextEoTEggs:nextEoTEggs,
   nextShiftSECost:nextShiftSECost,next3ShiftsSECost:next3ShiftsSECost,minRecommendedEoTGain:minRecommendedEoTGain,virtPerEgg:virtPerEgg,
   bestGusset:bestGusset,maxClarityEff:maxClarityEff,reqWD:reqWD,enlPossible:enlPossible
@@ -1794,7 +1796,7 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
   else if(sp.name==='BOOK_OF_BASAN')bookAdd=getBookBonus(lvl,rar);
   else if(sp.name==='VIAL_MARTIAN_DUST')vialAdd=getVialAdd(lvl,rar);
   else if(sp.name==='LUNAR_TOTEM')lunarMult=getTotemMult(lvl,rar);
-  else if(sp.name==='DILITHIUM_MONOCLE' && (isLunar||isActiveRun)){var mm=getMonocleMult(lvl,rar);earnMult=mm*mm;}
+  else if(sp.name==='DILITHIUM_MONOCLE' && (isLunar||isActiveRun)){earnMult=getMonocleMult(lvl,rar);}
   else if(sp.name==='LIGHT_OF_EGGENDIL' && isEnlightenment)earnMult=getEnlightenmentMult(lvl,rar);
 
   stList.forEach(function(st){
@@ -2435,7 +2437,7 @@ var availGE=Math.max(0,(g.goldenEggsEarned||0)-(g.goldenEggsSpent||0));
  return {
   maxBoostSlots:maxBoostSlots,availGE:availGE,owned:owned,total1000xCount:tot1000,
   bestSupreme1000x:sup1000,bestLegendary1000x:leg1000,best1000x:sup1000||leg1000,
-  best100x:pick('tachyon',100,999),best10xFree:pick('tachyon',1,99),
+  best100x:pick('tachyon',100,999),spare100x:spare100x,best10xFree:pick('tachyon',1,99),
   bestBeacon10x:pick('beacon',10,49),bestBeacon5x:pick('beacon',5,9),
   bestBeacon2x:pick('beacon',2,9),
   bestMirror:pick('mirror',1,10000),
@@ -2819,7 +2821,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
  var csRaw=c.coopIdentifier?liveCoopStatuses[id+':'+c.coopIdentifier]:null;
  var gSpecs=k.gradeSpecs||[];
  var gMatch=gSpecs.filter(function(gs){return gs.grade===c.grade})[0]||gSpecs[gSpecs.length-1];
- var gList=(gMatch&&gMatch.goals&&gMatch.goals.length)?gMatch.goals:(k.goals||[]);
+ var gList=(gMatch&&gMatch.goals&&gMatch.goals.length)?gMatch.goals:(k.goals||[]),totGoals=gList.length||3;
  var finalGoal=gList.length?Number(gList[gList.length-1].targetAmount||0):0;
  var liveCoop=null;
  if(csRaw){
@@ -2844,7 +2846,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
 
  var waitingCoop=(simEnd>0)||!!(c.clearedForExit)||(liveCoop&&liveCoop.csDone);
  var manualGoalMode=contractGoalModes[id]||'auto';
- var autoGoalMode=((isReplay || achieved>=3) && !coll.needs10B)?'cs':'rewards';
+ var autoGoalMode=((isReplay || achieved>=totGoals) && !coll.needs10B)?'cs':'rewards';
  var goalMode=(manualGoalMode==='cs'||manualGoalMode==='rewards')?manualGoalMode:autoGoalMode;
  var pointsOnly=(goalMode==='cs');
  var maxCoop=k.maxCoopSize||0;
@@ -2946,7 +2948,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
  var effRate=cLogi?Math.min(cLogi.totalLayRate,cLogi.totalShipCap):0;
  var soloProj=(cLogi&&remSec>0)?(ownAmt+(effRate/60)*remSec):ownAmt;
  var fairShare=(finalTarget>0&&maxCoop>0)?(finalTarget/maxCoop):finalTarget;
- var onTrackNoBoost=!!(achieved>=3||(liveCoop&&liveCoop.onTrack)||(fairShare>0&&soloProj>=fairShare*0.95));
+ var onTrackNoBoost=!!(achieved>=totGoals||(liveCoop&&liveCoop.onTrack)||(fairShare>0&&soloProj>=fairShare*0.95));
  var paceForecast={finalTarget:finalTarget,fairShareTarget:Math.round(fairShare),
   soloProjected:Math.round(soloProj),onTrackWithoutBoosts:onTrackNoBoost};
  var collWithPace=Object.assign({},coll,{paceForecast:paceForecast});
@@ -2988,8 +2990,8 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
   var timeLeft2=sharedEnd>now?(sharedEnd-now):0;
   actionText=coll.needs10B
    ?('הגע ל-10B אוכלוסייה בחוזה זה לנעילת בונוס Colleggtible קבוע! '+(boostPlan?boostPlan.summary:''))
-   :('פעיל לפרסים ('+achieved+'/3 יעדים'+(timeLeft2>0?', נשארו '+hrs(timeLeft2):'')+'). '+(boostPlan?boostPlan.summary:'הרכב '+defLabel)+' ובצע עד '+runCapActive+' ריצות תרנגולות לחברים.');
-  urgent.push([(rew.hasPE||coll.needs10B)?26:31,'קדם חוזה: '+name,'הושגו '+achieved+'/3 יעדים'+(coll.needs10B?' (יעד Colleggtible 10B!)':(rew.hasPE?' (כולל Prophecy Egg!)':'')+'.'),'contracts']);
+   :('פעיל לפרסים ('+achieved+'/'+totGoals+' יעדים'+(timeLeft2>0?', נשארו '+hrs(timeLeft2):'')+'). '+(boostPlan?boostPlan.summary:'הרכב '+defLabel)+' ובצע עד '+runCapActive+' ריצות תרנגולות לחברים.');
+  urgent.push([(rew.hasPE||coll.needs10B)?26:31,'קדם חוזה: '+name,'הושגו '+achieved+'/'+totGoals+' יעדים'+(coll.needs10B?' (יעד Colleggtible 10B!)':(rew.hasPE?' (כולל Prophecy Egg!)':'')+'.'),'contracts']);
  }
 
  if(!c.coopIdentifier){
@@ -3028,7 +3030,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
   nextStep='שמור '+defLabel+' מורכב, בצע '+runCapActive+' ריצות תרנגולות לחברים והגע ל-100%–200% מהחלק היחסי';
   nextStepLevel='info';
  }else{
-  nextStep='שמור '+defLabel+' מורכב ובצע עד '+runCapActive+' ריצות תרנגולות לחברים לקידום היעדים ('+achieved+'/3)';
+  nextStep='שמור '+defLabel+' מורכב ובצע עד '+runCapActive+' ריצות תרנגולות לחברים לקידום היעדים ('+achieved+'/'+totGoals+')';
   nextStepLevel='info';
  }
 
@@ -3038,7 +3040,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
   timeLeft:timeLeftGeneric,goalMode:goalMode,manualGoalMode:manualGoalMode,
   paceForecast:paceForecast,
   statusType:statusType,badgeText:badgeText,badgeClass:badgeClass,
-  waitingCoop:waitingCoop,pointsOnly:pointsOnly,pointsPlaybook:pointsPlaybook,achieved:achieved,hasPE:rew.hasPE,needs10B:coll.needs10B,rewardsText:rew.rewardsText,
+  waitingCoop:waitingCoop,pointsOnly:pointsOnly,pointsPlaybook:pointsPlaybook,achieved:achieved,totGoals:totGoals,hasPE:rew.hasPE,needs10B:coll.needs10B,rewardsText:rew.rewardsText,
   ownAmt:ownAmt,lastRewAmt:lastRewAmt,
   cfMetrics:cfMetrics,boostPlan:boostPlan,liveCoop:liveCoop,nextStep:nextStep,nextStepLevel:nextStepLevel,
   actionText:actionText,researchHint:researchHint,researchPlan:cp,stoneAdvice:stoneAdvice,cfAlerts:cfAlerts,urgent:urgent
@@ -3153,7 +3155,7 @@ function detectBestShip(b,isVirt,events,hasFuelTank,curSE,permitTier){
    return {curXP:xp,curStars:stars,maxStars:arr.length,nextStarXP:nxt,fleet:fleet,
     remStarLaunches:nxt>xp?Math.ceil((nxt-xp)/xpL):0,remMaxLaunches:Math.max(0,Math.ceil((arr[arr.length-1]-xp)/xpL))};
   })(),
-  nextShip:nextShip,nextMeta:nextMeta,missingLaunches:missingLaunches,missingSE:missingSE,holdShipForSE:holdShipForSE,
+  nextShip:nextShip,nextMeta:nextMeta,missingLaunches:missingLaunches,missingSE:missingSE,estUnlockSec:estUnlockSec,holdShipForSE:holdShipForSE,
   preferExtended:preferExtended,durKey:durKey,missionDur:missionDur,
   fundCost:tMeta.fundCost
  };
@@ -3843,7 +3845,7 @@ function plan(b,R){
  var homePop=Math.max(logi.pop||0,(logi.fvDebug&&logi.fvDebug.estPopNow)||0);
  var lockPop=isC?((lockTc&&lockTc.cfMetrics&&lockTc.cfMetrics.pop)||farmPop):homePop;
  var gLock=getFarmGussetLock(lockFarm,rawArtCtx.equippedList,lockPop);
- var cDoneLock=!!(isC&&lockTc&&lockTc.achieved>=3&&lockTc.liveCoop&&lockTc.liveCoop.allGoalsAchieved);
+ var cDoneLock=!!(isC&&lockTc&&lockTc.achieved>=(lockTc.totGoals||3)&&lockTc.liveCoop&&lockTc.liveCoop.allGoalsAchieved);
  if(cDoneLock){
   var doneMsg='החוזה השלים את כל היעדים (3/3) — הארטיפקטים נעולים בחוזה עד לסגירה הסופית';
   artCtx=Object.assign({},rawArtCtx,{targetSet:rawArtCtx.equippedList.slice(),isOptimal:true,gainBoostPct:0,gussetLocked:true,gussetLockReason:doneMsg,
@@ -4163,7 +4165,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v93',
+  version:'v94',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4379,7 +4381,7 @@ function show(b,R){
  h+='</div>';
 
  var top=a[0];
- var ctxLbl=P.isVirtue?'Path of Virtue':(P.isEnl?'Enlightenment':'חווה ראשית');
+ var ctxLbl=P.macro.isVirt?'Path of Virtue':(P.macro.isEnl?'Enlightenment':'חווה ראשית');
  h+='<div class="hero"><small>הצעד הבא עכשיו <span class="hero-ctx">'+ctxLbl+'</span></small><h2>'+esc(top[1])+'</h2><p>'+esc(top[2])+'</p>';
  if(top[3]==='research')h+='<button class="hero-btn" onclick="jumpTo(\'sec-research\')">לרשימת המחקרים ↓</button>';
  if(top[3]==='contracts')h+='<button class="hero-btn" onclick="jumpTo(\'sec-contracts\')">לפירוט חוזים ↓</button>';
@@ -4634,7 +4636,7 @@ function show(b,R){
    var tokCnt=d.boostPlan?d.boostPlan.unclaimedTokens:0;
    var wTokCnt=(d.boostPlan&&typeof d.boostPlan.walletTokens==='number')?d.boostPlan.walletTokens:null;
    h+='<div class="c-chips">';
-   h+='<span class="c-chip">יעדים: <b>'+d.achieved+'/3</b></span>';
+   h+='<span class="c-chip">יעדים: <b>'+d.achieved+'/'+(d.totGoals||3)+'</b></span>';
    if(d.cfMetrics){
     var m=d.cfMetrics;
     h+='<span class="c-chip">לולים: <b>'+m.habPct.toFixed(0)+'%</b> ('+fmt(m.pop)+'/'+fmt(m.maxCap)+')</span>';
@@ -4747,7 +4749,7 @@ function show(b,R){
   h+='<div style="margin-top:6px">';
   waitingList.forEach(function(d){
    h+='<div class="c-mini-row"><div class="c-head"><span>'+esc(d.name)+'</span><span class="badge b-wait">ממתין לסגירת קבוצה</span></div>';
-   h+='<small>כל 3 היעדים נאספו'+(d.coop?' • קבוצה: '+esc(d.coop):'')+'. אין פעולה נדרשת.</small></div>';
+   h+='<small>כל '+(d.totGoals||3)+' היעדים נאספו'+(d.coop?' • קבוצה: '+esc(d.coop):'')+'. אין פעולה נדרשת.</small></div>';
   });
   otherAvailList.forEach(function(av){
    h+='<div class="c-mini-row"><div class="c-head"><span>'+esc(av.name)+'</span><div>';
@@ -4773,7 +4775,7 @@ function show(b,R){
   h+=row('כוכבי '+esc(shipName(P.fuelInfo.target)),'<b>'+si.curStars+'/'+si.maxStars+' ★</b> ('+si.curXP+' XP • '+stR+')');
   if(si.fleet && si.fleet.length>1){
    var flTxt=si.fleet.map(function(f){return esc(shipName(f.ship))+': '+f.stars+'/'+f.maxStars+'★ ('+f.xp+' XP)'}).join(' • ');
-   h+='<div style="font-size:.78rem;color:var(--muted);margin:-2px 0 6px">'+flTxt+'</div>';
+   h+='<div style="font-size:.78rem;color:var(--mut);margin:-2px 0 6px">'+flTxt+'</div>';
   }
  }
  if(sp.nextShip && sp.nextMeta){
@@ -4968,6 +4970,6 @@ function updateBackupTimer(){
  }
 }
 var saved=sget('eid');if(saved){$('eid').value=saved;run(saved,false)}
-setInterval(function(){var e=sget('eid');if(e&&!document.hidden){nextPollAt=Date.now()+20000;run(e,true)}},20000);
+setInterval(function(){var e=sget('eid');var ae=document.activeElement;if(e&&!document.hidden&&!(ae&&$('out')?.contains(ae)&&/INPUT|SELECT/.test(ae.tagName))){nextPollAt=Date.now()+20000;run(e,true)}},20000);
 setInterval(function(){if(!document.hidden)updateBackupTimer()},1000);
 </script></body></html>
