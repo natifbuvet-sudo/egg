@@ -150,7 +150,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 94</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 95</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -3331,9 +3331,13 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  }):null;
  var actSplits=dmSplits||tankSplits,planEggs=actSplits.map(function(sp){return {egg:sp.egg,name:sp.name,ideal:sp.ideal,toAdd:sp.toAdd,excess:sp.excess,delta:sp.excess-sp.toAdd};});
  var tankPlan={maxLaunchesInCap:dmLaunches||maxLaunchesInCap,oneLaunchFuel:dmLaunches?7e12:oneLaunchFuel,unrelatedFuel:unrelatedFuel,splits:actSplits,eggs:planEggs,sitEgg:dmLaunches?'DARK_MATTER':null};
+ var totalMissingFuel=fuelBreakdown.reduce(function(s,fb){return s+fb.missingAmt},0);
+ var tankBlockedFull=!!(hasFuelTank && totalMissingFuel>0 && tankFreeSpace<totalMissingFuel);
+ var dumpEggs=tankBlockedFull?EGG_ORDER.map(function(eg,idx){var st=tank[idx]||0,keep=(costMap[eg]||0)*Math.max(1,maxLaunchesInCap);
+ return st>keep?{egg:eg,name:EGG_HE[eg]||eg,excess:st-keep}:null;}).filter(Boolean):[];
 
  return {
-  curSE:curSE,launchpadUnlocked:launchpadUnlocked,hasFuelTank:hasFuelTank,hasTankData:hasTankData,tank:tank,fuelBreakdown:fuelBreakdown,fuelActionPlan:fuelActionPlan,tankPlan:tankPlan,
+  curSE:curSE,launchpadUnlocked:launchpadUnlocked,hasFuelTank:hasFuelTank,hasTankData:hasTankData,tank:tank,fuelBreakdown:fuelBreakdown,fuelActionPlan:fuelActionPlan,tankPlan:tankPlan,tankBlockedFull:tankBlockedFull,dumpEggs:dumpEggs,
   curEggIdx:curEggIdx,rfIdx:rfIdx,
   target:target,shipProg:shipProg,reqFuels:reqFuels,reqNames:reqNames,onFuelEgg:onFuelEgg,
   hasFuelInTank:hasAllFuelsInTank,canFuelNow:canFuelNow,canAffordFund:canAffordFund,fundCost:fundCost,
@@ -3718,7 +3722,12 @@ function plan(b,R){
     :('שגר ספינת '+shipName(fuelInfo.target)+' ('+durLabel+' • '+fmt(fuelInfo.fundCost)+')');
    a.push([shipPrio,shipTitle,'דלק זמין: '+fuelInfo.reqNames+tankCyclesTxt+unlockGoalTxt+'.','epic']);
   }else{
-   a.push([68,'ספינה פנויה ('+shipName(fuelInfo.target)+' '+durLabel+') — חסר דלק במיכל','חסר: '+fuelInfo.missingDetails.join(' • ')+' (כרגע על '+fuelInfo.curEggName+').','epic']);
+   if(fuelInfo.tankBlockedFull){
+ var dumpTxt=fuelInfo.dumpEggs.length?fuelInfo.dumpEggs.map(function(d){return d.name+' ('+fmt(d.excess)+')'}).join(', '):'עודפי דלק';
+ a.push([23,'רוקן עודפים במיכל הדלק ('+fmt(fuelInfo.tankTotal)+'/'+fmt(fuelInfo.tankCapacity)+') לפני תדלוק '+shipName(fuelInfo.target),'המיכל מלא ולא ניתן להכניס '+fuelInfo.missingDetails.join(' • ')+'. רוקן תחילה: '+dumpTxt+', ואז עבור לביצה החסרה.','epic']);
+ }else{
+ a.push([24,'ספינה פנויה ('+shipName(fuelInfo.target)+' '+durLabel+') — חסר דלק במיכל','חסר: '+fuelInfo.missingDetails.join(' • ')+' (כרגע על '+fuelInfo.curEggName+').','epic']);
+ }
   }
  }
 
@@ -4149,7 +4158,9 @@ function copyDiag(){
   shipRec.fuelBreakdown=P.fuelInfo.fuelBreakdown.map(function(fb){
    return {egg:fb.egg,stored:fmt(fb.stored),required:fmt(fb.reqAmt),missing:fmt(fb.missingAmt)};
   });
-  shipRec.tankPlan=P.fuelInfo.tankPlan?{maxLaunches:P.fuelInfo.tankPlan.maxLaunchesInCap,
+  shipRec.tankBlockedFull=P.fuelInfo.tankBlockedFull;
+ if(P.fuelInfo.dumpEggs&&P.fuelInfo.dumpEggs.length)shipRec.dumpEggs=P.fuelInfo.dumpEggs.map(function(d){return {egg:d.egg,excess:fmt(d.excess)};});
+ shipRec.tankPlan=P.fuelInfo.tankPlan?{maxLaunches:P.fuelInfo.tankPlan.maxLaunchesInCap,
    unrelatedFuel:fmt(P.fuelInfo.tankPlan.unrelatedFuel),
    splits:P.fuelInfo.tankPlan.splits.map(function(sp){return {egg:sp.egg,ideal:fmt(sp.ideal),toAdd:fmt(sp.toAdd),excess:fmt(sp.excess)};})}:null;
  }
@@ -4165,7 +4176,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v94',
+  version:'v95',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4831,7 +4842,10 @@ function show(b,R){
    if(!minFb||fb.launches<minFb.launches)minFb=fb;
    h+=row('• '+esc(fb.name)+' (נדרש '+fmt(fb.reqAmt)+')',fb.missingAmt===0?'<span class="tag-ok">'+fmt(fb.stored)+' ('+fb.launches+' שיגורים)</span>':'<span class="tag-wait">'+fmt(fb.stored)+' (חסר '+fmt(fb.missingAmt)+')</span>');
   });
-  if(minL===0 && minFb){
+  if(P.fuelInfo.tankBlockedFull){
+ var dList=P.fuelInfo.dumpEggs.map(function(d){return esc(d.name)+' ('+fmt(d.excess)+')'}).join(', ');
+ h+='<div class="status-banner alert" style="margin-top:6px"><b>המיכל מלא וחוסם תדלוק:</b><small>רוקן תחילה מהמיכל: <b>'+(dList||'עודפי דלק')+'</b> כדי לפנות מקום ל-'+esc(P.fuelInfo.missingDetails.join(', '))+'.<\/small><\/div>';
+ }else if(minL===0 && minFb){
    h+='<div class="status-banner alert" style="margin-top:6px"><b>התראת דלק ריק:</b><small>חסר דלק מסוג <b>'+esc(minFb.name)+'</b> ('+fmt(minFb.missingAmt)+') לשיגור '+esc(shipName(P.fuelInfo.target))+'.</small></div>';
   }else if(minL<P.shipSlots && minFb){
    h+='<div class="status-banner hold" style="margin-top:6px"><b>סימולטור דלק — מלאי נמוך:</b><small>מספיק ל-<b>'+minL+'</b> שיגורים בלבד (פחות מסבב של '+P.shipSlots+' ספינות). צוואר בקבוק: <b>'+esc(minFb.name)+'</b>.</small></div>';
