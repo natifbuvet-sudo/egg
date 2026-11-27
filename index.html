@@ -146,7 +146,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 90</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 91</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -352,8 +352,8 @@ function getGussetMult(level,rarity){
 function calcItemGussetMult(sp,stones,isEnl){
  if(!sp||sp.name!=='ORNATE_GUSSET')return 1;
  var eff=1;
- if(isEnl){eff=0;(stones||[]).forEach(function(st){if(st&&st.name==='CLARITY_STONE')eff+=(CLARITY_STONE_VAL[normLevel(st.level)]||0)});}
- return 1+(getGussetMult(normLevel(sp.level),normRarity(sp.rarity))-1)*eff;
+ if(isEnl){eff=0;(stones||[]).forEach(function(st){if(st&&st.name==='CLARITY_STONE')eff+=(CLARITY_STONE_VAL[st.level||'INFERIOR']||0)});}
+ return 1+(getGussetMult(sp.level||'INFERIOR',sp.rarity||'COMMON')-1)*eff;
 }
 function getMetronomeMult(level,rarity){
  if(level==='GREATER'){if(rarity==='LEGENDARY')return 1.35;if(rarity==='EPIC')return 1.30;if(rarity==='RARE')return 1.27;return 1.25;}
