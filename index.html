@@ -146,7 +146,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 91</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 90</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -2097,7 +2097,7 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
     var sstones=scomp.stones||[];
     var sLabels=formatStoneList(sstones);
     list.push({
-     itemId:sit.itemId,rawName:ssp.name,score:(TIER_RANK[slvl]||0)*10 + (RARITY_RANK[srar]||0),
+     itemId:sit.itemId,rawName:ssp.name,level:slvl,rarity:srar,score:(TIER_RANK[slvl]||0)*10 + (RARITY_RANK[srar]||0),
      name:formatArtLabel(ssp)+(sLabels.length?' ['+sLabels.join(', ')+']':''),
      baseName:formatArtLabel(ssp)
     });
@@ -3791,9 +3791,11 @@ function plan(b,R){
  function getFarmGussetLock(farmObj,eqList,curPop){
   var eqGus=(eqList||[]).filter(function(x){return x.rawName==='ORNATE_GUSSET'})[0];
   if(!farmObj||!eqGus)return {locked:false};
-  var inv=((b.artifactsDb&&b.artifactsDb.inventoryItems)||[]).filter(function(x){return x.itemId===eqGus.itemId})[0];
+  var items=(db&&db.inventoryItems)||(b.artifactsDb&&b.artifactsDb.inventoryItems)||[];
+  var inv=items.filter(function(x){return String(x.itemId)===String(eqGus.itemId)})[0];
   var isEnl=(farmObj.eggType==='ENLIGHTENMENT'||farmObj.egg===19);
-  var gMult=inv?calcItemGussetMult(inv.artifact&&inv.artifact.spec,inv.artifact&&inv.artifact.stones,isEnl):(isEnl?1:(art.gussetMult||1));
+  var fbMult=isEnl?1:getGussetMult(eqGus.level||'INFERIOR',eqGus.rarity||'COMMON');
+  var gMult=inv?calcItemGussetMult(inv.artifact&&inv.artifact.spec,inv.artifact&&inv.artifact.stones,isEnl):fbMult;
   if(gMult<=1.0001)return {locked:false};
   var cMap=lvMap(farmObj.commonResearch||[]),resH=1,resW=1,hCol=(collegg&&collegg.mults&&collegg.mults.habCap)||1,noG=0,habs=farmObj.habs||[];
   for(var ri=0;ri<R.length;ri++){var r=R[ri],L=cMap[r.id]||0;if(L>0&&r.type==='common'&&r.categories&&r.categories.indexOf('hab_capacity')>=0){
@@ -3806,9 +3808,15 @@ function plan(b,R){
  var artCtx=rawArtCtx,isC=(rawArtCtx.mode==='contract'&&rawArtCtx.contractId);
  var lockFarm=isC?(b.farms||[]).filter(function(f){return f.farmType==='CONTRACT'&&f.contractId===rawArtCtx.contractId})[0]:(b.farms||[])[0];
  var lockTc=isC?activeRunning.filter(function(d){return d.id===rawArtCtx.contractId})[0]:null;
- var lockPop=isC?((lockTc&&lockTc.cfMetrics&&lockTc.cfMetrics.pop)||(lockFarm&&Number(lockFarm.numChickens||0))||0):(logi.pop||0);
+ var farmPop=lockFarm?(lockFarm.habPopulation||[]).reduce(function(x,y){return x+(y||0)},0):0;
+ var lockPop=isC?((lockTc&&lockTc.cfMetrics&&lockTc.cfMetrics.pop)||farmPop):(logi.pop||0);
  var gLock=getFarmGussetLock(lockFarm,rawArtCtx.equippedList,lockPop);
- if(gLock.locked){
+ var cDoneLock=!!(isC&&lockTc&&lockTc.achieved>=3&&lockTc.liveCoop&&lockTc.liveCoop.allGoalsAchieved);
+ if(cDoneLock){
+  var doneMsg='החוזה השלים את כל היעדים (3/3) — הארטיפקטים נעולים בחוזה עד לסגירה הסופית';
+  artCtx=Object.assign({},rawArtCtx,{targetSet:rawArtCtx.equippedList.slice(),isOptimal:true,gainBoostPct:0,gussetLocked:true,gussetLockReason:doneMsg,
+   whyNote:(rawArtCtx.whyNote||'')+' 🔒 '+doneMsg+'.'});
+ }else if(gLock.locked){
   var pinG={rawName:'ORNATE_GUSSET',name:gLock.eqGus.name,baseName:gLock.eqGus.baseName,score:gLock.eqGus.score||0},eqMap={};
   (rawArtCtx.equippedList||[]).forEach(function(it){if(!eqMap[it.rawName]||(it.score||0)>eqMap[it.rawName].score)eqMap[it.rawName]=it;});
   var newT=(rawArtCtx.targetSet||[]).filter(function(x){return x.rawName!=='ORNATE_GUSSET'}).slice(0,Math.max(0,(art.maxArtSlots||4)-1)).concat([pinG]);
@@ -4091,7 +4099,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v89',
+  version:'v90',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
