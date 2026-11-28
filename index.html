@@ -155,7 +155,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 99</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 100</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -262,7 +262,10 @@ var SHIP_META={
  DEFIHENT:{name:'Defihent',reqPrevLaunches:24,reqSE:2.5e10,fundCost:2.4e30,fuels:{SHORT:{DILITHIUM:1e10,FUSION:5e10,GRAVITON:5e10},STANDARD:{DILITHIUM:2.5e10,FUSION:1e11,GRAVITON:1e11},EXTENDED:{DILITHIUM:5e10,FUSION:2.5e11,GRAVITON:2.5e11}}},
  VOYEGGER:{name:'Voyegger',reqPrevLaunches:27,reqSE:5e11,fundCost:1.5e32,fuels:{SHORT:{DILITHIUM:5e10,FUSION:1e11,GRAVITON:1e11},STANDARD:{DILITHIUM:1e11,FUSION:2.5e11,GRAVITON:2.5e11},EXTENDED:{DILITHIUM:2.5e11,FUSION:5e11,GRAVITON:5e11}}},
  HENERPRISE:{name:'Henerprise',reqPrevLaunches:30,reqSE:1e13,fundCost:8.6e33,fuels:{SHORT:{DILITHIUM:2e11,ANTIMATTER:2e11,DARK_MATTER:2e11},STANDARD:{DILITHIUM:5e11,ANTIMATTER:5e11,DARK_MATTER:5e11},EXTENDED:{DILITHIUM:1e12,ANTIMATTER:1e12,DARK_MATTER:1e12}}},
- ATREGGIES:{name:'Atreggies Henliner',reqPrevLaunches:40,reqSE:1e14,fundCost:4.2e35,fuels:{SHORT:{TACHYON:2e11,DILITHIUM:6e11,ANTIMATTER:6e11,DARK_MATTER:6e11},STANDARD:{TACHYON:5e11,DILITHIUM:1.5e12,ANTIMATTER:1.5e12,DARK_MATTER:1.5e12},EXTENDED:{TACHYON:1e12,DILITHIUM:3e12,ANTIMATTER:3e12,DARK_MATTER:3e12}}}
+ ATREGGIES:{name:'Atreggies Henliner',reqPrevLaunches:40,reqSE:1e14,fundCost:4.2e35,fuels:{
+ SHORT:{TACHYON:4e11,DILITHIUM:1.2e12,ANTIMATTER:1.2e12,DARK_MATTER:1.2e12},
+ STANDARD:{TACHYON:1e12,DILITHIUM:3e12,ANTIMATTER:3e12,DARK_MATTER:3e12},
+ EXTENDED:{TACHYON:2e12,DILITHIUM:6e12,ANTIMATTER:6e12,DARK_MATTER:6e12}}}
 };
 var TANK_CAPACITIES=[2e9,2e11,1e13,1e14,2e14,3e14,4e14,5e14];
 function getTankStorage(b,isVirt){
@@ -690,7 +693,7 @@ function getActiveEvents(){
  var srvBDur=(liveServerEvents&&liveServerEvents.boostDurationMultiplier>1)?liveServerEvents.boostDurationMultiplier:0;
  var srvGift=(liveServerEvents&&liveServerEvents.giftMultiplier>1)?liveServerEvents.giftMultiplier:0;
  return {
-  prestigeMultiplier:sched.isEggDay?Math.max(8.0,srvPrest):(prestChecked?(srvPrest||2.0):1.0),
+  prestigeMultiplier:sched.isEggDay?Math.max(10.0,srvPrest):(prestChecked?(srvPrest||2.0):1.0),
   commonResearchDiscount:commChecked?(liveServerEvents&&liveServerEvents.commonResearchDiscount>0?liveServerEvents.commonResearchDiscount:0.70):0.0,
   epicResearchDiscount:epicChecked?(liveServerEvents&&liveServerEvents.epicResearchDiscount>0?liveServerEvents.epicResearchDiscount:0.35):0.0,
   craftingDiscount:craftChecked?(liveServerEvents&&liveServerEvents.craftingDiscount>0?liveServerEvents.craftingDiscount:0.30):0.0,
@@ -2230,9 +2233,10 @@ function optimizeStones(art,logi){
  var soulGainMult=(bSE + art.bestSoulPts)/bSE;
  var prophGainMult=Math.pow((bPE + art.bestProphPts/100)/bPE, pe);
  var useProphecy=(prophGainMult >= soulGainMult);
- var prestigeStoneAdvice=useProphecy
-  ?('שבץ Prophecy Stones (+'+((prophGainMult-1)*100).toFixed(2)+'% לאבן מול +'+((soulGainMult-1)*100).toFixed(2)+'% ב-Soul Stone עם '+pe+' PE)')
-  :('שבץ Soul Stones (+'+((soulGainMult-1)*100).toFixed(2)+'% לאבן מול +'+((prophGainMult-1)*100).toFixed(2)+'% ב-Prophecy Stone עם '+pe+' PE)');
+ var lunarNote=logi.lunarBeatsActive?(pe<252?' • ל-Lunarstige: T4 Lunar (+40%) עדיפות על T4 Prophecy עד ~252 PE':' • ל-Lunarstige: מעל 252 PE אבני T4 Prophecy עוקפות T4 Lunar'):'';
+ var prestigeStoneAdvice=(useProphecy
+ ?('שבץ Prophecy Stones (+'+((prophGainMult-1)*100).toFixed(2)+'% לאבן מול +'+((soulGainMult-1)*100).toFixed(2)+'% ב-Soul Stone עם '+pe+' PE)')
+ :('שבץ Soul Stones (+'+((soulGainMult-1)*100).toFixed(2)+'% לאבן מול +'+((prophGainMult-1)*100).toFixed(2)+'% ב-Prophecy Stone עם '+pe+' PE)'))+lunarNote;
 
  var slots=art.totalContractSlots||0;
  var availTach=(art.looseStones||[]).filter(function(s){return s.rawName==='TACHYON_STONE'}).reduce(function(a,s){return a+(s.qty||0)},0);
@@ -2584,13 +2588,20 @@ function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,r
    combo.push({id:inv.bestSupreme1000x.id,name:inv.bestSupreme1000x.name,useQty:1,tokens:tokensNeeded});
    summary='מילוי לולים Speedrun ('+tokensNeeded+' טוקנים • סלוט 1 • ~'+fmt(estPopGain)+'): '+inv.bestSupreme1000x.name;
    detailNote=prepArtNote+', ולאחר ההפעלה '+exitFarmNote+'.';
+  }else if(canSpend1000x && inv.bestLegendary1000x && (hasDilithium||calmLv>=10) && inv.bestBeacon2x && inv.bestBeacon2x.count>=2 && inv.maxBoostSlots>=3){
+  var cT6=getBoostTokenCost(inv.bestLegendary1000x.id),cB6=2*getBoostTokenCost(inv.bestBeacon2x.id);
+  tokensNeeded=cT6+cB6;estPopGain=Math.round(baseIhrPerMin*40000);
+  combo.push({id:inv.bestLegendary1000x.id,name:inv.bestLegendary1000x.name,useQty:1,tokens:cT6});
+  combo.push({id:inv.bestBeacon2x.id,name:inv.bestBeacon2x.name,useQty:2,tokens:cB6});
+  summary='מילוי לולים חסכוני ('+tokensNeeded+' טוקנים • ~'+fmt(estPopGain)+'): '+inv.bestLegendary1000x.name+' + 2× '+inv.bestBeacon2x.name;
+  detailNote=prepArtNote+', ולאחר ההפעלה '+exitFarmNote+'.';
   }else if(canSpend1000x && inv.bestLegendary1000x && inv.bestBeacon10x){
-   var cT=getBoostTokenCost(inv.bestLegendary1000x.id),cB=getBoostTokenCost(inv.bestBeacon10x.id);
-   tokensNeeded=cT+cB;estPopGain=Math.round(baseIhrPerMin*100000);
-   combo.push({id:inv.bestLegendary1000x.id,name:inv.bestLegendary1000x.name,useQty:1,tokens:cT});
-   combo.push({id:inv.bestBeacon10x.id,name:inv.bestBeacon10x.name,useQty:1,tokens:cB});
-   summary='מילוי לולים מקסימלי ('+tokensNeeded+' טוקנים • 2 סלוטים • ~'+fmt(estPopGain)+'): '+inv.bestLegendary1000x.name+' + '+inv.bestBeacon10x.name;
-   detailNote=prepArtNote+', ולאחר ההפעלה '+exitFarmNote+'.';
+  var cT=getBoostTokenCost(inv.bestLegendary1000x.id),cB=getBoostTokenCost(inv.bestBeacon10x.id);
+  tokensNeeded=cT+cB;estPopGain=Math.round(baseIhrPerMin*100000);
+  combo.push({id:inv.bestLegendary1000x.id,name:inv.bestLegendary1000x.name,useQty:1,tokens:cT});
+  combo.push({id:inv.bestBeacon10x.id,name:inv.bestBeacon10x.name,useQty:1,tokens:cB});
+  summary='מילוי לולים מקסימלי ('+tokensNeeded+' טוקנים • 2 סלוטים • ~'+fmt(estPopGain)+'): '+inv.bestLegendary1000x.name+' + '+inv.bestBeacon10x.name;
+  detailNote=prepArtNote+', ולאחר ההפעלה '+exitFarmNote+'.';
   }else if(canSpend1000x && inv.bestLegendary1000x){
    var cT2=getBoostTokenCost(inv.bestLegendary1000x.id),hasB2=!!inv.bestBeacon2x;
    var cB2=hasB2?getBoostTokenCost(inv.bestBeacon2x.id):0;
@@ -2631,7 +2642,7 @@ function planContractBoosts(b,c,cf,cLogi,cp,art,permitTier,elv,coll,pointsOnly,r
   stage='PRODUCTION';
   var prodSetStr=ownedSetNames||coopArtName;
   summary='לולים מלאים ('+(cLogi?cLogi.habPct.toFixed(0):'80+')+'%) — מקסימום תפוקה ועבודת צוות';
-  detailNote='הרכב '+prodSetStr+', בצע '+runCapActive+' ריצות תרנגולות ושלח טוקנים מיותרים לחברים.';
+  detailNote='הרכב '+prodSetStr+' ובצע '+runCapActive+' ריצות תרנגולות (שלח טוקנים רק לחברים שעדיין בונים — אין בונוס CS על שליחה).';
  }
 
  var wTok=(typeof walletTokens==='number'&&!isNaN(walletTokens))?walletTokens:null;
@@ -2723,13 +2734,13 @@ function buildPointsPlaybook(opts,art,boostPlan){
  var coopRunNote=(maxCoop>1)?(runCap+' ריצות תרנגולות (1 לכל חבר מתוך '+maxCoop+' שחקנים)'):'עד 20 ריצות תרנגולות (1 לכל חבר בקבוצה)';
 
  var step2Text=(boostPlan && boostPlan.summary)
-  ?('בוסט מותאם למלאי שלך: '+boostPlan.summary+'. '+boostPlan.detailNote)
-  :'בוסט פתיחה ב-4 טוקנים: הרכב סט Dilithium והפעל 1000x Tachyon Prism (10m) + 10x Boost Beacon (10m) (ואז סט IHR/Chalice) למילוי 10B+ תרנגולות תוך דקות.';
+ ?('בוסט מותאם למלאי שלך: '+boostPlan.summary+'. '+boostPlan.detailNote)
+ :'בוסט פתיחה (6–8 טוקנים): סט Dilithium + 1000x Tachyon (10m) + 2× 2x Beacon (30m) [או 10x Beacon 10m] + סט IHR למילוי 10B+ תרנגולות.';
 
  var steps=[
-  'הצטרף לקבוצה מהירה ב-Discord / r/EggsIncCoOp (לעולם לא Auto-Join!) — ציון חדש מחליף את הקודם, וסיום מהיר ברבע/חמישית מהזמן מכפיל CS עד ×3–×5.',
-  step2Text,
-  'הרכב '+defLabel+' מההתחלה ועד הסוף (Deflector נותן פי 10 ניקוד Teamwork מאשר '+siabLabel+'; אם אין Deflector השתמש ב-'+siabLabel+').',
+ 'הצטרף לקבוצה מהירה ב-Discord / r/EggsIncCoOp (לעולם לא Auto-Join!) — ציון חדש מחליף את הקודם, וסיום מהיר מכפיל CS עד ×5.',
+ step2Text,
+ 'הרכב '+defLabel+' מההתחלה ועד הסוף (תקרת ניקוד Teamwork ב-AA/AAA נחסמת ב-T3C, אך T4 מאיץ הטלה ומקצר זמן סיום).',
   'בצע '+coopRunNote+' — בעדכון המשחק העדכני זהו רכיב ה-Teamwork הפעיל היחיד מלבד Deflector/SIAB (שליחת טוקנים כבר לא נותנת CS ישיר ב-AA/AAA, אלא רק עוזרת לחברים להפעיל בוסטים).',
   'עבור לתפוקת ביצים (Metronome + Compass + אבני Tachyon/Quantum) והגע ל-100%–200% מהחלק היחסי ('+fairShareNote+'), ואסוף את המגילה הצהובה מיד בסיום.'
  ];
@@ -2861,7 +2872,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
   var remSec=csRaw.secondsRemaining||Math.max(0,(c.timeAccepted||0)+durSec-now);
   var elap=durSec>0?Math.max(0,durSec-remSec):0;
   var frac=(durSec>0&&etaSec>0)?Math.min(1,(elap+etaSec)/durSec):0;
-  var estCsMult=csRaw.allGoalsAchieved?1.5:(etaSec>0?(1+Math.max(0,1-frac)):1);
+  var estCsMult=csRaw.allGoalsAchieved?5:(etaSec>0?(1+4*Math.pow(Math.max(0,1-frac),3)):1);
   var onTrack=csRaw.allGoalsAchieved||remEggs<=0||(etaSec>0&&etaSec<=remSec);
   liveCoop={totalAmount:coopTot,finalGoal:finalGoal,pctDone:pctDone,totalRate:csRaw.totalRate,
    memberCount:csRaw.memberCount,etaSec:etaSec,estCsMult:estCsMult,onTrack:onTrack,
@@ -3188,7 +3199,7 @@ function detectBestShip(b,isVirt,events,hasFuelTank,curSE,permitTier){
    var ST={CHICKEN_ONE:[10,25],CHICKEN_NINE:[15,35,65],CHICKEN_HEAVY:[20,45,80,125],BCR:[25,60,110,175],
     QUINTILLION_CHICKEN:[30,75,135,215,315],CORVETTE:[40,100,180,285,420],GALENGG:[50,125,225,355,520,725],
     DEFIHENT:[60,150,270,425,620,860],VOYEGGER:[75,185,330,520,760,1050,1400],
-    HENERPRISE:[100,250,450,700,1000,1350,1750,2200],ATREGGIES:[100,250,450,700,1000,1350,1750,2200]};
+    HENERPRISE:[100,250,450,700,1000,1350,1750,2200],ATREGGIES:[60,150,270,420,610,840,1110,1420]};
    var arr=ST[target]||[10,25],xp=Number((shipXP[target]||0).toFixed(1)),stars=0;
    arr.forEach(function(th){if(xp>=th)stars++});
    var nxt=(stars<arr.length)?arr[stars]:arr[arr.length-1],xpL=preferExtended?1.8:1.0,fleet=[];
@@ -3370,13 +3381,13 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
   var ideal=fb.reqAmt*maxLaunchesInCap;
   return {egg:fb.egg,name:fb.name,ideal:ideal,toAdd:Math.max(0,ideal-fb.stored),excess:Math.max(0,fb.stored-ideal)};
  });
- var dmLaunches=(!isVirt&&target==='ATREGGIES'&&shipProg.durKey==='EXTENDED'&&tankCapacity>=1e13)?Math.floor(tankCapacity/7e12):0;
+ var dmLaunches=(!isVirt&&target==='ATREGGIES'&&shipProg.durKey==='EXTENDED'&&tankCapacity>=1e14)?Math.floor((tankCapacity-2.4e13)/14e12):0;
  var dmSplits=dmLaunches>0?['TACHYON','DILITHIUM','ANTIMATTER'].map(function(eg){
-  var idl=(costMap[eg]||0)*dmLaunches,st=tank[EGG_ORDER.indexOf(eg)]||0;
-  return {egg:eg,name:EGG_HE[eg],ideal:idl,toAdd:Math.max(0,idl-st),excess:Math.max(0,st-idl)};
+ var idl=(costMap[eg]||0)*dmLaunches,st=tank[EGG_ORDER.indexOf(eg)]||0;
+ return {egg:eg,name:EGG_HE[eg],ideal:idl,toAdd:Math.max(0,idl-st),excess:Math.max(0,st-idl)};
  }):null;
  var actSplits=dmSplits||tankSplits,planEggs=actSplits.map(function(sp){return {egg:sp.egg,name:sp.name,ideal:sp.ideal,toAdd:sp.toAdd,excess:sp.excess,delta:sp.excess-sp.toAdd};});
- var tankPlan={maxLaunchesInCap:dmLaunches||maxLaunchesInCap,oneLaunchFuel:dmLaunches?7e12:oneLaunchFuel,unrelatedFuel:unrelatedFuel,splits:actSplits,eggs:planEggs,sitEgg:dmLaunches?'DARK_MATTER':null};
+ var tankPlan={maxLaunchesInCap:dmLaunches||maxLaunchesInCap,oneLaunchFuel:dmLaunches?14e12:oneLaunchFuel,unrelatedFuel:unrelatedFuel,splits:actSplits,eggs:planEggs,sitEgg:dmLaunches?'DARK_MATTER':null};
  var totalMissingFuel=fuelBreakdown.reduce(function(s,fb){return s+fb.missingAmt},0);
  var tankBlockedFull=!!(hasFuelTank && totalMissingFuel>0 && tankFreeSpace<totalMissingFuel);
  var dumpEggs=tankBlockedFull?EGG_ORDER.map(function(eg,idx){var st=tank[idx]||0,keep=(costMap[eg]||0)*Math.max(1,maxLaunchesInCap);
@@ -4229,7 +4240,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
- version:'v99',
+ version:'v100',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
