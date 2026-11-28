@@ -155,7 +155,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 101</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 102</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -2201,9 +2201,24 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
  });
  var socketableCount=socketableStones.reduce(function(sum,x){return sum+(x.qty||0)},0);
  var canSocketNow=(equippedEmptySlots>0 && socketableCount>0);
+ var missingKeyArts=[];
+ [
+ {k:'TACHYON_DEFLECTOR',n:'Tachyon Deflector',min:30,miss:'קריטי ל-Teamwork והטלה בקו-אופ',up:'מומלץ T3+ לקו-אופ',sh:'Voyegger / Henerprise (Extended)'},
+ {k:'QUANTUM_METRONOME',n:'Quantum Metronome',min:30,miss:'מגביר קצב הטלה ב-25%–35%',up:'מומלץ T3/T4 להטלה',sh:'Corvette → Henerprise (Extended)'},
+ {k:'INTERSTELLAR_COMPASS',n:'Interstellar Compass',min:30,miss:'מונע סתימת משלוחים בחוזים',up:'מומלץ T3/T4 למשלוחים',sh:'Galeggtica → Henerprise (Extended)'},
+ {k:'ORNATE_GUSSET',n:'Ornate Gusset (Shiny/T4)',min:22,miss:'מגדיל קיבולת לולים בחוזים',up:'מומלץ T2E/T3R/T4 עם סלוטים',sh:'Galeggtica → Henerprise (Ext)'},
+ {k:'THE_CHALICE',n:'The Chalice',min:20,miss:'מאיץ מילוי לולים (IHR)',up:'מומלץ T2+ לדגירה מהירה',sh:'BCR / Quintillion Chicken+'},
+ {k:'PHOENIX_FEATHER',n:'Phoenix Feather',min:10,miss:'מכפיל איסוף Soul Eggs',up:'',sh:'Quintillion Chicken+'},
+ {k:'BOOK_OF_BASAN',n:'Book of Basan',min:10,miss:'מחזק בונוס Prophecy Eggs',up:'',sh:'Voyegger / Henerprise+',peMin:15}
+ ].forEach(function(g){
+ if(g.peMin && (peCount||0)<g.peMin)return;
+ var cur=bestOwned[g.k];
+ if(!cur)missingKeyArts.push({key:g.k,name:g.n,status:'חסר במלאי',why:g.miss,ship:g.sh,isMissing:true});
+ else if(g.min && (cur.score||0)<g.min)missingKeyArts.push({key:g.k,name:g.n,status:'יש '+cur.baseName,why:g.up,ship:g.sh,isMissing:false});
+ });
 
  return {
-  equipped:equipped,maxArtSlots:maxArtSlots,virtueArtifactsOnly:isVirt,bestOwned:bestOwned,
+ equipped:equipped,maxArtSlots:maxArtSlots,virtueArtifactsOnly:isVirt,bestOwned:bestOwned,missingKeyArts:missingKeyArts,
   equippedEmptySlots:equippedEmptySlots,equippedEmptyDetails:equippedEmptyDetails,
   looseStoneCount:looseStoneCount,socketableStones:socketableStones,socketableCount:socketableCount,canSocketNow:canSocketNow,
   gussetMult:gussetMult,metronomeMult:metronomeMult,compassMult:compassMult,chaliceMult:chaliceMult,featherMult:featherMult,
@@ -3970,9 +3985,14 @@ function plan(b,R){
   a.push([21,artTitle,artDesc,'artifacts']);
  }
  if(art.canSocketNow && artCtx.mode!=='contract'){
-  var sockNames=art.socketableStones.slice(0,3).map(function(s){return s.name+' ×'+s.qty}).join(', ');
-  a.push([22,'שבץ '+Math.min(art.equippedEmptySlots,art.socketableCount)+' אבנים פנויות בסלוטים הריקים',
-   'באפשרותך לשבץ מיד: '+sockNames+' ב-'+art.equippedEmptyDetails.join(', ')+'.','artifacts']);
+ var sockNames=art.socketableStones.slice(0,3).map(function(s){return s.name+' ×'+s.qty}).join(', ');
+ a.push([22,'שבץ '+Math.min(art.equippedEmptySlots,art.socketableCount)+' אבנים פנויות בסלוטים הריקים',
+ 'באפשרותך לשבץ מיד: '+sockNames+' ב-'+art.equippedEmptyDetails.join(', ')+'.','artifacts']);
+ }
+ var cGaps=(art.missingKeyArts||[]).filter(function(g){return /DEFLECTOR|METRONOME|COMPASS|GUSSET/.test(g.key)});
+ if(cGaps.length>0 && !macro.isVirt && fuelInfo.launchpadUnlocked){
+ a.push([42,'השלמת סט חוזים: '+cGaps[0].name+' ('+cGaps[0].status+')',
+ cGaps[0].why+' • להשגה שגר ספינות: '+cGaps[0].ship+(cGaps.length>1?' (+'+(cGaps.length-1)+' פערים נוספים)':'')+'.','artifacts']);
  }
  if(artCtx.gussetLocked && artCtx.gussetStoneHint && isC && !cDoneLock && isArtOptimal && lockTc && lockTc.cfMetrics && lockTc.cfMetrics.pop>1e6){
   a.push([22,'התאם אבנים (Stones) בסלוטים הפנויים בחוזה '+(artCtx.contractName||''),
@@ -4243,8 +4263,8 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
- version:'v101',
-  playerState:{
+ version:'v102',
+ playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
    soulEggs:P.prestigeInfo.curSE,
@@ -4349,6 +4369,7 @@ function copyDiag(){
     contractStage:P.artCtx.contractStage,
     recommendedSet:P.artCtx.targetSet.map(function(x){return x.name}),
     equippedOnTargetFarm:P.artCtx.equippedList.map(function(x){return x.name}),
+    missingKeyArts:(P.art.missingKeyArts||[]).map(function(g){return {key:g.key,status:g.status,ship:g.ship}}),
     equippedActiveSEMult:Number(P.art.equippedActiveSEMult.toFixed(3)),
     optimalActiveSEMult:Number(P.art.optimalActiveSEMult.toFixed(3)),
     equippedPassiveSEMult:Number(P.art.equippedPassiveSEMult.toFixed(3)),
@@ -4619,6 +4640,12 @@ var P=plan(b,R),a=P.a,h='';
  h+='<div class="status-banner hold"><b>אופטימיזציית אבנים (Stones):</b><small>• <b>Prestige:</b> '+esc(P.stoneOpt.prestigeStoneAdvice)+'<br>• <b>חוזים:</b> '+esc(P.stoneOpt.contractStoneAdvice)+'</small></div>';
  if(P.art.canSocketNow){
   h+='<div class="status-banner do"><b>שיבוץ אבנים פנויות:</b><small>יש לך '+P.art.equippedEmptySlots+' סלוטים ריקים בסט הנוכחי ('+esc(P.art.equippedEmptyDetails.join(', '))+') ו-'+P.art.socketableCount+' אבנים זמינות ('+esc(P.art.socketableStones.slice(0,4).map(function(s){return s.name+' ×'+s.qty}).join(', '))+').</small></div>';
+ }
+ if(P.art.missingKeyArts && P.art.missingKeyArts.length){
+ var gapRows=P.art.missingKeyArts.slice(0,5).map(function(g){
+ return '• <b>'+esc(g.name)+'</b> ('+esc(g.status)+') — '+esc(g.why)+' • <i>ספינה: '+esc(g.ship)+'</i>';
+ }).join('<br>');
+ h+='<div class="status-banner hold"><b>פערים שזוהו בסטים (ארטיפקטים חסרים/לשדרוג):</b><small>'+gapRows+'</small></div>';
  }
  h+='<div style="margin-bottom:6px"><small><b>כל הסטים המומלצים מהמלאי שלך (עד '+P.art.maxArtSlots+' סלוטים):</b></small></div>';
  if(P.art.setDilithium.length)h+=row('0. לפני בוסט (Dilithium +'+Math.round((P.art.potentialDilithiumMult-1)*100)+'% זמן)','<small>'+P.art.setDilithium.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
