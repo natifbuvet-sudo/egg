@@ -155,7 +155,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 103</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 104</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -1769,7 +1769,10 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg,macro,events,hasActiveBoost,e
    var actSE=Math.floor(prestigeBonusMult*(art?art.optimalActiveSEMult:1)*Math.pow(1e-6*Math.max(1,rawAct),seExp));
    var lunSE=Math.floor(prestigeBonusMult*(art?art.optimalLunarSEMult:1)*Math.pow(1e-6*Math.max(1,rawLun),seExp));
    var bestSE=Math.max(actSE,lunSE);
-   return {legs:legs,boostSec:boostSec,diliMult:Number(diliM.toFixed(2)),targetPop:tPop,actLegSE:actSE,lunLegSE:lunSE,bestLegSE:bestSE,totalSetSE:bestSE*legs,preferLunar:(lunSE>actSE)};
+ var isMS=(macro.phase==='LATE_GAME_MULTISTIGE'&&legs>=2);
+ var strat=isMS?(lunSE>actSE?'MULTI_LUNARSTIGE':'MULTISTIGE'):'SINGLE_PRELOAD';
+ var stratLbl=isMS?(lunSE>actSE?'Multi-Lunarstige ('+legs+' רגליים)':'Multistige ('+legs+' רגליים)'):'Single-Preload (רגל אחת מלאה)';
+ return {legs:legs,boostSec:boostSec,diliMult:Number(diliM.toFixed(2)),targetPop:tPop,actLegSE:actSE,lunLegSE:lunSE,bestLegSE:bestSE,totalSetSE:bestSE*legs,preferLunar:(lunSE>actSE),strategy:strat,strategyLabel:stratLbl};
   })(),
   withinReach:withinReach,hitTimeWall:hitTimeWall,activeMinsToNext:activeMinsToNext,idleMinsToNext:idleMinsToNext,nextRes:nextRes
  };
@@ -2891,10 +2894,17 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
   var elap=durSec>0?Math.max(0,durSec-remSec):0;
   var frac=(durSec>0&&etaSec>0)?Math.min(1,(elap+etaSec)/durSec):0;
   var estCsMult=csRaw.allGoalsAchieved?5:(etaSec>0?(1+4*Math.pow(Math.max(0,1-frac),3)):1);
-  var onTrack=csRaw.allGoalsAchieved||remEggs<=0||(etaSec>0&&etaSec<=remSec);
-  liveCoop={totalAmount:coopTot,finalGoal:finalGoal,pctDone:pctDone,totalRate:csRaw.totalRate,
-   memberCount:csRaw.memberCount,etaSec:etaSec,estCsMult:estCsMult,onTrack:onTrack,
-   allGoalsAchieved:csRaw.allGoalsAchieved,myBoostTokens:csRaw.myBoostTokens,csDone:!!(csRaw.allGoalsAchieved||csRaw.clearedForExit||(csRaw.timeSinceLastStatusUpdate>0&&remSec<=0))};
+ var onTrack=csRaw.allGoalsAchieved||remEggs<=0||(etaSec>0&&etaSec<=remSec);
+ var gScale=({GRADE_C:1,GRADE_B:2,GRADE_A:3.5,GRADE_AA:5,GRADE_AAA:7})[c.grade]||5;
+ var dDays=durSec>0?(durSec/86400):5;
+ var fsAmt=(finalGoal>0&&k.maxCoopSize>0)?(finalGoal/k.maxCoopSize):finalGoal;
+ var cRatio=(fsAmt>0)?Math.max(0,ownAmt/fsAmt):1;
+ var cMult=cRatio<=2.5?(1+3*Math.pow(Math.max(0.001,cRatio),0.15)):(0.02221*Math.min(cRatio,12.5)+4.386486);
+ var estCS=Math.round(187.5*gScale*(1+dDays/3)*estCsMult*cMult*1.08);
+ var tokenSinkRisk=!!(pctDone>=80||csRaw.allGoalsAchieved);
+ liveCoop={totalAmount:coopTot,finalGoal:finalGoal,pctDone:pctDone,totalRate:csRaw.totalRate,
+ memberCount:csRaw.memberCount,etaSec:etaSec,estCsMult:estCsMult,estCS:estCS,tokenSinkRisk:tokenSinkRisk,onTrack:onTrack,
+ allGoalsAchieved:csRaw.allGoalsAchieved,myBoostTokens:csRaw.myBoostTokens,csDone:!!(csRaw.allGoalsAchieved||csRaw.clearedForExit||(csRaw.timeSinceLastStatusUpdate>0&&remSec<=0))};
  }
  if(simEnd>1e12)simEnd/=1000;
  var graceEnd=Number(c.coopGracePeriodEndTime||0);if(graceEnd>1e12)graceEnd/=1000;
@@ -4222,7 +4232,40 @@ function plan(b,R){
  }
  a.sort(function(x,y){return x[0]-y[0]});
  if(!a.length)a.push([99,'הכל מסודר כרגע','חזור לבדוק בעוד כמה דקות.']);
- return {CD:CD,availContracts:availContracts,bestPointsRec:bestPointsRec,contractSlotInfo:contractSlotInfo,parallelMode:parallelMode,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,permitTier:permitTier,shipSlots:shipSlots,free:free,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,fuelPrestigeDec:fuelPrestigeDec,logi:logi,eggProg:eggProg,cash:cash,art:art,artCtx:artCtx,isArtOptimal:isArtOptimal,stoneOpt:stoneOpt,prestigeInfo:prestigeInfo,boostInfo:boostInfo,macro:macro,trophies:trophies,events:events,collegg:collegg,geSpecRec:geSpecRec,keepOneWD:keepOneWD};
+ var piggyBase=Number(g.piggyBank||0);
+ var piggyLv=Math.max(1,Number(g.piggyLevel||((b.stats&&b.stats.numPiggyBreaks)?b.stats.numPiggyBreaks+1:1)));
+ var piggyBonusPct=(piggyLv>=3)?((piggyLv+1)*10):(piggyLv===2?25:2);
+ var piggyTotal=Math.floor(piggyBase*(1+piggyBonusPct/100));
+ var epicLeftGE=(E.rows||[]).reduce(function(s,x){return s+(x.left||0)},0);
+ var needGEForGoals=epicLeftGE+(needHyperloop?50000:0)+(needTankUpgrade?1000000:0);
+ var piggyTargetGE=Math.max(1000000,Math.min(20000000,needGEForGoals>0?needGEForGoals:5000000));
+ var piggyShouldBreak=(piggyTotal>=piggyTargetGE&&avail<needGEForGoals*0.5);
+ var piggyAdvice=piggyBase<=0?'ה-Piggy Bank ריק כרגע — המשך לצבור בונוסי מילוי מחוזים ומתנות יומיות.'
+  :(piggyShouldBreak
+   ?('מומלץ לשבור (רמה '+piggyLv+', +'+piggyBonusPct+'% בונוס = '+fmt(piggyTotal)+' GE) — מכסה את יעד ה-Epic/שדרוגים ('+fmt(piggyTargetGE)+' GE).')
+   :('המתן עם שבירת ה-Piggy (כרגע '+fmt(piggyTotal)+' GE מתוך יעד '+fmt(piggyTargetGE)+' GE) — הגדל אותו בחינם דרך פרסי חוזים.'));
+ var piggyInfo={base:piggyBase,level:piggyLv,bonusPct:piggyBonusPct,total:piggyTotal,epicLeftGE:epicLeftGE,targetGE:piggyTargetGE,shouldBreak:piggyShouldBreak,advice:piggyAdvice};
+ var latestSeason='';
+ archList.forEach(function(ac){var sid=(ac.contract&&ac.contract.seasonId)||'';if(sid&&sid>latestSeason)latestSeason=sid;});
+ act.forEach(function(ac){var sid=(ac.contract&&ac.contract.seasonId)||'';if(sid&&sid>latestSeason)latestSeason=sid;});
+ var seasonArchCS=0,seasonArchCount=0;
+ if(latestSeason){
+  archList.forEach(function(ac){
+   var sid=(ac.contract&&ac.contract.seasonId)||'';
+   if(sid===latestSeason){seasonArchCS+=Number((ac.evaluation&&ac.evaluation.cxp)||ac.cxp||0);seasonArchCount++;}
+  });
+ }
+ var seasonActiveEstCS=0;
+ CD.forEach(function(d){
+  if(!d.waitingCoop&&d.liveCoop&&d.liveCoop.estCS>0){
+   var rawC=act.filter(function(x){return ((x.contract&&x.contract.identifier)||x.contractIdentifier)===d.id})[0];
+   var sid=(rawC&&rawC.contract&&rawC.contract.seasonId)||'';
+   if(!latestSeason||sid===latestSeason)seasonActiveEstCS+=d.liveCoop.estCS;
+  }
+ });
+ var seasonTargetCS=400000;
+ var seasonalCS={seasonId:latestSeason||'נוכחית',earnedCS:Math.round(seasonArchCS),activeEstCS:Math.round(seasonActiveEstCS),projectedCS:Math.round(seasonArchCS+seasonActiveEstCS),targetCS:seasonTargetCS,remainingCS:Math.max(0,seasonTargetCS-Math.round(seasonArchCS)),pct:Number(Math.min(100,(seasonArchCS/seasonTargetCS)*100).toFixed(1)),completedCount:seasonArchCount};
+ return {CD:CD,availContracts:availContracts,bestPointsRec:bestPointsRec,contractSlotInfo:contractSlotInfo,parallelMode:parallelMode,a:a,avail:avail,ships:ships,E:E,C:C,virt:virt,act:act.length,activeRunning:activeRunning.length,permitTier:permitTier,shipSlots:shipSlots,free:free,busy:busy2,g:g,sim:sim,db:db,fuelInfo:fuelInfo,fuelPrestigeDec:fuelPrestigeDec,logi:logi,eggProg:eggProg,cash:cash,art:art,artCtx:artCtx,isArtOptimal:isArtOptimal,stoneOpt:stoneOpt,prestigeInfo:prestigeInfo,boostInfo:boostInfo,macro:macro,trophies:trophies,events:events,collegg:collegg,geSpecRec:geSpecRec,keepOneWD:keepOneWD,piggyInfo:piggyInfo,seasonalCS:seasonalCS};
 }
 
 function detKey(d,seen){
@@ -4299,7 +4342,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
- version:'v103',
+ version:'v104',
  playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4379,6 +4422,8 @@ function copyDiag(){
     boostShouldUseNow:P.boostInfo.shouldUseNow,
     boostHoldForNextEgg:P.boostInfo.holdForNextEgg,
     boostHoldReason:P.boostInfo.holdReason||null,
+ multistigeStrategy:P.prestigeInfo.msSim?P.prestigeInfo.msSim.strategy:null,
+ piggyBank:P.piggyInfo,
     fvAt90Pct:Number(P.logi.fvAt90Pct.toExponential(3)),
     belowPeakEgg:P.eggProg.belowPeakEgg,
     willCrossNextEggAt90:P.eggProg.willCrossNextEggAt90
@@ -4414,6 +4459,7 @@ function copyDiag(){
     optimalLunarSEMult:Number(P.art.optimalLunarSEMult.toFixed(3))
    },
    contractSlotGuard:P.contractSlotInfo,
+ seasonalCS:P.seasonalCS,
    contractsSummary:{
     matchedInventoryArtifacts:P.art.setContract.map(function(x){return x.name}),
     activeRunning:P.CD.filter(function(d){return !d.waitingCoop}).map(function(d){
@@ -4429,7 +4475,7 @@ function copyDiag(){
        isPriorityContract:!!d.boostPlan.isPriorityContract}:null,
       stoneSetAdvice:d.stoneAdvice||null,
       liveCoop:d.liveCoop?{members:d.liveCoop.memberCount,pctDone:Number(d.liveCoop.pctDone.toFixed(1)),
-       etaSec:Math.round(d.liveCoop.etaSec),estCsMult:Number(d.liveCoop.estCsMult.toFixed(2)),onTrack:d.liveCoop.onTrack}:null};
+       etaSec:Math.round(d.liveCoop.etaSec),estCsMult:Number(d.liveCoop.estCsMult.toFixed(2)),estCS:d.liveCoop.estCS||0,tokenSinkRisk:!!d.liveCoop.tokenSinkRisk,onTrack:d.liveCoop.onTrack}:null};
     }),
     waitingCoopCount:P.CD.filter(function(d){return d.waitingCoop}).length,
     recommendedAvailCount:P.availContracts.filter(function(x){return x.prio<=2 || (P.bestPointsRec && x.id===P.bestPointsRec.id)}).length,
@@ -4641,9 +4687,14 @@ var P=plan(b,R),a=P.a,h='';
  }
  h+='</div>';
  if(P.prestigeInfo.msSim && P.prestigeInfo.msSim.bestLegSE>0 && !P.macro.isEnl && !P.macro.isVirt){
- var ms=P.prestigeInfo.msSim,mMode=ms.preferLunar?'Multi-Lunarstige':'Multistige';
+ var ms=P.prestigeInfo.msSim;
  var dTag=ms.diliMult>1?(' • '+Math.round(ms.boostSec/60)+' דק׳ Dilithium'):'';
- h+=row('סימולטור '+mMode+' ('+ms.legs+' רגליים'+dTag+')','<b>+'+fmt(ms.bestLegSE)+' SE</b>/רגל (~+'+fmt(ms.totalSetSE)+' SE לסט)');
+ h+=row('אסטרטגיית Prestige מומלצת','<b>'+esc(ms.strategyLabel||'')+'</b>'+dTag);
+ h+=row('צפי איסוף SE לסט','<b>+'+fmt(ms.bestLegSE)+' SE</b>/רגל (~+'+fmt(ms.totalSetSE)+' SE לסט)');
+ }
+ if(P.piggyInfo){
+ var pg=P.piggyInfo;
+ h+='<div class="status-banner '+(pg.shouldBreak?'do':'hold')+'" style="margin-top:6px"><b>Piggy Bank (רמה '+pg.level+' • +'+pg.bonusPct+'%): '+fmt(pg.total)+' GE</b><small>'+esc(pg.advice)+'</small></div>';
  }
  if(P.boostInfo.active.length){
   h+='<div style="margin-top:6px"><small><b>בוסטים פעילים כעת ('+P.boostInfo.active.length+'/'+P.boostInfo.maxBoostSlots+'):</b></small></div>';
@@ -4723,9 +4774,15 @@ var P=plan(b,R),a=P.a,h='';
  }
  h+='</div>';
  if(slotInf.inGoldenWindow){
-  h+='<div class="status-banner do"><b>חלון הזהב פתוח כעת!</b><small>יצא חוזה חדש לפני פחות מ-6 שעות — הזמן הטוב ביותר למצוא קבוצה חזקה ומהירה.</small></div>';
+ h+='<div class="status-banner do"><b>חלון הזהב פתוח כעת!</b><small>יצא חוזה חדש לפני פחות מ-6 שעות — הזמן הטוב ביותר למצוא קבוצה חזקה ומהירה.</small></div>';
  }else if(slotInf.dropImminent && slotInf.slotsFree<=slotInf.reserveSlotsNeeded){
-  h+='<div class="status-banner hold"><b>שומר סלוטים פעיל:</b><small>בעוד '+hrs(slotInf.nextDrop.secsLeft)+' יוצא '+esc(slotInf.nextDrop.label)+'. הימנע מ-Points Replay כדי לא לתקוע סלוט.</small></div>';
+ h+='<div class="status-banner hold"><b>שומר סלוטים פעיל:</b><small>בעוד '+hrs(slotInf.nextDrop.secsLeft)+' יוצא '+esc(slotInf.nextDrop.label)+'. הימנע מ-Points Replay כדי לא לתקוע סלוט.</small></div>';
+ }
+ if(P.seasonalCS){
+ var sc=P.seasonalCS,scDone=(sc.earnedCS>=sc.targetCS);
+ h+='<div class="status-banner '+(scDone?'do':'hold')+'"><b>יעד עונתי (Goal 4 • PE עונתי): '+fmt(sc.earnedCS)+' / '+fmt(sc.targetCS)+' CS ('+sc.pct+'%)</b>';
+ h+='<div class="prog-bar"><div class="prog-fill '+(scDone?'ok':'')+'" style="width:'+sc.pct+'%"></div></div>';
+ h+='<small>עונה: '+esc(sc.seasonId)+' ('+sc.completedCount+' חוזים בארכיון)'+(sc.activeEstCS>0?' • צפי עם פעילים: <b>'+fmt(sc.projectedCS)+' CS</b>':'')+(sc.remainingCS>0?' • נותרו '+fmt(sc.remainingCS)+' CS':' • היעד הושג! ✓')+'</small></div>';
  }
 
  var activeNowList=P.CD.filter(function(d){return !d.waitingCoop});
@@ -4797,8 +4854,11 @@ var P=plan(b,R),a=P.a,h='';
    if(d.liveCoop){
     var lc=d.liveCoop;
     var etaTxt=lc.allGoalsAchieved?'כל היעדים הושגו!':(lc.etaSec>0?('סיום משוער בעוד '+hrs(lc.etaSec)):'ממתין לקצב');
-    var csTxt=d.pointsOnly?(' • מכפיל CS צפוי: ~'+lc.estCsMult.toFixed(2)+'x'):'';
-    h+='<div class="c-meta-line"><b>קו-אופ חי ('+lc.memberCount+' שחקנים):</b> '+fmt(lc.totalAmount)+(lc.finalGoal>0?' / '+fmt(lc.finalGoal):'')+' • '+etaTxt+csTxt+'</div>';
+    var csTxt=lc.estCS>0?(' • CS צפוי: <b>~'+fmt(lc.estCS)+'</b> ('+lc.estCsMult.toFixed(2)+'x)'):'';
+ h+='<div class="c-meta-line"><b>קו-אופ חי ('+lc.memberCount+' שחקנים):</b> '+fmt(lc.totalAmount)+(lc.finalGoal>0?' / '+fmt(lc.finalGoal):'')+' • '+etaTxt+csTxt+'</div>';
+ if(lc.tokenSinkRisk||(d.cfMetrics&&d.cfMetrics.habPct>=85)){
+ h+='<div class="status-banner hold" style="margin:4px 0"><b>אזהרת Token Sink:</b><small>החוזה לקראת סיום / הלולים מלאים — אל תבזבז או תשלח טוקנים מיותרים (שליחה בסוף חוזה לא נותנת CS ועלולה לפגוע בציון).</small></div>';
+ }
    }
    h+='<div class="c-next '+d.nextStepLevel+'"><b>מה לעשות עכשיו:</b> '+esc(d.nextStep)+'</div>';
    if(d.boostPlan && d.boostPlan.tokenAlertText){
