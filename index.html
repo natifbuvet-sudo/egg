@@ -155,7 +155,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 100</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 101</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -1758,15 +1758,18 @@ function calcPrestigeInfo(b,sim,hab,C,cash,eggProg,macro,events,hasActiveBoost,e
   unlocksTankOnPrestige:unlocksTankOnPrestige,unlocksPadOnPrestige:unlocksPadOnPrestige,
   prestigeCash:prestigeCash,gainPct:gainPct,
   status:status,title:title,reason:reason,isWeekend:isWeekend,msSim:(function(){
-   var legs=macro.msLegs||1,tPop=macro.msTargetPop||4.2e9,pScale=Math.max(1,tPop/Math.max(1e6,hab.pop||1e6));
-   var bMult=25000*(events.prestigeMultiplier||1)*3.5;
-   var seExp=(curSE<1e12)?0.15:(curSE<1e21)?0.16:(curSE<1e30)?0.17:(curSE<1e39)?0.18:(curSE<1e48)?0.19:(curSE<1e54)?0.20:0.21;
-   var actC=(hab.activeIncomePerMin||0)*pScale*bMult*(art?art.optimalActiveSEMult:1);
-   var lunC=(hab.idleIncomePerMin||0)*pScale*bMult*(art?art.optimalLunarSEMult:1);
-   var actSE=Math.floor(prestigeBonusMult*Math.pow(1e-6*Math.max(1,actC),seExp));
-   var lunSE=Math.floor(prestigeBonusMult*Math.pow(1e-6*Math.max(1,lunC),seExp));
+  var diliM=(art&&art.potentialDilithiumMult)||1,boostSec=Math.round(600*diliM),tBuild=Math.max(60,150-3*((elv&&elv['hold_to_research'])||0));
+  var calcLegs=Math.max(1,Math.floor(boostSec/(tBuild+65))),legs=(macro.phase==='LATE_GAME_MULTISTIGE')?Math.max(macro.msLegs||1,calcLegs):1;
+  var tPop=macro.msTargetPop||4.2e9,pScale=Math.max(1,tPop/Math.max(1e6,hab.pop||1e6)),bMult=25000*(events.prestigeMultiplier||1)*3.5;
+  var seExp=(curSE<1e12)?0.15:(curSE<1e21)?0.16:(curSE<1e30)?0.17:(curSE<1e39)?0.18:(curSE<1e48)?0.19:(curSE<1e54)?0.20:0.21;
+   var strip=Math.max(1,(art?art.artifactEarningsMult:1)*(hab.maxRCB/Math.max(3,hab.baseMaxRCB||5)));
+   var rawAct=((hab.activeIncomePerMin||0)/strip)*pScale*bMult;
+   var baseAway=Math.max(2,hab.lunarMult/Math.max(1,(art?art.lunarTotemMult*art.lunarStoneMult:1)));
+   var rawLun=rawAct*(baseAway/Math.max(3,hab.baseMaxRCB||5));
+   var actSE=Math.floor(prestigeBonusMult*(art?art.optimalActiveSEMult:1)*Math.pow(1e-6*Math.max(1,rawAct),seExp));
+   var lunSE=Math.floor(prestigeBonusMult*(art?art.optimalLunarSEMult:1)*Math.pow(1e-6*Math.max(1,rawLun),seExp));
    var bestSE=Math.max(actSE,lunSE);
-   return {legs:legs,targetPop:tPop,actLegSE:actSE,lunLegSE:lunSE,bestLegSE:bestSE,totalSetSE:bestSE*legs,preferLunar:(lunSE>actSE)};
+   return {legs:legs,boostSec:boostSec,diliMult:Number(diliM.toFixed(2)),targetPop:tPop,actLegSE:actSE,lunLegSE:lunSE,bestLegSE:bestSE,totalSetSE:bestSE*legs,preferLunar:(lunSE>actSE)};
   })(),
   withinReach:withinReach,hitTimeWall:hitTimeWall,activeMinsToNext:activeMinsToNext,idleMinsToNext:idleMinsToNext,nextRes:nextRes
  };
@@ -2009,8 +2012,8 @@ function analyzeArtifacts(b,permitTier,curEgg,peCount,elv,clv,R){
    dilithiumHolders.push({rawName:sp.name,name:formatArtLabel(sp),dCount:dCount,mult:dMult});
   }
 
-  if((rar==='RARE' || rar==='EPIC') && stones.length===0 && (it.quantity||0)>1 && ART_INFO[sp.name]){
-   demoteList.push({name:formatArtLabel(sp),excess:(it.quantity-1)});
+  if((rar==='RARE' || rar==='EPIC' || rar==='LEGENDARY') && stones.length===0 && (it.quantity||0)>1 && ART_INFO[sp.name]){
+  demoteList.push({name:formatArtLabel(sp),excess:(it.quantity-1)});
   }
 
   var score=(TIER_RANK[lvl]||0)*10 + (RARITY_RANK[rar]||0);
@@ -4240,7 +4243,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
- version:'v100',
+ version:'v101',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4581,8 +4584,9 @@ var P=plan(b,R),a=P.a,h='';
  }
  h+='</div>';
  if(P.prestigeInfo.msSim && P.prestigeInfo.msSim.bestLegSE>0 && !P.macro.isEnl && !P.macro.isVirt){
-  var ms=P.prestigeInfo.msSim,mMode=ms.preferLunar?'Multi-Lunarstige':'Multistige';
-  h+=row('סימולטור '+mMode+' ('+ms.legs+' רגליים)','<b>+'+fmt(ms.bestLegSE)+' SE</b>/רגל (~+'+fmt(ms.totalSetSE)+' SE לסט)');
+ var ms=P.prestigeInfo.msSim,mMode=ms.preferLunar?'Multi-Lunarstige':'Multistige';
+ var dTag=ms.diliMult>1?(' • '+Math.round(ms.boostSec/60)+' דק׳ Dilithium'):'';
+ h+=row('סימולטור '+mMode+' ('+ms.legs+' רגליים'+dTag+')','<b>+'+fmt(ms.bestLegSE)+' SE</b>/רגל (~+'+fmt(ms.totalSetSE)+' SE לסט)');
  }
  if(P.boostInfo.active.length){
   h+='<div style="margin-top:6px"><small><b>בוסטים פעילים כעת ('+P.boostInfo.active.length+'/'+P.boostInfo.maxBoostSlots+'):</b></small></div>';
@@ -4626,8 +4630,12 @@ var P=plan(b,R),a=P.a,h='';
  if(P.art.setContractResearch.length)h+=row('6. תחילת חוזה (מחקר והכנסות ללא ריצה)','<small>'+P.art.setContractResearch.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
  if(P.art.setDrones.length)h+=row('7. ציד רחפנים (GE)','<small>'+P.art.setDrones.map(function(x){return esc(x.name)}).join(' + ')+'</small>');
  if(P.art.demoteList.length){
-  h+='<div style="margin-top:8px"><small><b>פירוק כפילויות (Demote) לקבלת Golden Eggs:</b> '+P.art.demoteList.slice(0,4).map(function(d){return esc(d.name)+' (×'+d.excess+')'}).join(', ')+'</small></div>';
+ h+='<div style="margin-top:8px"><small><b>פירוק כפילויות (Demote לפני Consume) לקבלת GE:</b> '+P.art.demoteList.slice(0,4).map(function(d){return esc(d.name)+' (×'+d.excess+')'}).join(', ')+'</small></div>';
  }
+ h+='<div class="status-banner hold" style="margin-top:8px"><b>כללי Crafting ו-GE (Upcycling &amp; Demote):</b><small>'
+ +'• <b>Demote לפני Consume:</b> בצע תמיד Demote (-) לכפילויות Shiny לקבלת GE לפני פירוק Common לשברים.<br>'
+ +'• <b>Upcycling רווחי:</b> שדרג שברי Shell / Tachyon / Lunar לאבני <b>T2</b> ופרק (רווח GE נטו מ-147 / 228 / 277 יצירות), '
+ +'וייצר <b>T2 Puzzle Cubes</b> ליחס XP/GE הגבוה במשחק (אל תשדרג ל-T3 ל-XP).</small></div>';
  var pendingCrafts=P.art.craftTargets.filter(function(ct){return !ct.alreadyHasT4});
  if(pendingCrafts.length){
   h+='<div style="margin-top:8px"><small><b>יעדי Crafting מרכזיים (T4):</b></small></div>';
@@ -4944,6 +4952,10 @@ var P=plan(b,R),a=P.a,h='';
   h+='</div>';
  }
  h+='<div style="margin-top:8px"><small><b>תוכנית רכישת Epic ('+fmt(P.avail)+' GE פנויות):</b></small></div>';
+ var hasDronePlan=(P.E.buy&&P.E.buy.list&&P.E.buy.list.some(function(x){return x.r.id==='drone_rewards'}))
+ ||(P.E.rows&&P.E.rows.slice(0,3).some(function(x){return x.r.id==='drone_rewards'}));
+ if(hasDronePlan)h+='<div class="status-banner hold" style="margin:5px 0"><b>הערת באג Drone Rewards:</b>'
+ +'<small>בגלל באג במשחק, רמות 1–9 ו-11–19 אינן משפיעות — השדרוג פועל רק בהגעה לרמה <b>10</b> ולרמה <b>20</b>.</small></div>';
  if(P.E.buy && P.E.buy.steps && P.E.buy.steps.length){
   var stAll=P.E.buy.steps;
   h+='<p><small>סה"כ '+P.E.buy.totalLevels+' שדרוגים בודדים ב-'+fmt(P.E.buy.totalSum)+' GE (יישארו '+fmt(P.E.buy.remGE)+' GE):</small></p>';
