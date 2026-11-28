@@ -155,7 +155,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 97</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 98</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -265,6 +265,24 @@ var SHIP_META={
  ATREGGIES:{name:'Atreggies Henliner',reqPrevLaunches:40,reqSE:1e14,fundCost:4.2e35,fuels:{SHORT:{TACHYON:2e11,DILITHIUM:6e11,ANTIMATTER:6e11,DARK_MATTER:6e11},STANDARD:{TACHYON:5e11,DILITHIUM:1.5e12,ANTIMATTER:1.5e12,DARK_MATTER:1.5e12},EXTENDED:{TACHYON:1e12,DILITHIUM:3e12,ANTIMATTER:3e12,DARK_MATTER:3e12}}}
 };
 var TANK_CAPACITIES=[2e9,2e11,1e13,1e14,2e14,3e14,4e14,5e14];
+function getTankStorage(b,isVirt){
+ var art=(b&&b.artifacts)||{},adb=(b&&b.artifactsDb)||{},virt=(b&&b.virtue)||{},vafx=virt.afx||{};
+ var srcs=isVirt?[{k:'virtue.afx',o:vafx},{k:'virtue',o:virt},{k:'artifacts',o:art},{k:'artifactsDb',o:adb}]:[{k:'artifacts',o:art},{k:'artifactsDb',o:adb}];
+ var fuels=[],src='none',lvl=0,lims=[],fuelOn=false,hasFuelOn=false,lastShip=null;
+ for(var i=0;i<srcs.length;i++){
+  var s=srcs[i].o;
+  if(Array.isArray(s.tankFuels)&&s.tankFuels.some(function(v){return Number(v)>0;})){fuels=s.tankFuels;src=srcs[i].k;break;}
+ }
+ for(var j=0;j<srcs.length;j++){
+  var o=srcs[j].o;
+  if(!fuels.length&&Array.isArray(o.tankFuels)&&o.tankFuels.length){fuels=o.tankFuels;if(src==='none')src=srcs[j].k;}
+  if(!lvl&&Number(o.tankLevel)>0){lvl=Number(o.tankLevel)||0;if(src==='none')src=srcs[j].k;}
+  if(!lims.length&&Array.isArray(o.tankLimits)&&o.tankLimits.length)lims=o.tankLimits;
+  if(!hasFuelOn&&typeof o.fuelingEnabled==='boolean'){fuelOn=o.fuelingEnabled;hasFuelOn=true;}
+  if(!lastShip&&o.lastFueledShip)lastShip=o.lastFueledShip;
+ }
+ return {tankFuels:fuels,tankLevel:lvl,tankLimits:lims,fuelingEnabled:fuelOn,lastFueledShip:lastShip,source:src};
+}
 
 var HAB_BASE=[250,500,1000,2000,5000,10000,20000,50000,100000,250000,500000,1000000,2000000,5000000,10000000,25000000,50000000,100000000,600000000];
 var HAB_COST=[0,50,150,450,1500,6000,25000,120000,600000,4e6,3e7,2.5e8,2.2e9,2e10,2e11,3e12,5e13,1.2e15,3e16];
@@ -1324,8 +1342,8 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier,events){
   if(reqF>0 && gotF<reqF-1){shipTaking=true;fuelRemEggs+=(reqF-gotF);}
   else if(!smF){shipTaking=true;}
  }
- var eIdxF=EGG_ORDER.indexOf(sim.eggType||''),tFuels=adb.tankFuels||[],tLims=adb.tankLimits||[];
- var tLvlF=Number(adb.tankLevel||(b.artifactsDb&&b.artifactsDb.tankLevel)||0);
+ var tsF=getTankStorage(b,isVirt),eIdxF=EGG_ORDER.indexOf(sim.eggType||''),tFuels=tsF.tankFuels,tLims=tsF.tankLimits;
+ var tLvlF=tsF.tankLevel;
  var tCapF=TANK_CAPACITIES[Math.min(tLvlF,TANK_CAPACITIES.length-1)]||2e9;
  var tTotF=tFuels.reduce(function(x,y){return x+(Number(y)||0)},0);
  var rLimF=(eIdxF>=0&&tLims[eIdxF]!==undefined)?Number(tLims[eIdxF]):1,eLimF=(rLimF<=1.0001)?(rLimF*tCapF):rLimF;
@@ -1335,7 +1353,7 @@ function calcFarmLogistics(b,sim,clv,elv,artInfo,R,collegg,permitTier,events){
  var isFuelEggF=(eIdxF>=0 && SHIP_ORDER.some(function(sk){var fm=SHIP_META[sk]&&SHIP_META[sk].fuels;
   return fm&&((fm.SHORT&&fm.SHORT[sim.eggType])||(fm.STANDARD&&fm.STANDARD[sim.eggType])||(fm.EXTENDED&&fm.EXTENDED[sim.eggType]))}));
  var tankOpenF=(!tankManualFull && isHomeOrVirt && eIdxF>=0 && tTotF<tCapF-1 && curTankEggF<eLimF-1);
- var tankTaking=!!(tankOpenF && (adb.fuelingEnabled || (seF>=100000 && isFuelEggF)));
+ var tankTaking=!!(tankOpenF && (tsF.fuelingEnabled || (seF>=100000 && isFuelEggF)));
  if(tankTaking)fuelRemEggs+=Math.max(0,Math.min(tCapF-tTotF,eLimF-curTankEggF));
  var isActivelyFueling=!!(isHomeOrVirt && (shipTaking || tankTaking)),fSel=($('fuelPct')?$('fuelPct').value:'auto')||'auto';
  var fuelFrac=!isHomeOrVirt?0:(fSel!=='auto'?Number(fSel):(isActivelyFueling?0.90:0));
@@ -3085,10 +3103,14 @@ function detectBestShip(b,isVirt,events,hasFuelTank,curSE,permitTier){
    shipXP[sk]=(shipXP[sk]||0)+xpAdd;
   }
  }
+ var ts=getTankStorage(b,isVirt);
  (db.missionInfos||[]).forEach(function(m){var lnd=(m.status&&m.status!==0&&m.status!=='FUELING');recordShip(m.ship,lnd,m.durationType)});
  (db.missionArchive||[]).forEach(function(m){recordShip(m.ship,true,m.durationType)});
- if(vafx.lastFueledShip)recordShip(vafx.lastFueledShip,false);
- if(db.lastFueledShip)recordShip(db.lastFueledShip,false);
+ if(isVirt){
+  (vafx.missionInfos||[]).forEach(function(m){var lnd=(m.status&&m.status!==0&&m.status!=='FUELING');recordShip(m.ship,lnd,m.durationType)});
+  (vafx.missionArchive||[]).forEach(function(m){recordShip(m.ship,true,m.durationType)});
+ }
+ if(ts.lastFueledShip)recordShip(ts.lastFueledShip,false);
 
  var unlockedIdx=seenMaxIdx;
  while(unlockedIdx<SHIP_ORDER.length-1){
@@ -3182,13 +3204,13 @@ function sIdxExceedsFreeTank(shipKey){
 function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  var g=b.game||{};
  var curSE=Number(g.soulEggsD||g.soulEggs||0);
- var db=b.artifactsDb||{};
- var vafx=(b.virtue&&b.virtue.afx)||{};
- var rawTank=isVirt?(vafx.tankFuels||[]):(db.tankFuels||[]);
+ var db=b.artifactsDb||{},vafx=(b.virtue&&b.virtue.afx)||{};
+ var ts=getTankStorage(b,isVirt);
+ var rawTank=ts.tankFuels;
  var manList=[];
  try{manList=JSON.parse(sget('manualTankFuels')||'[]')||[];}catch(e){}
  if(!Array.isArray(manList)||!manList.length){try{var sm=JSON.parse(sget('manualTankState')||'null');if(sm&&sm.egg&&sm.amt)manList=[{egg:sm.egg,amt:sm.amt}];}catch(e){}}
- var tankLevel=isVirt?Number(vafx.tankLevel||db.tankLevel||0):Number(db.tankLevel||0);
+ var tankLevel=ts.tankLevel;
  var hasTankData=Array.isArray(rawTank)&&rawTank.some(function(v){return Number(v)>0;});
  var rawTankTotal=rawTank.reduce(function(x,y){return x+(Number(y)||0)},0);
  var tankManualFull=(($('tankFullOv')?$('tankFullOv').value:'auto')==='full');
@@ -3357,6 +3379,7 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
   hasFuelInTank:hasAllFuelsInTank,canFuelNow:canFuelNow,canAffordFund:canAffordFund,fundCost:fundCost,
   canLaunchNow:canLaunchNow,affordableFallback:affordableFallback,
   tankTotal:tankTotal,tankCapacity:tankCapacity,tankFreeSpace:tankFreeSpace,tankLevel:tankLevel,tankManualFull:tankManualFull,tankFromBackup:(rawTankTotal>0),
+  tankLimits:ts.tankLimits,fuelingEnabled:ts.fuelingEnabled,lastFueledShip:ts.lastFueledShip,tankSource:ts.source,
   minLaunchesInTank:minLaunchesInTank,missingDetails:missingDetails,
   curEggName:curEggName
  };
@@ -4165,10 +4188,15 @@ function copyDiag(){
  }else if(!P.fuelInfo.hasFuelTank){
   shipRec.tankStatus='LOCKED_FUEL_TANK (<100K SE - Direct Farm Fueling)';
  }else{
+  shipRec.tankSource=P.fuelInfo.tankSource;
   shipRec.tankLevel=P.fuelInfo.tankLevel;
   shipRec.tankUsed=fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity);
   shipRec.tankFromBackup=P.fuelInfo.tankFromBackup;
   shipRec.tankManualFull=P.fuelInfo.tankManualFull;
+  shipRec.fuelingEnabled=P.fuelInfo.fuelingEnabled;
+  shipRec.lastFueledShip=P.fuelInfo.lastFueledShip;
+  shipRec.tankLimits=P.fuelInfo.tankLimits;
+  shipRec.tankStoredEggs=EGG_ORDER.reduce(function(acc,eg,idx){var v=(P.fuelInfo.tank&&P.fuelInfo.tank[idx])||0;if(v>0)acc[eg]=fmt(v);return acc;},{});
   shipRec.launchesAvailableInTank=P.fuelInfo.minLaunchesInTank;
   shipRec.fuelBreakdown=P.fuelInfo.fuelBreakdown.map(function(fb){
    return {egg:fb.egg,stored:fmt(fb.stored),required:fmt(fb.reqAmt),missing:fmt(fb.missingAmt)};
@@ -4191,7 +4219,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
- version:'v97',
+ version:'v98',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
