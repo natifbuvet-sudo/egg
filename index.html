@@ -155,7 +155,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 96</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 97</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -827,6 +827,9 @@ async function fetchPeriodicals(eid,b){
     var txt=(await r.text()).trim();
     if(!txt || txt.indexOf('<')===0){notes.push(endpoints[k]+':html_or_empty');continue;}
     var decoded=await decodeAuthMsg(R,Res,txt);
+    if(decoded && decoded.contracts && Array.isArray(decoded.contracts.contracts)){
+    decoded.contracts.contracts.forEach(function(ct){if(ct&&ct.identifier&&ct.name)liveContractNames[ct.identifier]=ct.name;});
+    }
     if(decoded && decoded.events && Array.isArray(decoded.events.events)){resObj=decoded;liveEventsSyncNote='ok ('+endpoints[k]+')';break}
     else{notes.push(endpoints[k]+':no_events_field');}
    }catch(inner){notes.push(endpoints[k]+':err_'+(inner&&inner.message?inner.message:'decode'));}
@@ -2345,6 +2348,8 @@ function shipName(s){
  return String(s||'').split('_').map(function(w){return w.charAt(0)+w.slice(1).toLowerCase()}).join(' ');
 }
 function cleanContractName(id){return String(id||'חוזה').split('-').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1)}).join(' ')}
+var liveContractNames={},CONTRACT_NAME_OVERRIDES={'memorial-2020':'Tachy-Gone'};
+function getContractDisplayName(k,id){return CONTRACT_NAME_OVERRIDES[id]||liveContractNames[id]||(k&&k.name)||cleanContractName(id);}
 function hrs(sec){if(sec<=0)return '0 דקות';var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h>=48?Math.round(h/24)+' ימים':h+' שעות ו-'+m+' דקות'}
 
 function formatRewardItem(g){
@@ -2719,7 +2724,7 @@ function buildPointsPlaybook(opts,art,boostPlan){
 
 function availableContractInfo(c,b,archivedMap,now,art){
  var k=c.contract||{},id=c.contractIdentifier||k.identifier||'';
- var name=k.name||cleanContractName(id);
+ var name=getContractDisplayName(k,id);
  var arch=archivedMap[id];
  var totGoals=(getContractGoals(c,b).length)||3;
  var alreadyCompletedAll=(arch && (arch.numGoalsAchieved||0)>=totGoals);
@@ -2816,7 +2821,7 @@ function availableContractInfo(c,b,archivedMap,now,art){
 
 function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
  var k=c.contract||{},id=c.contractIdentifier||k.identifier||'';
- var name=k.name||cleanContractName(id);
+ var name=getContractDisplayName(k,id);
  var arch=(archivedMap&&archivedMap[id])||null;
  var urgent=[];
  var achieved=c.numGoalsAchieved||0;
@@ -2844,8 +2849,10 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
    memberCount:csRaw.memberCount,etaSec:etaSec,estCsMult:estCsMult,onTrack:onTrack,
    allGoalsAchieved:csRaw.allGoalsAchieved,myBoostTokens:csRaw.myBoostTokens,csDone:!!(csRaw.allGoalsAchieved||csRaw.clearedForExit||(csRaw.timeSinceLastStatusUpdate>0&&remSec<=0))};
  }
- var graceEnd=c.coopGracePeriodEndTime||0;
- var sharedEnd=c.coopSharedEndTime||0;
+ var graceEnd=Number(c.coopGracePeriodEndTime||0);if(graceEnd>1e12)graceEnd/=1000;
+ var sharedEnd=Number(c.coopSharedEndTime||0);if(sharedEnd>1e12)sharedEnd/=1000;
+ var accTime=Number(c.timeAccepted||0);if(accTime>1e12)accTime/=1000;
+ var expTime=Number(k.expirationTime||0);if(expTime>1e12)expTime/=1000;
  var rew=analyzeContractRewards(c,b);
  var coll=checkColleggtibleStatus(k,b);
  var permitTier=getPermitTier(b);
@@ -2859,7 +2866,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
  var runCapActive=(maxCoop>1)?Math.min(maxCoop-1,20):20;
  var dur=Number(k.lengthSeconds||0);
  if(dur>1e12)dur/=1000;
- var timeExpired=(!waitingCoop && c.timeAccepted>0 && dur>0 && (now-(c.timeAccepted||0))>dur+60);
+ var timeExpired=(!waitingCoop && (graceEnd>0 || (sharedEnd>0 && now>sharedEnd+60) || (accTime>0 && dur>0 && (now-accTime)>dur+60) || (expTime>0 && dur>0 && now>(expTime+dur+60))));
  if(timeExpired)waitingCoop=true;
  var prevCS=Number((arch && arch.evaluation && arch.evaluation.cxp) || (arch && arch.cxp) || 0);
 
@@ -3185,8 +3192,9 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
  var hasTankData=Array.isArray(rawTank)&&rawTank.some(function(v){return Number(v)>0;});
  var rawTankTotal=rawTank.reduce(function(x,y){return x+(Number(y)||0)},0);
  var tankManualFull=(($('tankFullOv')?$('tankFullOv').value:'auto')==='full');
- if(tankManualFull && rawTankTotal>0){
-  tankManualFull=false;if($('tankFullOv'))$('tankFullOv').value='auto';sset('tankFullOv','auto');
+ if(rawTankTotal>0){
+ if(tankManualFull){tankManualFull=false;if($('tankFullOv'))$('tankFullOv').value='auto';sset('tankFullOv','auto');}
+ if(manList.length){manList=[];sset('manualTankFuels','[]');sset('manualTankState','null');}
  }
  var tank=rawTank.slice();
  manList.forEach(function(it){if(!it||!it.egg)return;
@@ -3348,7 +3356,7 @@ function checkShipFuel(b,sim,isVirt,events,cash,logi,permitTier){
   target:target,shipProg:shipProg,reqFuels:reqFuels,reqNames:reqNames,onFuelEgg:onFuelEgg,
   hasFuelInTank:hasAllFuelsInTank,canFuelNow:canFuelNow,canAffordFund:canAffordFund,fundCost:fundCost,
   canLaunchNow:canLaunchNow,affordableFallback:affordableFallback,
-  tankTotal:tankTotal,tankCapacity:tankCapacity,tankFreeSpace:tankFreeSpace,tankLevel:tankLevel,tankManualFull:tankManualFull,
+  tankTotal:tankTotal,tankCapacity:tankCapacity,tankFreeSpace:tankFreeSpace,tankLevel:tankLevel,tankManualFull:tankManualFull,tankFromBackup:(rawTankTotal>0),
   minLaunchesInTank:minLaunchesInTank,missingDetails:missingDetails,
   curEggName:curEggName
  };
@@ -4159,6 +4167,7 @@ function copyDiag(){
  }else{
   shipRec.tankLevel=P.fuelInfo.tankLevel;
   shipRec.tankUsed=fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity);
+  shipRec.tankFromBackup=P.fuelInfo.tankFromBackup;
   shipRec.tankManualFull=P.fuelInfo.tankManualFull;
   shipRec.launchesAvailableInTank=P.fuelInfo.minLaunchesInTank;
   shipRec.fuelBreakdown=P.fuelInfo.fuelBreakdown.map(function(fb){
@@ -4182,7 +4191,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
- version:'v96',
+ version:'v97',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4766,8 +4775,11 @@ var P=plan(b,R),a=P.a,h='';
   h+='<details class="c-fold" style="margin-top:10px"><summary class="c-fold-sum"><span>ממתינים לסגירה וחוזים נוספים ('+totalDeferred+')</span><span>▼</span></summary>';
   h+='<div style="margin-top:6px">';
   waitingList.forEach(function(d){
-   h+='<div class="c-mini-row"><div class="c-head"><span>'+esc(d.name)+'</span><span class="badge b-wait">ממתין לסגירת קבוצה</span></div>';
-   h+='<small>כל '+(d.totGoals||3)+' היעדים נאספו'+(d.coop?' • קבוצה: '+esc(d.coop):'')+'. אין פעולה נדרשת.</small></div>';
+  var wDone=(d.achieved>=(d.totGoals||3));
+  var wBadge=wDone?'ממתין לסגירת קבוצה':'הסתיים (פג זמן)';
+  var wDesc=wDone?('כל '+(d.totGoals||3)+' היעדים נאספו'):('פג זמן החוזה ('+d.achieved+'/'+(d.totGoals||3)+' יעדים) — סגור את החוזה במשחק לפינוי הסלוט');
+  h+='<div class="c-mini-row"><div class="c-head"><span>'+esc(d.name)+'</span><span class="badge b-wait">'+wBadge+'</span></div>';
+  h+='<small>'+wDesc+(d.coop?' • קבוצה: '+esc(d.coop):'')+'.</small></div>';
   });
   otherAvailList.forEach(function(av){
    h+='<div class="c-mini-row"><div class="c-head"><span>'+esc(av.name)+'</span><div>';
@@ -4817,7 +4829,8 @@ var P=plan(b,R),a=P.a,h='';
   var tfBtn=P.fuelInfo.tankManualFull
    ?' <button class="icon-btn" style="font-size:.72rem;padding:2px 7px" onclick="$(\'tankFullOv\').value=\'auto\';$(\'tankFullOv\').onchange()">ידני ✓ (אפס)</button>'
    :(tankPct<99?' <button class="icon-btn" style="font-size:.72rem;padding:2px 7px" onclick="$(\'tankFullOv\').value=\'full\';$(\'tankFullOv\').onchange()">סמן כמלא ✓</button>':'');
-  h+=row('מיכל דלק (רמה '+P.fuelInfo.tankLevel+')','<b>'+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+'</b> ('+tankPct.toFixed(0)+'%)'+tfBtn);
+  var tSrcLbl=P.fuelInfo.tankFromBackup?' <small>(מהגיבוי ✓)</small>':'';
+ h+=row('מיכל דלק (רמה '+P.fuelInfo.tankLevel+')'+tSrcLbl,'<b>'+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+'</b> ('+tankPct.toFixed(0)+'%)'+tfBtn);
   h+='<div class="prog-bar"><div class="prog-fill'+(tankPct>=90?' ok':'')+'" style="width:'+tankPct.toFixed(1)+'%"></div></div>';
   var mList=[],mMap={};try{mList=JSON.parse(sget('manualTankFuels')||'[]')||[];}catch(e){}
   if(!Array.isArray(mList)||!mList.length){try{var sm=JSON.parse(sget('manualTankState')||'null');if(sm&&sm.egg&&sm.amt)mList=[{egg:sm.egg,amt:sm.amt}];}catch(e){}}
