@@ -155,7 +155,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 98</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 99</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -2867,15 +2867,19 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
    memberCount:csRaw.memberCount,etaSec:etaSec,estCsMult:estCsMult,onTrack:onTrack,
    allGoalsAchieved:csRaw.allGoalsAchieved,myBoostTokens:csRaw.myBoostTokens,csDone:!!(csRaw.allGoalsAchieved||csRaw.clearedForExit||(csRaw.timeSinceLastStatusUpdate>0&&remSec<=0))};
  }
+ if(simEnd>1e12)simEnd/=1000;
  var graceEnd=Number(c.coopGracePeriodEndTime||0);if(graceEnd>1e12)graceEnd/=1000;
  var sharedEnd=Number(c.coopSharedEndTime||0);if(sharedEnd>1e12)sharedEnd/=1000;
  var accTime=Number(c.timeAccepted||0);if(accTime>1e12)accTime/=1000;
  var expTime=Number(k.expirationTime||0);if(expTime>1e12)expTime/=1000;
+ var validSimEnd=(simEnd>0&&(accTime<=0||simEnd>=accTime-300))?simEnd:0;
+ var validGraceEnd=(graceEnd>0&&(accTime<=0||graceEnd>=accTime-300))?graceEnd:0;
+ var validSharedEnd=(sharedEnd>0&&(accTime<=0||sharedEnd>=accTime-300))?sharedEnd:0;
  var rew=analyzeContractRewards(c,b);
  var coll=checkColleggtibleStatus(k,b);
  var permitTier=getPermitTier(b);
 
- var waitingCoop=(simEnd>0)||!!(c.clearedForExit)||(liveCoop&&liveCoop.csDone);
+ var waitingCoop=(validSimEnd>0)||!!(c.clearedForExit)||(liveCoop&&liveCoop.csDone);
  var manualGoalMode=contractGoalModes[id]||'auto';
  var autoGoalMode=((isReplay || achieved>=totGoals) && !coll.needs10B)?'cs':'rewards';
  var goalMode=(manualGoalMode==='cs'||manualGoalMode==='rewards')?manualGoalMode:autoGoalMode;
@@ -2884,7 +2888,13 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
  var runCapActive=(maxCoop>1)?Math.min(maxCoop-1,20):20;
  var dur=Number(k.lengthSeconds||0);
  if(dur>1e12)dur/=1000;
- var timeExpired=(!waitingCoop && (graceEnd>0 || (sharedEnd>0 && now>sharedEnd+60) || (accTime>0 && dur>0 && (now-accTime)>dur+60) || (expTime>0 && dur>0 && now>(expTime+dur+60))));
+ var liveRem=csRaw?Number(csRaw.secondsRemaining||0):0;
+ var liveStillRunning=!!(csRaw && liveRem>0 && !csRaw.allGoalsAchieved);
+ var contractEnd=liveStillRunning?(now+liveRem):(validSharedEnd>0?validSharedEnd:((accTime>0&&dur>0)?(accTime+dur):((expTime>0&&dur>0)?(expTime+dur):0)));
+ var timeExpired=false;
+ if(!waitingCoop && !liveStillRunning){
+ if(validGraceEnd>0 || (contractEnd>0 && now>contractEnd+120))timeExpired=true;
+ }
  if(timeExpired)waitingCoop=true;
  var prevCS=Number((arch && arch.evaluation && arch.evaluation.cxp) || (arch && arch.cxp) || 0);
 
@@ -3065,7 +3075,7 @@ function contractInfo(c,b,R,elv,art,now,collegg,archivedMap,boostPool){
   nextStepLevel='info';
  }
 
- var timeLeftGeneric=sharedEnd>now?(sharedEnd-now):0;
+ var timeLeftGeneric=contractEnd>now?(contractEnd-now):0;
  return {
   id:id,name:name,grade:String(c.grade||'').replace('GRADE_',''),coop:c.coopIdentifier||'',
   timeLeft:timeLeftGeneric,goalMode:goalMode,manualGoalMode:manualGoalMode,
@@ -4219,7 +4229,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
- version:'v98',
+ version:'v99',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4336,8 +4346,8 @@ function copyDiag(){
    contractsSummary:{
     matchedInventoryArtifacts:P.art.setContract.map(function(x){return x.name}),
     activeRunning:P.CD.filter(function(d){return !d.waitingCoop}).map(function(d){
-     return {id:d.id,name:d.name,grade:d.grade,achieved:d.achieved,skippedInOtherContracts:(d.boostPlan&&d.boostPlan.skippedInOtherContracts)||[],
-      contractGoalMode:d.goalMode,manualOverride:d.manualGoalMode,
+     return {id:d.id,name:d.name,grade:d.grade,achieved:d.achieved,timeLeftSec:Math.round(d.timeLeft||0),skippedInOtherContracts:(d.boostPlan&&d.boostPlan.skippedInOtherContracts)||[],
+     contractGoalMode:d.goalMode,manualOverride:d.manualGoalMode,
       paceForecast:d.paceForecast,pointsOnly:d.pointsOnly,nextStep:d.nextStep,
       matchedBoosts:d.boostPlan?d.boostPlan.combo:[],
       boostStage:d.boostPlan?d.boostPlan.stage:null,
