@@ -139,6 +139,11 @@ details summary::-webkit-details-marker{display:none}
 .card[id]{scroll-margin-top:46px}
 @media(prefers-color-scheme:dark){.hero{background:#232b42;color:#eceef5}}
 .hero-ctx{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:rgba(255,255,255,.22);font-size:.7rem;font-weight:700}
+.tank-ed{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin:6px 0}
+.tank-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-top:1px solid var(--line)}
+.tank-row:first-of-type{border-top:0;padding-top:2px}
+.tank-row label{flex:1.1;font-size:.8rem;font-weight:600;min-width:0}
+.tank-row input{flex:1;padding:4px 7px;font-size:.8rem;max-width:115px}
 </style>
 <script>
 (function(){
@@ -150,7 +155,7 @@ details summary::-webkit-details-marker{display:none}
 </script>
 </head><body><main>
 <header>
-<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 95</span></h1>
+<h1><span>Egg Inc - הצעד הבא</span><span class="ver">גרסה 96</span></h1>
 <div>
 <button class="icon-btn" id="btn-ref" title="רענן עכשיו">↻ רענן</button>
 <button class="icon-btn" id="btn-eid" title="החלף EID">EID</button>
@@ -552,7 +557,7 @@ function getEggIncPacificSchedule(){
  var nowD=new Date(),ptY=nowD.getUTCFullYear(),ptDay=nowD.getUTCDay();
  var ptHour=nowD.getUTCHours(),ptMonth=nowD.getUTCMonth()+1,ptDate=nowD.getUTCDate();
  try{
-  var opts={timeZone:'America/Los_Angeles',year:'numeric',weekday:'short',month:'numeric',day:'numeric',hour:'numeric',hour12:false};
+  var opts={timeZone:'America/Los_Angeles',year:'numeric',weekday:'short',month:'numeric',day:'numeric',hour:'numeric',hourCycle:'h23'};
   var parts=new Intl.DateTimeFormat('en-US',opts).formatToParts(nowD);
   var map={};parts.forEach(function(p){map[p.type]=p.value});
   var wMap={Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
@@ -839,6 +844,7 @@ async function fetchPeriodicals(eid,b){
    var remSec=(ev.secondsRemaining!==undefined)?Number(ev.secondsRemaining):null;
    var st=Number(ev.startTime||0);if(st>1e12)st/=1000;
    var dur=Number(ev.duration||0);if(dur>1e12)dur/=1000;
+   if(st>0 && st>now)return;
    var winOk=(st>0 && dur>0 && st<=now && st+dur>now);
    if(remSec!==null && remSec<=0 && !winOk)return;
    if(remSec===null && st>0 && dur>0 && !winOk)return;
@@ -4176,7 +4182,7 @@ function copyDiag(){
   steps:P.bestPointsRec.playbook?P.bestPointsRec.playbook.steps:[]
  }:null;
  var diag={
-  version:'v95',
+ version:'v96',
   playerState:{
    ebPercent:Number(P.logi.ebPercent.toExponential(3)),
    farmerRole:P.logi.farmerRole,
@@ -4345,7 +4351,8 @@ function renderPlaybookBox(pb,titlePrefix){
 
 function row(l,r){return '<div class="l"><span>'+l+'</span><span>'+r+'</span></div>'}
 function show(b,R){
- var P=plan(b,R),a=P.a,h='';
+if(!liveServerEvents)applyDefaultEventsIfUnset();
+var P=plan(b,R),a=P.a,h='';
  var ageSec=Math.max(0,Math.floor(Date.now()/1000-(b.approxTime||Date.now()/1000)));
  var age=Math.round(ageSec/60);
  h+='<div class="backup-bar'+(ageSec>180?' stale':'')+'" id="backup-bar"><span>';
@@ -4811,24 +4818,29 @@ function show(b,R){
    ?' <button class="icon-btn" style="font-size:.72rem;padding:2px 7px" onclick="$(\'tankFullOv\').value=\'auto\';$(\'tankFullOv\').onchange()">ידני ✓ (אפס)</button>'
    :(tankPct<99?' <button class="icon-btn" style="font-size:.72rem;padding:2px 7px" onclick="$(\'tankFullOv\').value=\'full\';$(\'tankFullOv\').onchange()">סמן כמלא ✓</button>':'');
   h+=row('מיכל דלק (רמה '+P.fuelInfo.tankLevel+')','<b>'+fmt(P.fuelInfo.tankTotal)+' / '+fmt(P.fuelInfo.tankCapacity)+'</b> ('+tankPct.toFixed(0)+'%)'+tfBtn);
-  var mList=[];try{mList=JSON.parse(sget('manualTankFuels')||'[]')||[];}catch(e){}
-  if(!Array.isArray(mList)||!mList.length){try{var sm=JSON.parse(sget('manualTankState')||'null');if(sm&&(sm.egg||sm.amt))mList=[{egg:sm.egg||'',amt:sm.amt||''}];}catch(e){}}
-  if(!mList.length)mList=[{egg:'',amt:''}];
-  var tQ=(window._tankQ||'').trim().toLowerCase();
-  var filtEggs=EGG_ORDER.filter(function(eg){var nm=(EGG_HE[eg]||eg).toLowerCase();return !tQ||nm.indexOf(tQ)>=0||eg.toLowerCase().indexOf(tQ)>=0;});
-  window._saveTank=function(arr){sset('manualTankFuels',JSON.stringify(arr));if(last&&RES)show(last,RES);};
-  window._getTankArr=function(){var a=[];try{a=JSON.parse(sget('manualTankFuels')||'[]')||[];}catch(e){}return (Array.isArray(a)&&a.length)?a:mList.slice();};
-  window._updTankRow=function(i,k,v){var a=window._getTankArr();while(a.length<=i)a.push({egg:'',amt:''});a[i][k]=v;window._saveTank(a);};
-  window._addTankRow=function(){var a=window._getTankArr();a.push({egg:'',amt:''});window._saveTank(a);};
-  window._delTankRow=function(i){var a=window._getTankArr();a.splice(i,1);window._saveTank(a.length?a:[{egg:'',amt:''}]);};
-  var sInp='oninput="window._tankQ=this.value;if(last&&RES)show(last,RES)"';
-  h+='<div class="row" style="margin:4px 0"><input type="search" value="'+esc(window._tankQ||'')+'" '+sInp+' placeholder="חיפוש ביצה..." style="flex:1;padding:5px 8px;font-size:.78rem"><button type="button" class="icon-btn" onclick="window._addTankRow()">+ הוסף ביצה</button></div>';
-  mList.forEach(function(rowIt,idx){var opts=filtEggs.slice();if(rowIt.egg&&opts.indexOf(rowIt.egg)<0)opts.unshift(rowIt.egg);
-   var selH='<select onchange="window._updTankRow('+idx+',\'egg\',this.value)" style="flex:1.2;padding:5px 7px;font-size:.78rem"><option value="">-- ביצה --</option>'+opts.map(function(eg){return '<option value="'+eg+'"'+(rowIt.egg===eg?' selected':'')+'>'+(EGG_HE[eg]||eg)+'</option>';}).join('')+'</select>';
-   var amtH='<input type="text" value="'+esc(rowIt.amt||'')+'" onchange="window._updTankRow('+idx+',\'amt\',this.value)" placeholder="1.7B / 500M / 2.5T" style="flex:1;padding:5px 7px;font-size:.78rem">';
-   var delH=mList.length>1?'<button type="button" class="icon-btn" onclick="window._delTankRow('+idx+')" title="הסר">✕</button>':'';
-   h+='<div class="row" style="margin:4px 0;align-items:center">'+selH+amtH+delH+'</div>';
+  h+='<div class="prog-bar"><div class="prog-fill'+(tankPct>=90?' ok':'')+'" style="width:'+tankPct.toFixed(1)+'%"></div></div>';
+  var mList=[],mMap={};try{mList=JSON.parse(sget('manualTankFuels')||'[]')||[];}catch(e){}
+  if(!Array.isArray(mList)||!mList.length){try{var sm=JSON.parse(sget('manualTankState')||'null');if(sm&&sm.egg&&sm.amt)mList=[{egg:sm.egg,amt:sm.amt}];}catch(e){}}
+  mList.forEach(function(it){if(it&&it.egg&&it.amt)mMap[it.egg]=String(it.amt);});
+  window._setTankEgg=function(eg,val){var a=[];try{a=JSON.parse(sget('manualTankFuels')||'[]')||[];}catch(e){}
+  a=a.filter(function(x){return x&&x.egg&&x.egg!==eg});if(String(val||'').trim())a.push({egg:eg,amt:String(val).trim()});
+  sset('manualTankFuels',JSON.stringify(a));if(last&&RES)show(last,RES);};
+  window._clearTankMan=function(){window._extraTankEggs=[];sset('manualTankFuels','[]');sset('tankFullOv','auto');if($('tankFullOv'))$('tankFullOv').value='auto';if(last&&RES)show(last,RES);};
+  var edEggs=P.fuelInfo.reqFuels.slice(),manCnt=Object.keys(mMap).length;
+  Object.keys(mMap).concat(window._extraTankEggs||[]).forEach(function(eg){if(eg&&edEggs.indexOf(eg)<0)edEggs.push(eg);});
+  var spMap={};((P.fuelInfo.tankPlan&&P.fuelInfo.tankPlan.splits)||[]).forEach(function(x){spMap[x.egg]=x.ideal;});
+  var reqMap={};(P.fuelInfo.fuelBreakdown||[]).forEach(function(x){reqMap[x.egg]=x.reqAmt;});
+  h+='<details class="c-fold" id="det-tank-ed"'+(P.fuelInfo.hasTankData?'':' open')+'><summary class="c-fold-sum"><span>✏️ עדכון ידני למיכל הדלק'+(manCnt?' ('+manCnt+' מעודכנים)':'')+'</span><span>▼</span></summary>';
+  h+='<div class="tank-ed"><small style="display:block;margin-bottom:5px">הזן כמות מהמשחק (למשל <b>500M</b>, <b>1.5B</b>, <b>2T</b>) ולחץ Enter:</small>';
+  edEggs.forEach(function(eg){
+  var fillVal=spMap[eg]>0?fmt(spMap[eg]):(reqMap[eg]>0?fmt(reqMap[eg]):'');
+  var fillBtn=fillVal?'<button type="button" class="icon-btn" style="padding:3px 7px;font-size:.74rem" onclick="window._setTankEgg(\''+eg+'\',\''+fillVal+'\')">מלא ('+fillVal+')</button>':'';
+  h+='<div class="tank-row"><label>'+esc(EGG_HE[eg]||eg)+'</label><input type="text" value="'+esc(mMap[eg]||'')+'" onchange="window._setTankEgg(\''+eg+'\',this.value)" placeholder="למשל 500M">'+fillBtn+'</div>';
   });
+  var othEggs=EGG_ORDER.filter(function(eg){return edEggs.indexOf(eg)<0;});
+  var addSel='<select onchange="if(this.value){window._extraTankEggs=(window._extraTankEggs||[]).concat([this.value]);if(last&&RES)show(last,RES);}" style="flex:1;padding:4px 7px;font-size:.76rem"><option value="">+ הוסף ביצה אחרת...</option>'+othEggs.map(function(eg){return '<option value="'+eg+'">'+esc(EGG_HE[eg]||eg)+'</option>';}).join('')+'</select>';
+  var clrBtn=(manCnt||P.fuelInfo.tankManualFull)?'<button type="button" class="icon-btn" style="font-size:.74rem;padding:4px 8px" onclick="window._clearTankMan()">אפס ידני</button>':'';
+  h+='<div class="row" style="margin:6px 0 0;align-items:center">'+addSel+clrBtn+'</div></div></details>';
   var shipFuelGap=Math.max(0,(P.fuelInfo.tankPlan&&P.fuelInfo.tankPlan.oneLaunchFuel||0)-P.fuelInfo.tankTotal);
   h+=row('סיכום מיכל מול שיגור','חסר לשיגור מלא: <b>'+fmt(shipFuelGap)+'</b> • קיבולת: <b>'+fmt(P.fuelInfo.tankCapacity)+'</b>');
   if(!P.fuelInfo.hasTankData){
